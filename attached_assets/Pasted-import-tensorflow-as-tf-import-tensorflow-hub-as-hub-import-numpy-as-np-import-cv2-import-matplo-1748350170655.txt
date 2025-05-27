@@ -1,0 +1,666 @@
+import tensorflow as tf
+import tensorflow_hub as hub
+import numpy as np
+import cv2
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
+import matplotlib
+import time
+from matplotlib.widgets import Button
+import os
+import shutil
+matplotlib.use('TkAgg')
+
+def clear_tfhub_cache():
+    """Clear TensorFlow Hub cache to force fresh model download"""
+    import tempfile
+    cache_dir = os.path.join(tempfile.gettempdir(), 'tfhub_modules')
+    if os.path.exists(cache_dir):
+        try:
+            shutil.rmtree(cache_dir)
+            print("Cleared TensorFlow Hub cache")
+        except Exception as e:
+            print(f"Could not clear cache: {e}")
+
+def load_movenet_model():
+    """Load MoveNet model with error handling and fallback options"""
+    model_urls = [
+        "https://tfhub.dev/google/movenet/singlepose/lightning/4",
+        "https://tfhub.dev/google/movenet/singlepose/thunder/4",
+        "https://tfhub.dev/google/movenet/singlepose/lightning/3"
+    ]
+    
+    for i, url in enumerate(model_urls):
+        try:
+            print(f"Attempting to load model from: {url}")
+            model = hub.load(url)
+            print(f"Successfully loaded model from: {url}")
+            return model
+        except Exception as e:
+            print(f"Failed to load model {i+1}: {e}")
+            if i < len(model_urls) - 1:
+                print("Trying alternative model...")
+                clear_tfhub_cache()
+            continue
+    
+    raise Exception("Failed to load any MoveNet model. Please check your internet connection.")
+
+# Load the MoveNet model with error handling
+try:
+    print("Loading MoveNet model...")
+    model = load_movenet_model()
+    movenet = model.signatures['serving_default']
+    print("Model loaded successfully!")
+except Exception as e:
+    print(f"Error loading model: {e}")
+    print("\nTroubleshooting steps:")
+    print("1. Check your internet connection")
+    print("2. Try running: pip install --upgrade tensorflow tensorflow-hub")
+    print("3. Clear the cache manually by deleting: C:\\Users\\[username]\\AppData\\Local\\Temp\\tfhub_modules")
+    exit(1)
+
+KEYPOINT_CONNECTIONS = [
+    (0, 1), (0, 2), (1, 3), (2, 4),
+    (5, 6),
+    (5, 7), (7, 9),
+    (6, 8), (8, 10),
+    (5, 11), (6, 12),
+    (11, 12),
+    (11, 13), (13, 15),
+    (12, 14), (14, 16)
+]
+
+def calculate_angle(a, b, c):
+    a = np.array(a)
+    b = np.array(b)
+    c = np.array(c)
+    
+    ba = a - b
+    bc = c - b
+    
+    cosine = np.dot(ba, bc) / (np.linalg.norm(ba) * np.linalg.norm(bc) + 1e-6)
+    angle = np.degrees(np.arccos(np.clip(cosine, -1.0, 1.0)))
+    
+    return angle
+
+def draw_skeleton(frame, keypoints, color):
+    h, w, _ = frame.shape
+    
+    for a, b in KEYPOINT_CONNECTIONS:
+        if keypoints[a][2] > 0.3 and keypoints[b][2] > 0.3:
+            y1, x1, _ = keypoints[a]
+            y2, x2, _ = keypoints[b]
+            x1, y1 = int(x1 * w), int(y1 * h)
+            x2, y2 = int(x2 * w), int(y2 * h)
+            cv2.line(frame, (x1, y1), (x2, y2), color, 2)
+    
+    for i, (y, x, c) in enumerate(keypoints):
+        if c > 0.3:
+            x, y = int(x * w), int(y * h)
+            size = 6 if i in [5, 6, 7, 8, 9, 10] else 4
+            cv2.circle(frame, (x, y), size, (0, 255, 255), -1)
+
+def get_upper_arm_score(angle):
+    if 20 >= angle >= -20:
+        score = 1
+    elif 45 >= angle > 20:
+        score = 2
+    elif 90 >= angle > 45:
+        score = 3
+    else:
+        score = 4
+    return score
+
+def get_lower_arm_score(angle):
+    if 100 <= angle <= 150:
+        score = 1
+    elif angle > 150 or angle < 100:
+        score = 2
+    return score
+
+def get_wrist_score(angle):
+    if 0 <= angle <= 15:
+        score = 1
+    else:
+        score = 2
+    return score
+
+def get_neck_score(angle):
+    if 0 <= angle <= 10:
+        score = 1
+    elif 10 < angle <= 20:
+        score = 2
+    elif angle > 20:
+        score = 3
+    else:
+        score = 4
+    return score
+
+def get_trunk_score(angle):
+    if 0 <= angle <= 10:
+        score = 1
+    elif 10 < angle <= 20:
+        score = 2
+    elif 20 < angle <= 60:
+        score = 3
+    else:
+        score = 4
+    return score
+
+def calculate_rula_score(upper_arm, lower_arm, wrist, neck, trunk):
+    table_a = [
+        [[1, 2], [2, 3]],
+        [[2, 3], [3, 4]],
+        [[2, 3], [3, 4]],
+        [[3, 4], [4, 5]],
+        [[3, 4], [4, 5]],
+        [[4, 5], [5, 6]],
+        [[5, 6], [6, 7]],
+        [[6, 7], [7, 8]]
+    ]
+    
+    table_b = [
+        [1, 2, 3, 5],
+        [2, 3, 4, 6],
+        [3, 4, 5, 7],
+        [5, 6, 7, 8]
+    ]
+    
+    idx_a = (upper_arm - 1) * 2 + (lower_arm - 1)
+    score_a = table_a[idx_a][wrist - 1][0]
+    
+    score_b = table_b[neck - 1][trunk - 1]
+    
+    table_c = [
+        [1, 2, 3, 3, 4, 5, 5],
+        [2, 2, 3, 4, 4, 5, 5],
+        [3, 3, 3, 4, 4, 5, 6],
+        [3, 3, 3, 4, 5, 6, 6],
+        [4, 4, 4, 5, 6, 7, 7],
+        [4, 4, 5, 6, 6, 7, 7],
+        [5, 5, 6, 6, 7, 7, 7],
+        [5, 5, 6, 7, 7, 7, 7]
+    ]
+    
+    final_score = table_c[score_a - 1][score_b - 1]
+    
+    if final_score <= 2:
+        risk_level = 'Acceptable'
+        color = (0, 255, 0)
+        plot_color = 'green'
+    elif final_score <= 4:
+        risk_level = 'Investigate'
+        color = (0, 255, 255)
+        plot_color = 'yellow'
+    elif final_score <= 6:
+        risk_level = 'Investigate & Change Soon'
+        color = (0, 165, 255)
+        plot_color = 'orange'
+    else:
+        risk_level = 'Investigate & Change ASAP'
+        color = (0, 0, 255)
+        plot_color = 'red'
+    
+    details = {
+        'upper_arm': upper_arm,
+        'lower_arm': lower_arm,
+        'wrist': wrist,
+        'neck': neck,
+        'trunk': trunk,
+        'score_a': score_a,
+        'score_b': score_b
+    }
+    
+    return final_score, risk_level, color, plot_color, details
+
+def setup_3d_plot():
+    fig = plt.figure(figsize=(12, 10))
+    
+    ax = fig.add_subplot(111, projection='3d')
+    ax.view_init(elev=15, azim=-70)
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(-1, 1)
+    ax.set_zlim(-1, 1)
+    
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.set_zticklabels([])
+    
+    ax.set_xlabel('X')
+    ax.set_ylabel('Z')
+    ax.set_zlabel('Y')
+    ax.set_title('3D Skeleton View')
+    
+    global view_elev, view_azim
+    view_elev, view_azim = 15, -70
+    
+    ax_x_up = plt.axes([0.81, 0.7, 0.1, 0.05])
+    btn_x_up = Button(ax_x_up, 'X Up')
+    btn_x_up.on_clicked(lambda event: rotate_view('x_up'))
+    
+    ax_x_down = plt.axes([0.81, 0.6, 0.1, 0.05])
+    btn_x_down = Button(ax_x_down, 'X Down')
+    btn_x_down.on_clicked(lambda event: rotate_view('x_down'))
+    
+    ax_y_up = plt.axes([0.81, 0.5, 0.1, 0.05])
+    btn_y_up = Button(ax_y_up, 'Y Up')
+    btn_y_up.on_clicked(lambda event: rotate_view('y_up'))
+    
+    ax_y_down = plt.axes([0.81, 0.4, 0.1, 0.05])
+    btn_y_down = Button(ax_y_down, 'Y Down')
+    btn_y_down.on_clicked(lambda event: rotate_view('y_down'))
+    
+    ax_z_left = plt.axes([0.81, 0.3, 0.1, 0.05])
+    btn_z_left = Button(ax_z_left, 'Z Left')
+    btn_z_left.on_clicked(lambda event: rotate_view('z_left'))
+    
+    ax_z_right = plt.axes([0.81, 0.2, 0.1, 0.05])
+    btn_z_right = Button(ax_z_right, 'Z Right')
+    btn_z_right.on_clicked(lambda event: rotate_view('z_right'))
+    
+    ax_reset = plt.axes([0.81, 0.1, 0.1, 0.05])
+    btn_reset = Button(ax_reset, 'Reset View')
+    btn_reset.on_clicked(lambda event: reset_view())
+    
+    plt.ion()
+    
+    return fig, ax
+
+def rotate_view(direction):
+    global view_elev, view_azim, ax
+    
+    if direction == 'x_up':
+        view_elev += 10
+    elif direction == 'x_down':
+        view_elev -= 10
+    elif direction == 'y_up':
+        view_azim += 10
+    elif direction == 'y_down':
+        view_azim -= 10
+    elif direction == 'z_left':
+        view_azim -= 10
+    elif direction == 'z_right':
+        view_azim += 10
+        
+    ax.view_init(elev=view_elev, azim=view_azim)
+    plt.draw()
+
+def reset_view():
+    global view_elev, view_azim, ax
+    view_elev, view_azim = 15, -70
+    ax.view_init(elev=view_elev, azim=view_azim)
+    plt.draw()
+
+def update_3d_skeleton(fig, ax, keypoints, rula_score=None, risk_level=None, plot_color=None, confidence_threshold=0.3):
+    ax.clear()
+    
+    global view_elev, view_azim
+    ax.view_init(elev=view_elev, azim=view_azim)
+    
+    ax.set_xlim(-1, 1)
+    ax.set_ylim(-1, 1)
+    ax.set_zlim(-1, 1)
+    
+    ax.set_xticklabels([])
+    ax.set_yticklabels([])
+    ax.set_zticklabels([])
+    
+    ax.set_xlabel('X')
+    ax.set_ylabel('Z')
+    ax.set_zlabel('Y')
+    
+    if rula_score is not None and risk_level is not None:
+        ax.set_title(f'3D Skeleton View - RULA Score: {rula_score} ({risk_level})')
+    else:
+        ax.set_title('3D Skeleton View')
+    
+    visible_keypoints = [(i, kp) for i, kp in enumerate(keypoints) if kp[2] > confidence_threshold]
+    
+    if len(visible_keypoints) < 5:
+        plt.draw()
+        plt.pause(0.001)
+        return
+    
+    xs = [2 * kp[1] - 1 for _, kp in visible_keypoints]
+    ys = [1 - 2 * kp[0] for _, kp in visible_keypoints]
+    
+    zs = [0 for _ in visible_keypoints]
+    
+    kp_indices = [i for i, _ in visible_keypoints]
+    kp_dict = {i: idx for idx, (i, _) in enumerate(visible_keypoints)}
+    
+    # Assign Z-depths for 3D effect
+    if 5 in kp_dict and 6 in kp_dict:
+        shoulder_idx = kp_dict[5]
+        zs[shoulder_idx] = 0.3
+        shoulder_idx = kp_dict[6]
+        zs[shoulder_idx] = 0.3
+    
+    if 11 in kp_dict and 12 in kp_dict:
+        hip_idx = kp_dict[11]
+        zs[hip_idx] = -0.3
+        hip_idx = kp_dict[12]
+        zs[hip_idx] = -0.3
+    
+    if 7 in kp_dict and 8 in kp_dict:
+        elbow_idx = kp_dict[7]
+        zs[elbow_idx] = 0.4
+        elbow_idx = kp_dict[8]
+        zs[elbow_idx] = 0.4
+    
+    if 9 in kp_dict and 10 in kp_dict:
+        wrist_idx = kp_dict[9]
+        zs[wrist_idx] = 0.5
+        wrist_idx = kp_dict[10]
+        zs[wrist_idx] = 0.5
+        
+    if 13 in kp_dict and 14 in kp_dict:
+        knee_idx = kp_dict[13]
+        zs[knee_idx] = -0.1
+        knee_idx = kp_dict[14]
+        zs[knee_idx] = -0.1
+        
+    if 15 in kp_dict and 16 in kp_dict:
+        ankle_idx = kp_dict[15]
+        zs[ankle_idx] = 0.1
+        ankle_idx = kp_dict[16]
+        zs[ankle_idx] = 0.1
+    
+    if 0 in kp_dict:
+        nose_idx = kp_dict[0]
+        zs[nose_idx] = 0.4
+        
+    if 1 in kp_dict and 2 in kp_dict:
+        eye_idx = kp_dict[1]
+        zs[eye_idx] = 0.4
+        eye_idx = kp_dict[2]
+        zs[eye_idx] = 0.4
+        
+    if 3 in kp_dict and 4 in kp_dict:
+        ear_idx = kp_dict[3]
+        zs[ear_idx] = 0.3
+        ear_idx = kp_dict[4]
+        zs[ear_idx] = 0.3
+    
+    conn_color = plot_color if plot_color else 'blue'
+    
+    # Draw connections
+    for connection in KEYPOINT_CONNECTIONS:
+        if connection[0] in kp_dict and connection[1] in kp_dict:
+            idx1 = kp_dict[connection[0]]
+            idx2 = kp_dict[connection[1]]
+            ax.plot([xs[idx1], xs[idx2]], [zs[idx1], zs[idx2]], [ys[idx1], ys[idx2]], 
+                   color=conn_color, linewidth=2)
+    
+    # Draw keypoints
+    ax.scatter(xs, zs, ys, c=conn_color, s=50)
+    
+    if rula_score is not None:
+        ax.text(-0.9, 0.5, 0.9, f'RULA Score: {rula_score}', color='black', fontsize=12, fontweight='bold')
+        ax.text(-0.9, 0.5, 0.8, f'Risk Level: {risk_level}', color='black', fontsize=10)
+        
+        if hasattr(update_3d_skeleton, 'details') and update_3d_skeleton.details:
+            details = update_3d_skeleton.details
+            ax.text(-0.9, 0.5, 0.7, f'Upper Arm: {details["upper_arm"]}', color='black', fontsize=8)
+            ax.text(-0.9, 0.5, 0.65, f'Lower Arm: {details["lower_arm"]}', color='black', fontsize=8)
+            ax.text(-0.9, 0.5, 0.6, f'Wrist: {details["wrist"]}', color='black', fontsize=8)
+            ax.text(-0.9, 0.5, 0.55, f'Neck: {details["neck"]}', color='black', fontsize=8)
+            ax.text(-0.9, 0.5, 0.5, f'Trunk: {details["trunk"]}', color='black', fontsize=8)
+    
+    plt.draw()
+    plt.pause(0.001)
+
+# Function to run inference with MoveNet
+def run_inference(model, image):
+    # Resize and pad the image to keep the aspect ratio
+    img = tf.image.resize_with_pad(tf.expand_dims(image, axis=0), 192, 192)
+    
+    # Cast to int32
+    img = tf.cast(img, dtype=tf.int32)
+    
+    # Run the model
+    results = model(img)
+    
+    # Extract the keypoints
+    keypoints = results['output_0'].numpy()[0, 0, :, :3]
+    
+    return keypoints
+
+# Main function to run the application
+def main():
+    # Initialize webcam
+    cap = cv2.VideoCapture(0)
+    
+    # Check if webcam is opened correctly
+    if not cap.isOpened():
+        print("Error: Could not open webcam.")
+        print("Trying alternative camera indices...")
+        for i in range(1, 4):
+            cap = cv2.VideoCapture(i)
+            if cap.isOpened():
+                print(f"Successfully opened camera at index {i}")
+                break
+        else:
+            print("Could not open any camera. Please check your webcam connection.")
+            return
+    
+    # Setup 3D plot
+    fig, ax = setup_3d_plot()
+    
+    # For storing historical RULA scores (for smoother visualization)
+    rula_history = []
+    
+    # For FPS calculation
+    prev_time = time.time()
+    fps = 0
+    
+    try:
+        while cap.isOpened():
+            success, frame = cap.read()
+            if not success:
+                print("Failed to read from webcam")
+                break
+                
+            # Flip horizontally for natural mirroring
+            frame = cv2.flip(frame, 1)
+            
+            # Calculate FPS
+            current_time = time.time()
+            fps = 1 / (current_time - prev_time)
+            prev_time = current_time
+            
+            # Convert to RGB
+            rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            # Run inference
+            try:
+                keypoints_with_scores = run_inference(movenet, rgb_frame)
+                
+                # Draw skeleton on frame
+                skeleton_color = (0, 255, 0)  # Default green
+                draw_skeleton(frame, keypoints_with_scores, skeleton_color)
+                
+                # Calculate angles for RULA assessment
+                # Extract key points
+                nose = keypoints_with_scores[0]
+                left_eye = keypoints_with_scores[1]
+                right_eye = keypoints_with_scores[2]
+                left_ear = keypoints_with_scores[3]
+                right_ear = keypoints_with_scores[4]
+                left_shoulder = keypoints_with_scores[5]
+                right_shoulder = keypoints_with_scores[6]
+                left_elbow = keypoints_with_scores[7]
+                right_elbow = keypoints_with_scores[8]
+                left_wrist = keypoints_with_scores[9]
+                right_wrist = keypoints_with_scores[10]
+                left_hip = keypoints_with_scores[11]
+                right_hip = keypoints_with_scores[12]
+                left_knee = keypoints_with_scores[13]
+                right_knee = keypoints_with_scores[14]
+                left_ankle = keypoints_with_scores[15]
+                right_ankle = keypoints_with_scores[16]
+                
+                # Check if we have enough visible keypoints for RULA assessment
+                visible_kp_count = sum(1 for kp in keypoints_with_scores if kp[2] > 0.3)
+                
+                if visible_kp_count >= 10:  # Need at least shoulders, elbows, wrists, head, hips
+                    # Calculate angles
+                    # Upper arm angle (shoulder-elbow-hip)
+                    upper_arm_angle = 0
+                    if left_shoulder[2] > 0.3 and left_elbow[2] > 0.3 and left_hip[2] > 0.3:
+                        upper_arm_angle = calculate_angle(
+                            [left_shoulder[0], left_shoulder[1]], 
+                            [left_elbow[0], left_elbow[1]], 
+                            [left_hip[0], left_hip[1]]
+                        )
+                    elif right_shoulder[2] > 0.3 and right_elbow[2] > 0.3 and right_hip[2] > 0.3:
+                        upper_arm_angle = calculate_angle(
+                            [right_shoulder[0], right_shoulder[1]], 
+                            [right_elbow[0], right_elbow[1]], 
+                            [right_hip[0], right_hip[1]]
+                        )
+                    
+                    # Lower arm angle (shoulder-elbow-wrist)
+                    lower_arm_angle = 0
+                    if left_shoulder[2] > 0.3 and left_elbow[2] > 0.3 and left_wrist[2] > 0.3:
+                        lower_arm_angle = calculate_angle(
+                            [left_shoulder[0], left_shoulder[1]], 
+                            [left_elbow[0], left_elbow[1]], 
+                            [left_wrist[0], left_wrist[1]]
+                        )
+                    elif right_shoulder[2] > 0.3 and right_elbow[2] > 0.3 and right_wrist[2] > 0.3:
+                        lower_arm_angle = calculate_angle(
+                            [right_shoulder[0], right_shoulder[1]], 
+                            [right_elbow[0], right_elbow[1]], 
+                            [right_wrist[0], right_wrist[1]]
+                        )
+                    
+                    # Wrist angle (elbow-wrist-midpoint of fingers)
+                    # Since MoveNet doesn't track fingers, we'll approximate
+                    wrist_angle = 10  # Default to a neutral position
+                    
+                    # Neck angle (using eyes and shoulders)
+                    neck_angle = 0
+                    if nose[2] > 0.3 and left_shoulder[2] > 0.3 and right_shoulder[2] > 0.3:
+                        # Calculate mid-point of shoulders
+                        shoulder_mid_x = (left_shoulder[1] + right_shoulder[1]) / 2
+                        shoulder_mid_y = (left_shoulder[0] + right_shoulder[0]) / 2
+                        
+                        # Angle between nose and shoulder midpoint (vertical reference)
+                        y_diff = nose[0] - shoulder_mid_y
+                        x_diff = nose[1] - shoulder_mid_x
+                        neck_angle = abs(np.degrees(np.arctan2(x_diff, y_diff)) - 90)
+                    
+                    # Trunk angle (using shoulders and hips)
+                    trunk_angle = 0
+                    if left_shoulder[2] > 0.3 and right_shoulder[2] > 0.3 and left_hip[2] > 0.3 and right_hip[2] > 0.3:
+                        # Calculate midpoints
+                        shoulder_mid_x = (left_shoulder[1] + right_shoulder[1]) / 2
+                        shoulder_mid_y = (left_shoulder[0] + right_shoulder[0]) / 2
+                        hip_mid_x = (left_hip[1] + right_hip[1]) / 2
+                        hip_mid_y = (left_hip[0] + right_hip[0]) / 2
+                        
+                        # Angle between shoulder midpoint and hip midpoint (vertical reference)
+                        y_diff = shoulder_mid_y - hip_mid_y
+                        x_diff = shoulder_mid_x - hip_mid_x
+                        trunk_angle = abs(np.degrees(np.arctan2(x_diff, y_diff)) - 90)
+                    
+                    # Get RULA scores
+                    upper_arm_score = get_upper_arm_score(upper_arm_angle)
+                    lower_arm_score = get_lower_arm_score(lower_arm_angle)
+                    wrist_score = get_wrist_score(wrist_angle)
+                    neck_score = get_neck_score(neck_angle)
+                    trunk_score = get_trunk_score(trunk_angle)
+                    
+                    # Calculate final RULA score
+                    rula_score, risk_level, color, plot_color, details = calculate_rula_score(
+                        upper_arm_score, lower_arm_score, wrist_score, neck_score, trunk_score
+                    )
+                    
+                    # Store details for display
+                    update_3d_skeleton.details = details
+                    
+                    # Add to history for smoothing
+                    rula_history.append(rula_score)
+                    if len(rula_history) > 10:
+                        rula_history.pop(0)
+                    
+                    # Use average for smoother visualization
+                    smoothed_score = int(round(sum(rula_history) / len(rula_history)))
+                    _, smoothed_risk, smoothed_color, smoothed_plot_color, _ = calculate_rula_score(
+                        upper_arm_score, lower_arm_score, wrist_score, neck_score, trunk_score
+                    )
+                    
+                    # Draw score on frame
+                    cv2.putText(frame, f'RULA Score: {smoothed_score} ({smoothed_risk})', 
+                                (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, smoothed_color, 2)
+                    
+                    # Display detailed scores
+                    cv2.putText(frame, f'Upper Arm: {upper_arm_score}', 
+                                (10, 60), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    cv2.putText(frame, f'Lower Arm: {lower_arm_score}', 
+                                (10, 80), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    cv2.putText(frame, f'Wrist: {wrist_score}', 
+                                (10, 100), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    cv2.putText(frame, f'Neck: {neck_score}', 
+                                (10, 120), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    cv2.putText(frame, f'Trunk: {trunk_score}', 
+                                (10, 140), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 255), 1)
+                    
+                    # Update 3D skeleton
+                    update_3d_skeleton(fig, ax, keypoints_with_scores, smoothed_score, 
+                                       smoothed_risk, smoothed_plot_color)
+                else:
+                    # Not enough keypoints detected for RULA assessment
+                    cv2.putText(frame, 'Not enough keypoints for RULA', 
+                                (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 0, 255), 2)
+                    update_3d_skeleton(fig, ax, keypoints_with_scores)
+                    
+            except Exception as e:
+                print(f"Error during inference: {e}")
+                import traceback
+                traceback_message = traceback.format_exc()
+                print(traceback_message)
+                
+            # Display FPS
+           
+            cv2.putText(frame, f'FPS: {int(fps)}', 
+                        (frame.shape[1] - 120, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
+            
+            # Display instructions
+            cv2.putText(frame, 'Press Q to quit', 
+                        (frame.shape[1] - 160, frame.shape[0] - 20), 
+                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (255, 255, 255), 2)
+            
+            # Display the frame
+            cv2.imshow('Ergonomic Assessment', frame)
+            
+            # Check for user input
+            key = cv2.waitKey(1) & 0xFF
+            if key == ord('q'):
+                break
+                
+    except Exception as e:
+        print(f"An error occurred: {e}")
+        traceback_message = traceback.format_exc()
+        print(traceback_message)
+        
+    finally:
+        # Cleanup
+        cap.release()
+        cv2.destroyAllWindows()
+        plt.close(fig)
+
+if __name__ == "__main__":
+    # Import traceback for better error reporting
+    import traceback
+    
+    print("Starting Ergonomic Assessment Application...")
+    print("Loading MoveNet model. This may take a moment...")
+    
+    try:
+        main()
+    except Exception as e:
+        print(f"Fatal error: {e}")
+        traceback_message = traceback.format_exc()
+        print(traceback_message) 
