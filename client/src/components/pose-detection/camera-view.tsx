@@ -65,7 +65,7 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
         const kp1 = keypoints[i];
         const kp2 = keypoints[j];
         
-        if (kp1?.score > 0.3 && kp2?.score > 0.3) {
+        if (kp1 && kp2 && kp1.score > 0.3 && kp2.score > 0.3) {
           ctx.beginPath();
           ctx.moveTo(kp1.x * canvas.width, kp1.y * canvas.height);
           ctx.lineTo(kp2.x * canvas.width, kp2.y * canvas.height);
@@ -75,7 +75,7 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
 
       // Draw keypoints
       keypoints.forEach((keypoint: any, index: number) => {
-        if (keypoint.score > 0.3) {
+        if (keypoint && keypoint.score > 0.3) {
           const x = keypoint.x * canvas.width;
           const y = keypoint.y * canvas.height;
           

@@ -145,17 +145,28 @@ export function useThreeRenderer() {
     }
 
     // Filter keypoints with sufficient confidence
-    const validKeypoints = keypoints.filter(kp => kp.score > 0.3);
+    const validKeypoints = keypoints.filter(kp => kp && kp.score > 0.3);
     if (validKeypoints.length < 5) {
       return;
     }
 
-    // Convert 2D keypoints to 3D positions
-    const positions = keypoints.map(kp => {
+    // Convert 2D keypoints to 3D positions with better depth mapping
+    const positions = keypoints.map((kp, index) => {
+      if (!kp || kp.score <= 0.3) {
+        return new THREE.Vector3(0, 0, 0);
+      }
+      
+      // Create depth based on body part
+      let z = 0;
+      if (index >= 0 && index <= 4) z = 0.3; // Head parts forward
+      else if (index >= 5 && index <= 10) z = 0; // Arms and shoulders
+      else if (index >= 11 && index <= 12) z = -0.2; // Hips back
+      else z = -0.1; // Legs slightly back
+      
       return new THREE.Vector3(
-        (kp.x - 0.5) * 2, // X: -1 to 1
-        -(kp.y - 0.5) * 2, // Y: -1 to 1 (flipped)
-        Math.random() * 0.2 - 0.1 // Z: small random depth
+        (kp.x - 0.5) * 3, // X: wider range
+        -(kp.y - 0.5) * 3, // Y: wider range (flipped)
+        z
       );
     });
 
@@ -185,22 +196,31 @@ export function useThreeRenderer() {
       }
     }
 
-    // Draw connections
+    // Draw connections with improved visibility
     connections.forEach(([i, j]) => {
-      if (keypoints[i]?.score > 0.3 && keypoints[j]?.score > 0.3) {
-        const geometry = new THREE.BufferGeometry().setFromPoints([positions[i], positions[j]]);
-        const material = new THREE.LineBasicMaterial({ color: skeletonColor, linewidth: 3 });
+      if (keypoints[i] && keypoints[j] && 
+          keypoints[i].score > 0.3 && keypoints[j].score > 0.3) {
+        const points = [positions[i], positions[j]];
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({ 
+          color: skeletonColor, 
+          linewidth: 5,
+          transparent: true,
+          opacity: 0.8
+        });
         const line = new THREE.Line(geometry, material);
         skeleton.add(line);
       }
     });
 
-    // Draw keypoints
+    // Draw keypoints with better visibility
     keypoints.forEach((keypoint, index) => {
-      if (keypoint.score > 0.3) {
-        const geometry = new THREE.SphereGeometry(0.02, 8, 6);
+      if (keypoint && keypoint.score > 0.3) {
+        const geometry = new THREE.SphereGeometry(0.03, 12, 8);
         const material = new THREE.MeshBasicMaterial({ 
-          color: index < 5 ? 0xff4444 : skeletonColor 
+          color: index < 5 ? 0xff4444 : skeletonColor,
+          transparent: true,
+          opacity: 0.9
         });
         const sphere = new THREE.Mesh(geometry, material);
         sphere.position.copy(positions[index]);
@@ -208,12 +228,7 @@ export function useThreeRenderer() {
       }
     });
 
-    // Add RULA score text (if available)
-    if (rulaScore && window.THREE.FontLoader) {
-      // Note: Text rendering in Three.js requires font loading
-      // For simplicity, we'll skip text rendering here
-      // In a full implementation, you'd load a font and create text geometry
-    }
+    console.log(`3D Skeleton updated: ${validKeypoints.length} keypoints, ${skeleton.children.length} objects`);
   }, []);
 
   const resetView = useCallback(() => {
