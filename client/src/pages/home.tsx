@@ -3,8 +3,10 @@ import CameraView from "@/components/pose-detection/camera-view";
 import ThreeDView from "@/components/pose-detection/three-d-view";
 import RulaAssessment from "@/components/pose-detection/rula-assessment";
 import MetricsDashboard from "@/components/pose-detection/metrics-dashboard";
+import RecordingPanel from "@/components/pose-detection/recording-panel";
 import { usePoseDetection } from "@/hooks/use-pose-detection";
 import { useCamera } from "@/hooks/use-camera";
+import { useRecording } from "@/hooks/use-recording";
 
 export default function Home() {
   const [modelLoaded, setModelLoaded] = useState(false);
@@ -28,6 +30,16 @@ export default function Home() {
     isProcessing,
     initializeModel 
   } = usePoseDetection(videoRef, canvasRef, cameraActive);
+
+  const {
+    isRecording,
+    recordingData,
+    recordingProgress,
+    startRecording,
+    stopRecording,
+    updateLastFrame,
+    clearRecording
+  } = useRecording();
 
   useEffect(() => {
     const initModel = async () => {

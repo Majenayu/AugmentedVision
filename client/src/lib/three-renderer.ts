@@ -202,14 +202,28 @@ export function useThreeRenderer() {
           keypoints[i].score > 0.3 && keypoints[j].score > 0.3) {
         const points = [positions[i], positions[j]];
         const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({ 
-          color: skeletonColor, 
-          linewidth: 5,
-          transparent: true,
-          opacity: 0.8
-        });
-        const line = new THREE.Line(geometry, material);
-        skeleton.add(line);
+        
+        // Create a thick line using cylinder geometry for better visibility
+        const direction = new THREE.Vector3().subVectors(positions[j], positions[i]);
+        const length = direction.length();
+        
+        if (length > 0) {
+          const cylinderGeometry = new THREE.CylinderGeometry(0.01, 0.01, length, 8);
+          const cylinderMaterial = new THREE.MeshBasicMaterial({ 
+            color: skeletonColor,
+            transparent: true,
+            opacity: 0.9
+          });
+          const cylinder = new THREE.Mesh(cylinderGeometry, cylinderMaterial);
+          
+          // Position and orient the cylinder
+          const midPoint = new THREE.Vector3().addVectors(positions[i], positions[j]).multiplyScalar(0.5);
+          cylinder.position.copy(midPoint);
+          cylinder.lookAt(positions[j]);
+          cylinder.rotateX(Math.PI / 2);
+          
+          skeleton.add(cylinder);
+        }
       }
     });
 
