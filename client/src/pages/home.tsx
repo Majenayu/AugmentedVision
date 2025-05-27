@@ -83,6 +83,21 @@ export default function Home() {
     }
   };
 
+  const handleStartRecording = () => {
+    if (!cameraActive) {
+      console.warn("Camera not active");
+      return;
+    }
+    startRecording(videoRef);
+  };
+
+  // Update recording data when pose/RULA data changes
+  useEffect(() => {
+    if (isRecording && poseData && rulaScore) {
+      updateLastFrame(rulaScore, poseData);
+    }
+  }, [isRecording, poseData, rulaScore, updateLastFrame]);
+
   const handleStopCamera = () => {
     stopCamera();
     setStartTime(null);
@@ -209,6 +224,16 @@ export default function Home() {
           sessionDuration={formatDuration(sessionDuration)}
           rulaScore={rulaScore}
           poseData={poseData}
+        />
+
+        {/* Recording Panel */}
+        <RecordingPanel 
+          isRecording={isRecording}
+          recordingData={recordingData}
+          recordingProgress={recordingProgress}
+          onStartRecording={handleStartRecording}
+          onStopRecording={stopRecording}
+          onClearRecording={clearRecording}
         />
       </main>
 
