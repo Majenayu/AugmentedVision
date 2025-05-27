@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { initializePoseDetection, detectPose } from "@/lib/pose-detection";
-import { calculateRulaScore } from "@/lib/rula-calculator";
+import { calculateRulaScore } from "@/lib/rula-calculator-simple";
 
 export function usePoseDetection(
   videoRef: React.RefObject<HTMLVideoElement>,
