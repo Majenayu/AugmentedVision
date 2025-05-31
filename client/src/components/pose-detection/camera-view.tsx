@@ -37,6 +37,7 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
     if (!poseData || !canvasRef.current || !videoRef.current) return;
 
     const canvas = canvasRef.current;
+    const video = videoRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
@@ -46,7 +47,7 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
     if (poseData.keypoints && poseData.keypoints.length > 0) {
       const keypoints = poseData.keypoints;
       
-      // Draw connections
+      // COCO pose model connections (17 keypoints)
       const connections = [
         [0, 1], [0, 2], [1, 3], [2, 4], // Head
         [5, 6], // Shoulders
@@ -58,38 +59,116 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
         [12, 14], [14, 16] // Right leg
       ];
 
+      const confidenceThreshold = 0.3;
+      
+      // Calculate scaling factors
+      const videoAspect = video.videoWidth / video.videoHeight;
+      const canvasAspect = canvas.width / canvas.height;
+      
+      let scaleX, scaleY, offsetX = 0, offsetY = 0;
+      
+      if (videoAspect > canvasAspect) {
+        // Video is wider - fit to height
+        scaleY = canvas.height;
+        scaleX = canvas.height * videoAspect;
+        offsetX = (canvas.width - scaleX) / 2;
+      } else {
+        // Video is taller - fit to width
+        scaleX = canvas.width;
+        scaleY = canvas.width / videoAspect;
+        offsetY = (canvas.height - scaleY) / 2;
+      }
+      
+      // Helper function to transform coordinates
+      const transformCoordinates = (x: number, y: number) => {
+        let transformedX, transformedY;
+        
+        // Handle different coordinate systems
+        if (x > 1 || y > 1) {
+          // Absolute coordinates - normalize first
+          transformedX = (x / video.videoWidth) * scaleX + offsetX;
+          transformedY = (y / video.videoHeight) * scaleY + offsetY;
+        } else {
+          // Normalized coordinates (0-1)
+          transformedX = x * scaleX + offsetX;
+          transformedY = y * scaleY + offsetY;
+        }
+        
+        // Since canvas is mirrored, flip X coordinate
+        transformedX = canvas.width - transformedX;
+        
+        return { x: transformedX, y: transformedY };
+      };
+
+      // Draw connections
       ctx.strokeStyle = '#3B82F6';
       ctx.lineWidth = 3;
 
+      let connectionsDrawn = 0;
+      
       connections.forEach(([i, j]) => {
         const kp1 = keypoints[i];
         const kp2 = keypoints[j];
         
-        if (kp1 && kp2 && kp1.score > 0.3 && kp2.score > 0.3) {
+        if (kp1 && kp2 && kp1.score > confidenceThreshold && kp2.score > confidenceThreshold) {
+          const pos1 = transformCoordinates(kp1.x, kp1.y);
+          const pos2 = transformCoordinates(kp2.x, kp2.y);
+          
           ctx.beginPath();
-          ctx.moveTo(kp1.x * canvas.width, kp1.y * canvas.height);
-          ctx.lineTo(kp2.x * canvas.width, kp2.y * canvas.height);
+          ctx.moveTo(pos1.x, pos1.y);
+          ctx.lineTo(pos2.x, pos2.y);
           ctx.stroke();
+          connectionsDrawn++;
         }
       });
 
       // Draw keypoints
+      let keypointsDrawn = 0;
       keypoints.forEach((keypoint: any, index: number) => {
-        if (keypoint && keypoint.score > 0.3) {
-          const x = keypoint.x * canvas.width;
-          const y = keypoint.y * canvas.height;
+        if (keypoint && keypoint.score > confidenceThreshold) {
+          const pos = transformCoordinates(keypoint.x, keypoint.y);
           
-          ctx.fillStyle = index < 5 ? '#EF4444' : '#10B981'; // Red for head, green for body
+          // Different colors for different body parts
+          let color;
+          if (index <= 4) {
+            color = '#EF4444'; // Red for face
+          } else if (index <= 10) {
+            color = '#3B82F6'; // Blue for arms
+          } else {
+            color = '#10B981'; // Green for legs/torso
+          }
+          
+          ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.arc(x, y, 6, 0, 2 * Math.PI);
+          ctx.arc(pos.x, pos.y, 6, 0, 2 * Math.PI);
           ctx.fill();
           
-          // Add confidence score
+          // Add white border for better visibility
+          ctx.strokeStyle = '#FFFFFF';
+          ctx.lineWidth = 2;
+          ctx.stroke();
+          
+          // Add confidence score (optional - comment out if too cluttered)
           ctx.fillStyle = '#FFFFFF';
           ctx.font = '10px Arial';
-          ctx.fillText(`${Math.round(keypoint.score * 100)}%`, x + 8, y - 8);
+          ctx.shadowColor = '#000000';
+          ctx.shadowBlur = 2;
+          ctx.fillText(`${Math.round(keypoint.score * 100)}%`, pos.x + 8, pos.y - 8);
+          ctx.shadowBlur = 0;
+          
+          keypointsDrawn++;
         }
       });
+      
+      // Draw debug info on canvas (optional)
+      ctx.fillStyle = '#FFFF00';
+      ctx.font = '14px Arial';
+      ctx.shadowColor = '#000000';
+      ctx.shadowBlur = 2;
+      ctx.fillText(`Points: ${keypointsDrawn} | Lines: ${connectionsDrawn}`, 10, 25);
+      ctx.shadowBlur = 0;
+      
+      console.log(`Drew ${keypointsDrawn} keypoints and ${connectionsDrawn} connections`);
     }
   }, [poseData, canvasRef]);
 
@@ -123,7 +202,7 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
         <canvas 
           ref={canvasRef}
           className="absolute top-0 left-0 w-full h-full pointer-events-none"
-          style={{ transform: 'scaleX(-1)' }} // Mirror the overlay
+          // Canvas is NOT mirrored - we handle mirroring in the coordinate transformation
         />
         
         {/* Camera Off State */}
@@ -151,11 +230,11 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
             <div className="text-xs text-white space-y-1">
               <div className="flex items-center space-x-2">
                 <span className="material-icon text-xs">camera</span>
-                <span>1280x720</span>
+                <span>{videoRef.current?.videoWidth || 0}x{videoRef.current?.videoHeight || 0}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span className="material-icon text-xs">person</span>
-                <span>{poseData ? '1 person detected' : 'No pose detected'}</span>
+                <span>{poseData?.keypoints?.length > 0 ? '1 person detected' : 'No pose detected'}</span>
               </div>
             </div>
           </div>
