@@ -68,11 +68,7 @@ export default function RecordingPanel({
 
   const recordingStartTime = useRef<number | null>(null);
 
-  // New states for object detection and weight confirmation
-  const [showObjectWeightDialog, setShowObjectWeightDialog] = useState(false);
-  const [detectedObjectPhoto, setDetectedObjectPhoto] = useState<string | null>(null);
-  const [pendingObjectWeight, setPendingObjectWeight] = useState<number | null>(null);
-  const [identifiedObjects, setIdentifiedObjects] = useState<Set<string>>(new Set());
+  
 
   // Clear graph data when recording starts
   useEffect(() => {
@@ -82,7 +78,6 @@ export default function RecordingPanel({
       setRecordingGraphData([]);
       setEstimatedGraphData([]);
       setManualGraphData([]);
-      setIdentifiedObjects(new Set()); // Clear identified objects for new recording
     } else {
       recordingStartTime.current = null;
       recordingStartTimeRef.current = null;
@@ -156,6 +151,13 @@ export default function RecordingPanel({
   const getTotalManualWeight = () => {
     return manualWeights.reduce((total, weight) => total + weight.weight, 0);
   };
+
+  // Show weight dialog when switching to manual mode after recording
+  useEffect(() => {
+    if (analysisMode === 'manual' && recordingData.length > 0 && manualWeights.length === 0 && !isRecording) {
+      setShowWeightDialog(true);
+    }
+  }, [analysisMode, recordingData.length, manualWeights.length, isRecording]);
 
   // Process manual weight analysis from recorded data
   useEffect(() => {
@@ -236,38 +238,11 @@ export default function RecordingPanel({
     }
   };
 
-  // Update live graph data continuously and detect objects only in manual mode
+  // Update live graph data continuously (no real-time weight dialogs)
   useEffect(() => {
     if (currentPoseData && currentRulaScore) {
       const currentTime = Date.now();
       const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints || []);
-
-      // Check for object detection during recording ONLY in manual analysis mode
-      if (isRecording && analysisMode === 'manual' && weightEstimation.estimatedWeight > 8 && !showObjectWeightDialog) {
-        // Create a unique identifier for the current posture/object
-        const postureId = `${Math.round(weightEstimation.estimatedWeight)}_${weightEstimation.bodyPosture.armPosition}`;
-        
-        // Only show dialog if this object hasn't been identified before
-        if (!identifiedObjects.has(postureId)) {
-          // Capture current frame for object identification
-          const canvas = document.createElement('canvas');
-          const video = document.querySelector('video') as HTMLVideoElement;
-          if (video && video.videoWidth > 0) {
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-            const ctx = canvas.getContext('2d');
-            if (ctx) {
-              ctx.drawImage(video, 0, 0);
-              const imageData = canvas.toDataURL('image/jpeg');
-              setDetectedObjectPhoto(imageData);
-              setShowObjectWeightDialog(true);
-              
-              // Mark this object as identified
-              setIdentifiedObjects(prev => new Set([...prev, postureId]));
-            }
-          }
-        }
-      }
 
       setLiveGraphData(prev => {
         const newData = [...prev, {
@@ -282,28 +257,14 @@ export default function RecordingPanel({
         return newData.slice(-100);
       });
     }
-  }, [currentPoseData, currentRulaScore, isRecording, showObjectWeightDialog, analysisMode, identifiedObjects]);
+  }, [currentPoseData, currentRulaScore]);
 
   const handleManualWeightAdd = (weight: ManualWeight) => {
     setManualWeights(prev => [...prev, weight]);
     setShowWeightDialog(false);
   };
 
-  const handleObjectWeightConfirm = (weight: number) => {
-    setPendingObjectWeight(weight);
-    setShowObjectWeightDialog(false);
-    setDetectedObjectPhoto(null);
-
-    // Update current recording frame with object weight
-    if (isRecording && recordingData.length > 0) {
-      const lastFrame = recordingData[recordingData.length - 1];
-      if (lastFrame.weightEstimation) {
-        lastFrame.weightEstimation.estimatedWeight = weight;
-        lastFrame.weightEstimation.confidence = 0.9;
-        lastFrame.hasObject = true;
-      }
-    }
-  };
+  
 
   const getCurrentRulaScore = (frame: RecordingFrame) => {
     if (analysisMode === 'manual' && manualWeights.length > 0) {
@@ -650,11 +611,15 @@ export default function RecordingPanel({
         )}
       </div>
 
-      {/* View Mode Controls - Always visible when there's recorded data */}
-      {recordingData.length > 0 && (
-        <div className="mb-6">
+      
+
+      {/* Frame Details */}
+      {selectedFrame && (
+        <div className="space-y-6">
           <div className="flex items-center justify-between">
-            <h4 className="text-lg font-medium">View Mode</h4>
+            <h4 className="text-lg font-medium">
+              Frame at {formatTime(selectedFrame.timestamp)}
+            </h4>
             <div className="flex space-x-2">
               <button
                 onClick={() => setViewMode('original')}
@@ -681,17 +646,6 @@ export default function RecordingPanel({
                 Enhanced
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Frame Details */}
-      {selectedFrame && (
-        <div className="space-y-6">
-          <div className="flex items-center justify-between">
-            <h4 className="text-lg font-medium">
-              Frame at {formatTime(selectedFrame.timestamp)}
-            </h4>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -933,64 +887,7 @@ export default function RecordingPanel({
         </div>
       )}
 
-      {/* Object Weight Confirmation Dialog */}
-      {showObjectWeightDialog && detectedObjectPhoto && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 p-6 rounded-lg max-w-lg w-full mx-4">
-            <h3 className="text-lg font-medium mb-4 text-red-400">📦 External Object Detected!</h3>
-            <div className="space-y-4">
-              <div className="text-center">
-                <img 
-                  src={detectedObjectPhoto} 
-                  alt="Detected object"
-                  className="w-48 h-36 object-cover rounded-lg mx-auto border-2 border-red-400"
-                />
-                <p className="text-sm text-gray-300 mt-2">An external object (box, tool, equipment) was detected. Please specify its weight for accurate RULA analysis.</p>
-              </div>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                const formData = new FormData(e.target as HTMLFormElement);
-                const weight = parseFloat(formData.get('objectWeight') as string);
-                if (weight > 0) {
-                  handleObjectWeightConfirm(weight);
-                }
-              }}>
-                <div>
-                  <label className="block text-sm font-medium mb-2">Object Weight (kg)</label>
-                  <input
-                    name="objectWeight"
-                    type="number"
-                    step="0.1"
-                    min="0.1"
-                    required
-                    className="w-full px-3 py-2 bg-gray-700 rounded"
-                    placeholder="e.g., 15.5"
-                    autoFocus
-                  />
-                </div>
-                <div className="flex justify-end space-x-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowObjectWeightDialog(false);
-                      setDetectedObjectPhoto(null);
-                    }}
-                    className="px-4 py-2 bg-gray-600 rounded hover:bg-gray-500"
-                  >
-                    Skip
-                  </button>
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-red-600 rounded hover:bg-red-500"
-                  >
-                    Confirm Weight
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
+      
     </div>
   );
 }
