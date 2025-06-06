@@ -12,11 +12,10 @@ export default function Home() {
   const [modelLoaded, setModelLoaded] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
-  
+
   const { 
     cameraActive, 
     videoRef, 
-    canvasRef, 
     availableDevices,
     selectedDeviceId,
     startCamera, 
@@ -25,14 +24,15 @@ export default function Home() {
     switchCamera,
     getAvailableDevices
   } = useCamera();
-  
-  const { 
-    poseData, 
-    rulaScore, 
-    confidence, 
-    fps, 
+
+  const {
+    poseDetector,
+    poseData,
+    rulaScore,
+    confidence,
+    fps,
     isProcessing,
-    initializeModel 
+    initializeModel
   } = usePoseDetection(videoRef, canvasRef, cameraActive);
 
   const {
@@ -45,6 +45,13 @@ export default function Home() {
     clearRecording
   } = useRecording();
 
+  // Update recording with current pose and RULA data
+  useEffect(() => {
+    if (isRecording && poseData && rulaScore) {
+      updateLastFrame(rulaScore, poseData);
+    }
+  }, [isRecording, poseData, rulaScore, updateLastFrame]);
+
   useEffect(() => {
     const initModel = async () => {
       try {
@@ -56,19 +63,19 @@ export default function Home() {
         console.error("Failed to initialize pose detection model:", error);
       }
     };
-    
+
     initModel();
   }, [initializeModel, getAvailableDevices]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    
+
     if (cameraActive && startTime) {
       interval = setInterval(() => {
         setSessionDuration(Math.floor((Date.now() - startTime) / 1000));
       }, 1000);
     }
-    
+
     return () => {
       if (interval) clearInterval(interval);
     };
@@ -79,7 +86,7 @@ export default function Home() {
       console.warn("Model not loaded yet");
       return;
     }
-    
+
     try {
       await startCamera();
       setStartTime(Date.now());
@@ -132,7 +139,7 @@ export default function Home() {
                 <p className="text-text-secondary text-sm">Real-time Ergonomic Assessment</p>
               </div>
             </div>
-            
+
             {/* Status Indicators */}
             <div className="flex items-center space-x-4">
               <div className="flex items-center space-x-2">
@@ -209,7 +216,7 @@ export default function Home() {
 
             <div className="flex items-center justify-between">
               <div></div>
-              
+
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
                   <span className="text-sm text-text-secondary">Confidence:</span>
@@ -259,16 +266,16 @@ export default function Home() {
         />
 
         {/* Recording Panel */}
-        <RecordingPanel 
-          isRecording={isRecording}
-          recordingData={recordingData}
-          recordingProgress={recordingProgress}
-          onStartRecording={handleStartRecording}
-          onStopRecording={stopRecording}
-          onClearRecording={clearRecording}
-          currentPoseData={poseData}
-          currentRulaScore={rulaScore}
-        />
+        <RecordingPanel
+            isRecording={isRecording}
+            recordingData={recordingData}
+            recordingProgress={recordingProgress}
+            onStartRecording={() => startRecording(videoRef)}
+            onStopRecording={stopRecording}
+            onClearRecording={clearRecording}
+            currentPoseData={poseData}
+            currentRulaScore={rulaScore}
+          />
       </main>
 
       {/* Footer */}

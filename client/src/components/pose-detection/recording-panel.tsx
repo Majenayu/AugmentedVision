@@ -66,20 +66,19 @@ export default function RecordingPanel({
     hasObject: boolean;
   }>>([]);
 
-  // Function to stop recording
-  const [stopRecording, setStopRecording] = useState(() => () => {});
-
   const recordingStartTime = useRef<number | null>(null);
 
   // Clear graph data when recording starts
   useEffect(() => {
     if (isRecording) {
       recordingStartTime.current = Date.now();
+      recordingStartTimeRef.current = Date.now();
       setRecordingGraphData([]);
       setEstimatedGraphData([]);
       setManualGraphData([]);
     } else {
       recordingStartTime.current = null;
+      recordingStartTimeRef.current = null;
     }
   }, [isRecording]);
 
@@ -227,9 +226,8 @@ export default function RecordingPanel({
 
   const startRecording = () => {
     if (!isRecording) {
-      setRecordingData([]);
-      setRecordedFrames([]);
-      setLiveGraphData([]);
+      recordingStartTimeRef.current = Date.now();
+      setRecordingGraphData([]);
       setEstimatedGraphData([]);
       setManualGraphData([]);
       onStartRecording();
