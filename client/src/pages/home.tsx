@@ -5,7 +5,7 @@ import RulaAssessment from "@/components/pose-detection/rula-assessment";
 import MetricsDashboard from "@/components/pose-detection/metrics-dashboard";
 import RecordingPanel from "@/components/pose-detection/recording-panel";
 import { usePoseDetection } from "@/hooks/use-pose-detection";
-import { useCamera } from "@/hooks/use-camera";
+import { useCamera, type CameraDevice } from "@/hooks/use-camera";
 import { useRecording } from "@/hooks/use-recording";
 
 export default function Home() {
@@ -17,9 +17,13 @@ export default function Home() {
     cameraActive, 
     videoRef, 
     canvasRef, 
+    availableDevices,
+    selectedDeviceId,
     startCamera, 
     stopCamera, 
-    pauseCamera 
+    pauseCamera,
+    switchCamera,
+    getAvailableDevices
   } = useCamera();
   
   const { 
@@ -46,13 +50,15 @@ export default function Home() {
       try {
         await initializeModel();
         setModelLoaded(true);
+        // Load available camera devices
+        await getAvailableDevices();
       } catch (error) {
         console.error("Failed to initialize pose detection model:", error);
       }
     };
     
     initModel();
-  }, [initializeModel]);
+  }, [initializeModel, getAvailableDevices]);
 
   useEffect(() => {
     let interval: NodeJS.Timeout;
@@ -150,7 +156,7 @@ export default function Home() {
         {/* View Controls */}
         <div className="mb-6">
           <div className="bg-dark-card rounded-lg p-4 shadow-lg">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-4">
                 <button 
                   onClick={handleStartCamera}
@@ -177,6 +183,32 @@ export default function Home() {
                   <span>Stop</span>
                 </button>
               </div>
+            </div>
+
+            {/* Camera Selection */}
+            {availableDevices.length > 0 && (
+              <div className="flex items-center space-x-4 mb-4">
+                <span className="text-sm text-text-secondary">Camera Source:</span>
+                <select
+                  value={selectedDeviceId}
+                  onChange={(e) => switchCamera(e.target.value)}
+                  disabled={cameraActive}
+                  className="bg-gray-700 text-white border border-gray-600 rounded px-3 py-1 text-sm disabled:opacity-50"
+                >
+                  {availableDevices.map((device) => (
+                    <option key={device.deviceId} value={device.deviceId}>
+                      {device.label}
+                    </option>
+                  ))}
+                </select>
+                <div className="text-xs text-text-secondary">
+                  Supports webcam, mobile camera, or DroidCam
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center justify-between">
+              <div></div>
               
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">

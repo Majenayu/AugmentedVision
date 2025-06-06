@@ -153,6 +153,63 @@ export default function RecordingPanel({
         </div>
       )}
 
+      {/* Analysis Mode Controls */}
+      {recordingData.length > 0 && (
+        <div className="mb-6">
+          <div className="flex flex-wrap items-center justify-between mb-4">
+            <h4 className="text-lg font-medium">Analysis Mode</h4>
+            <div className="flex items-center space-x-4">
+              <div className="flex space-x-2">
+                <button
+                  onClick={() => setAnalysisMode('normal')}
+                  className={`px-3 py-1 rounded text-sm ${
+                    analysisMode === 'normal' 
+                      ? 'bg-material-blue text-white' 
+                      : 'bg-gray-700 text-gray-300'
+                  }`}
+                >
+                  Normal View
+                </button>
+                <button
+                  onClick={() => setAnalysisMode('estimated')}
+                  className={`px-3 py-1 rounded text-sm ${
+                    analysisMode === 'estimated' 
+                      ? 'bg-orange-600 text-white' 
+                      : 'bg-gray-700 text-gray-300'
+                  }`}
+                >
+                  Weight Estimated
+                </button>
+                <button
+                  onClick={() => setAnalysisMode('manual')}
+                  className={`px-3 py-1 rounded text-sm ${
+                    analysisMode === 'manual' 
+                      ? 'bg-green-600 text-white' 
+                      : 'bg-gray-700 text-gray-300'
+                  }`}
+                >
+                  Manual Weight
+                </button>
+              </div>
+              
+              {analysisMode === 'manual' && (
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm">Weight (kg):</span>
+                  <input
+                    type="number"
+                    value={manualWeight}
+                    onChange={(e) => setManualWeight(Number(e.target.value))}
+                    className="w-20 px-2 py-1 rounded bg-gray-700 text-white border border-gray-600"
+                    min="0"
+                    max="100"
+                  />
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* RULA Score Graph */}
       {recordingData.length > 0 && (
         <div className="mb-6">
@@ -172,10 +229,12 @@ export default function RecordingPanel({
                 />
                 <Tooltip 
                   labelFormatter={formatTime}
-                  formatter={(value: any, name: string) => [
-                    value,
-                    'RULA Score'
-                  ]}
+                  formatter={(value: any, name: string) => {
+                    if (name === 'normalScore') return [value, 'Normal RULA'];
+                    if (name === 'adjustedScore') return [value, 'Weight-Adjusted RULA'];
+                    if (name === 'weight') return [value + 'kg', 'Estimated Weight'];
+                    return [value, 'RULA Score'];
+                  }}
                   contentStyle={{
                     backgroundColor: '#1F2937',
                     border: '1px solid #374151',
@@ -183,78 +242,218 @@ export default function RecordingPanel({
                     color: '#F9FAFB'
                   }}
                 />
-                <Line 
-                  type="monotone" 
-                  dataKey="rulaScore" 
-                  stroke="#3B82F6" 
-                  strokeWidth={2}
-                  dot={{ r: 4 }}
-                  activeDot={{ r: 6 }}
-                />
+                {analysisMode === 'normal' && (
+                  <Line 
+                    type="monotone" 
+                    dataKey="normalScore" 
+                    stroke="#3B82F6" 
+                    strokeWidth={2}
+                    dot={{ r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                )}
+                {analysisMode !== 'normal' && (
+                  <>
+                    <Line 
+                      type="monotone" 
+                      dataKey="normalScore" 
+                      stroke="#9CA3AF" 
+                      strokeWidth={1}
+                      strokeDasharray="5 5"
+                      dot={{ r: 2 }}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="adjustedScore" 
+                      stroke="#F59E0B" 
+                      strokeWidth={2}
+                      dot={{ r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </>
+                )}
               </LineChart>
             </ResponsiveContainer>
           </div>
           <p className="text-sm text-text-secondary mt-2">
-            Click on any point to view the frame details
+            {analysisMode === 'normal' 
+              ? 'Standard RULA analysis without weight consideration'
+              : 'Dashed line: Normal RULA | Solid line: Weight-adjusted RULA'
+            }
           </p>
         </div>
       )}
 
       {/* Frame Details */}
       {selectedFrame && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div>
-            <h4 className="text-lg font-medium mb-3">
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h4 className="text-lg font-medium">
               Frame at {formatTime(selectedFrame.timestamp)}
             </h4>
-            <img 
-              src={selectedFrame.imageData} 
-              alt="Recorded frame"
-              className="w-full rounded-lg border border-gray-600"
-            />
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setViewMode('original')}
+                className={`px-3 py-1 rounded text-sm ${
+                  viewMode === 'original' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'
+                }`}
+              >
+                Original
+              </button>
+              <button
+                onClick={() => setViewMode('skeleton')}
+                className={`px-3 py-1 rounded text-sm ${
+                  viewMode === 'skeleton' ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300'
+                }`}
+              >
+                Skeleton
+              </button>
+              <button
+                onClick={() => setViewMode('enhanced')}
+                className={`px-3 py-1 rounded text-sm ${
+                  viewMode === 'enhanced' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'
+                }`}
+              >
+                Enhanced
+              </button>
+            </div>
           </div>
-          
-          <div>
-            <h4 className="text-lg font-medium mb-3">RULA Assessment</h4>
-            {selectedFrame.rulaScore ? (
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span>Final Score:</span>
-                  <span className="font-bold text-xl">{selectedFrame.rulaScore.finalScore}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span>Risk Level:</span>
-                  <span className={`font-medium ${
-                    selectedFrame.rulaScore.finalScore <= 2 ? 'text-green-400' :
-                    selectedFrame.rulaScore.finalScore <= 4 ? 'text-yellow-400' :
-                    selectedFrame.rulaScore.finalScore <= 6 ? 'text-orange-400' : 'text-red-400'
-                  }`}>
-                    {selectedFrame.rulaScore.riskLevel}
-                  </span>
-                </div>
-                
-                <div className="grid grid-cols-2 gap-3 mt-4">
-                  <div className="bg-dark-secondary rounded p-3">
-                    <div className="text-sm text-text-secondary">Upper Arm</div>
-                    <div className="text-lg font-bold">{selectedFrame.rulaScore.upperArm}</div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div>
+              <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
+                {viewMode === 'original' && (
+                  <img 
+                    src={selectedFrame.imageData} 
+                    alt="Original frame"
+                    className="w-full h-full object-cover"
+                  />
+                )}
+                {viewMode === 'skeleton' && (
+                  <div className="relative w-full h-full bg-black">
+                    <SkeletonOverlay
+                      poseData={selectedFrame.poseData}
+                      rulaScore={getCurrentRulaScore(selectedFrame)}
+                      width={640}
+                      height={360}
+                      showColorCoding={true}
+                      weightEstimation={selectedFrame.weightEstimation}
+                    />
                   </div>
-                  <div className="bg-dark-secondary rounded p-3">
-                    <div className="text-sm text-text-secondary">Lower Arm</div>
-                    <div className="text-lg font-bold">{selectedFrame.rulaScore.lowerArm}</div>
+                )}
+                {viewMode === 'enhanced' && (
+                  <div className="relative w-full h-full">
+                    <img 
+                      src={selectedFrame.imageData} 
+                      alt="Enhanced frame"
+                      className="w-full h-full object-cover"
+                    />
+                    <SkeletonOverlay
+                      poseData={selectedFrame.poseData}
+                      rulaScore={getCurrentRulaScore(selectedFrame)}
+                      width={640}
+                      height={360}
+                      showColorCoding={true}
+                      weightEstimation={selectedFrame.weightEstimation}
+                    />
                   </div>
-                  <div className="bg-dark-secondary rounded p-3">
-                    <div className="text-sm text-text-secondary">Wrist</div>
-                    <div className="text-lg font-bold">{selectedFrame.rulaScore.wrist}</div>
-                  </div>
-                  <div className="bg-dark-secondary rounded p-3">
-                    <div className="text-sm text-text-secondary">Neck</div>
-                    <div className="text-lg font-bold">{selectedFrame.rulaScore.neck}</div>
-                  </div>
-                </div>
+                )}
               </div>
-            ) : (
-              <p className="text-text-secondary">No RULA data available for this frame</p>
-            )}
+            </div>
+            
+            <div className="space-y-4">
+              <div>
+                <h5 className="text-lg font-medium mb-3">RULA Assessment</h5>
+                {selectedFrame.rulaScore ? (
+                  <div className="space-y-3">
+                    {analysisMode !== 'normal' && selectedFrame.adjustedRulaScore && (
+                      <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
+                        <h6 className="text-sm font-medium text-yellow-400 mb-2">Weight-Adjusted Analysis</h6>
+                        <div className="grid grid-cols-2 gap-2 text-sm">
+                          <div>Original Score: {selectedFrame.rulaScore.finalScore}</div>
+                          <div>Adjusted Score: {selectedFrame.adjustedRulaScore.finalScore}</div>
+                          <div>Weight: {selectedFrame.adjustedRulaScore.effectiveWeight}kg</div>
+                          <div>Multiplier: {selectedFrame.adjustedRulaScore.weightMultiplier}x</div>
+                        </div>
+                      </div>
+                    )}
+                    
+                    <div className="flex justify-between items-center">
+                      <span>Final Score:</span>
+                      <span className="font-bold text-xl">
+                        {getCurrentRulaScore(selectedFrame)?.finalScore}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span>Risk Level:</span>
+                      <span className={`font-medium ${
+                        getCurrentRulaScore(selectedFrame)?.finalScore <= 2 ? 'text-green-400' :
+                        getCurrentRulaScore(selectedFrame)?.finalScore <= 4 ? 'text-yellow-400' :
+                        getCurrentRulaScore(selectedFrame)?.finalScore <= 6 ? 'text-orange-400' : 'text-red-400'
+                      }`}>
+                        {getCurrentRulaScore(selectedFrame)?.riskLevel}
+                      </span>
+                    </div>
+                    
+                    <div className="grid grid-cols-2 gap-3 mt-4">
+                      <div className="bg-dark-secondary rounded p-3">
+                        <div className="text-sm text-text-secondary">Upper Arm</div>
+                        <div className="text-lg font-bold">
+                          {getCurrentRulaScore(selectedFrame)?.upperArm}
+                        </div>
+                      </div>
+                      <div className="bg-dark-secondary rounded p-3">
+                        <div className="text-sm text-text-secondary">Lower Arm</div>
+                        <div className="text-lg font-bold">
+                          {getCurrentRulaScore(selectedFrame)?.lowerArm}
+                        </div>
+                      </div>
+                      <div className="bg-dark-secondary rounded p-3">
+                        <div className="text-sm text-text-secondary">Wrist</div>
+                        <div className="text-lg font-bold">
+                          {getCurrentRulaScore(selectedFrame)?.wrist}
+                        </div>
+                      </div>
+                      <div className="bg-dark-secondary rounded p-3">
+                        <div className="text-sm text-text-secondary">Neck</div>
+                        <div className="text-lg font-bold">
+                          {getCurrentRulaScore(selectedFrame)?.neck}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-text-secondary">No RULA data available for this frame</p>
+                )}
+              </div>
+
+              {selectedFrame.weightEstimation && (
+                <div>
+                  <h5 className="text-lg font-medium mb-3">Weight Analysis</h5>
+                  <div className="bg-dark-secondary rounded-lg p-4 space-y-2">
+                    <div className="flex justify-between">
+                      <span>Estimated Weight:</span>
+                      <span className="font-bold">{selectedFrame.weightEstimation.estimatedWeight}kg</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Confidence:</span>
+                      <span>{Math.round(selectedFrame.weightEstimation.confidence * 100)}%</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Posture Type:</span>
+                      <span className="capitalize">
+                        {selectedFrame.weightEstimation.bodyPosture.isLifting ? 'Lifting' :
+                         selectedFrame.weightEstimation.bodyPosture.isCarrying ? 'Carrying' : 'Normal'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Arm Position:</span>
+                      <span className="capitalize">{selectedFrame.weightEstimation.bodyPosture.armPosition}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}
