@@ -1,5 +1,5 @@
-import { useState, useEffect } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
+import { useState, useEffect, useRef } from "react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Scatter, ScatterChart } from 'recharts';
 import SkeletonOverlay from './skeleton-overlay';
 import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
 
@@ -10,6 +10,7 @@ interface RecordingFrame {
   poseData: any;
   weightEstimation?: any;
   adjustedRulaScore?: any;
+  hasObject?: boolean;
 }
 
 interface RecordingPanelProps {
@@ -50,44 +51,60 @@ export default function RecordingPanel({
   const [manualWeights, setManualWeights] = useState<ManualWeight[]>([]);
   const [showWeightDialog, setShowWeightDialog] = useState(false);
   
-  // Live data for real-time graphs
-  const [liveData, setLiveData] = useState<any[]>([]);
-  const [estimatedData, setEstimatedData] = useState<any[]>([]);
+  // Separate graph data that only records during recording session
+  const [recordingGraphData, setRecordingGraphData] = useState<any[]>([]);
+  const [estimatedGraphData, setEstimatedGraphData] = useState<any[]>([]);
+  const [manualGraphData, setManualGraphData] = useState<any[]>([]);
+  const recordingStartTimeRef = useRef<number | null>(null);
 
-  // Update live data when current pose/rula changes
+  // Clear graph data when recording starts
   useEffect(() => {
-    if (currentPoseData && currentRulaScore) {
-      const timestamp = Date.now() / 1000;
-      const newDataPoint = {
-        time: timestamp,
-        rulaScore: currentRulaScore.finalScore || 0,
-        stressLevel: currentRulaScore.stressLevel || 0,
-        riskLevel: currentRulaScore.riskLevel || 'Unknown'
-      };
+    if (isRecording && !recordingStartTimeRef.current) {
+      recordingStartTimeRef.current = Date.now();
+      setRecordingGraphData([]);
+      setEstimatedGraphData([]);
+      setManualGraphData([]);
+    } else if (!isRecording) {
+      recordingStartTimeRef.current = null;
+    }
+  }, [isRecording]);
 
-      // Live data (normal RULA)
-      setLiveData(prev => {
-        const updated = [...prev, newDataPoint].slice(-50); // Keep last 50 points
-        return updated;
-      });
-
-      // Estimated weight data
-      if (currentPoseData.keypoints) {
-        const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints);
-        const estimatedDataPoint = {
-          time: timestamp,
-          estimatedWeight: weightEstimation.estimatedWeight || 0,
-          confidence: weightEstimation.confidence || 0,
-          rulaScore: currentRulaScore.finalScore || 0
-        };
+  // Update graph data only during recording
+  useEffect(() => {
+    if (isRecording && currentPoseData && currentRulaScore && recordingStartTimeRef.current) {
+      const elapsedSeconds = (Date.now() - recordingStartTimeRef.current) / 1000;
+      
+      // Stop adding data after 60 seconds
+      if (elapsedSeconds <= 60) {
+        // Detect objects in the current frame
+        const hasObject = currentPoseData.keypoints && estimateWeightFromPosture(currentPoseData.keypoints).estimatedWeight > 0;
         
-        setEstimatedData(prev => {
-          const updated = [...prev, estimatedDataPoint].slice(-50);
-          return updated;
-        });
+        const newDataPoint = {
+          time: elapsedSeconds,
+          rulaScore: currentRulaScore.finalScore || 0,
+          stressLevel: currentRulaScore.stressLevel || 0,
+          riskLevel: currentRulaScore.riskLevel || 'Unknown',
+          hasObject
+        };
+
+        setRecordingGraphData(prev => [...prev, newDataPoint]);
+
+        // Estimated weight data
+        if (currentPoseData.keypoints) {
+          const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints);
+          const estimatedDataPoint = {
+            time: elapsedSeconds,
+            estimatedWeight: weightEstimation.estimatedWeight || 0,
+            confidence: weightEstimation.confidence || 0,
+            rulaScore: currentRulaScore.finalScore || 0,
+            hasObject: weightEstimation.estimatedWeight > 0
+          };
+          
+          setEstimatedGraphData(prev => [...prev, estimatedDataPoint]);
+        }
       }
     }
-  }, [currentPoseData, currentRulaScore]);
+  }, [isRecording, currentPoseData, currentRulaScore]);
 
   // Add manual weight
   const addManualWeight = () => {
@@ -115,6 +132,39 @@ export default function RecordingPanel({
     return manualWeights.reduce((total, weight) => total + weight.weight, 0);
   };
 
+  // Process manual weight analysis from recorded data
+  useEffect(() => {
+    if (recordingData.length > 0 && manualWeights.length > 0) {
+      const processedManualData = recordingData.map(frame => {
+        if (frame.poseData?.keypoints) {
+          const weightEstimation = estimateWeightFromPosture(frame.poseData.keypoints);
+          const adjustedRulaScore = calculateWeightAdjustedRula(
+            frame.rulaScore,
+            weightEstimation,
+            getTotalManualWeight()
+          );
+          
+          return {
+            time: frame.timestamp,
+            normalScore: frame.rulaScore?.finalScore || 0,
+            adjustedScore: adjustedRulaScore?.finalScore || 0,
+            weight: getTotalManualWeight(),
+            hasObject: weightEstimation.estimatedWeight > 0
+          };
+        }
+        return {
+          time: frame.timestamp,
+          normalScore: frame.rulaScore?.finalScore || 0,
+          adjustedScore: frame.rulaScore?.finalScore || 0,
+          weight: 0,
+          hasObject: false
+        };
+      });
+      
+      setManualGraphData(processedManualData);
+    }
+  }, [recordingData, manualWeights]);
+
   // Process recording data with weight analysis
   const processedData = recordingData.map(frame => {
     if (frame.poseData?.keypoints) {
@@ -128,30 +178,12 @@ export default function RecordingPanel({
       return {
         ...frame,
         weightEstimation,
-        adjustedRulaScore
+        adjustedRulaScore,
+        hasObject: weightEstimation.estimatedWeight > 0
       };
     }
-    return frame;
+    return { ...frame, hasObject: false };
   });
-
-  const getChartData = () => {
-    return processedData.map(frame => {
-      const score = analysisMode === 'normal' 
-        ? frame.rulaScore?.finalScore || 0
-        : frame.adjustedRulaScore?.finalScore || 0;
-        
-      return {
-        time: frame.timestamp,
-        rulaScore: score,
-        normalScore: frame.rulaScore?.finalScore || 0,
-        adjustedScore: frame.adjustedRulaScore?.finalScore || 0,
-        weight: frame.weightEstimation?.estimatedWeight || 0,
-        riskLevel: frame.rulaScore?.riskLevel || 'Unknown'
-      };
-    });
-  };
-
-  const chartData = getChartData();
 
   const handleChartClick = (data: any) => {
     if (data && data.activePayload && data.activePayload[0]) {
@@ -324,25 +356,26 @@ export default function RecordingPanel({
           </button>
         </div>
 
-        {/* Live RULA Graph */}
+        {/* Normal RULA Graph - Only shows data from recording session */}
         {activeGraph === 'live' && (
           <div className="bg-gray-800 rounded-lg p-4">
-            <h4 className="text-lg font-medium mb-3 text-blue-400">Live RULA Score (Real-time)</h4>
+            <h4 className="text-lg font-medium mb-3 text-blue-400">Normal RULA Score (Recording Session)</h4>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={liveData}>
+                <LineChart data={recordingGraphData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis 
                     dataKey="time" 
                     stroke="#9CA3AF"
-                    tickFormatter={(value) => new Date(value * 1000).toLocaleTimeString()}
+                    tickFormatter={formatTime}
+                    domain={[0, 60]}
                   />
                   <YAxis 
                     domain={[1, 7]}
                     stroke="#9CA3AF"
                   />
                   <Tooltip 
-                    labelFormatter={(value) => new Date(value * 1000).toLocaleTimeString()}
+                    labelFormatter={formatTime}
                     formatter={(value: any) => [value, 'RULA Score']}
                     contentStyle={{
                       backgroundColor: '#1F2937',
@@ -351,37 +384,41 @@ export default function RecordingPanel({
                       color: '#F9FAFB'
                     }}
                   />
-                  <ReferenceLine y={3} stroke="#FEF3C7" strokeDasharray="5 5" label="Investigation Needed" />
-                  <ReferenceLine y={5} stroke="#FEE2E2" strokeDasharray="5 5" label="Changes Required" />
                   <Line 
                     type="monotone" 
                     dataKey="rulaScore" 
                     stroke="#3B82F6" 
                     strokeWidth={2}
-                    dot={{ r: 3 }}
+                    dot={(props: any) => {
+                      if (props.payload.hasObject) {
+                        return <circle cx={props.cx} cy={props.cy} r={6} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
+                      }
+                      return <circle cx={props.cx} cy={props.cy} r={3} fill="#3B82F6" />;
+                    }}
                     activeDot={{ r: 5 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Live RULA scores without weight consideration. Values coincide with estimated graph when no weight is present.
+              Normal RULA scores from recording session. Red dots indicate detected objects.
             </p>
           </div>
         )}
 
-        {/* Estimated Weight Graph */}
+        {/* Estimated Weight Graph - Only shows data from recording session */}
         {activeGraph === 'estimated' && (
           <div className="bg-gray-800 rounded-lg p-4">
-            <h4 className="text-lg font-medium mb-3 text-orange-400">Estimated Weight & RULA Analysis</h4>
+            <h4 className="text-lg font-medium mb-3 text-orange-400">Estimated Weight & RULA Analysis (Recording Session)</h4>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={estimatedData}>
+                <LineChart data={estimatedGraphData}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis 
                     dataKey="time" 
                     stroke="#9CA3AF"
-                    tickFormatter={(value) => new Date(value * 1000).toLocaleTimeString()}
+                    tickFormatter={formatTime}
+                    domain={[0, 60]}
                   />
                   <YAxis 
                     yAxisId="rula"
@@ -396,7 +433,7 @@ export default function RecordingPanel({
                     orientation="right"
                   />
                   <Tooltip 
-                    labelFormatter={(value) => new Date(value * 1000).toLocaleTimeString()}
+                    labelFormatter={formatTime}
                     formatter={(value: any, name: string) => {
                       if (name === 'estimatedWeight') return [value + 'kg', 'Estimated Weight'];
                       if (name === 'rulaScore') return [value, 'RULA Score'];
@@ -415,7 +452,12 @@ export default function RecordingPanel({
                     dataKey="rulaScore" 
                     stroke="#F59E0B" 
                     strokeWidth={2}
-                    dot={{ r: 3 }}
+                    dot={(props: any) => {
+                      if (props.payload.hasObject) {
+                        return <circle cx={props.cx} cy={props.cy} r={6} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
+                      }
+                      return <circle cx={props.cx} cy={props.cy} r={3} fill="#F59E0B" />;
+                    }}
                     activeDot={{ r: 5 }}
                   />
                   <Line 
@@ -424,14 +466,19 @@ export default function RecordingPanel({
                     dataKey="estimatedWeight" 
                     stroke="#10B981" 
                     strokeWidth={2}
-                    dot={{ r: 3 }}
+                    dot={(props: any) => {
+                      if (props.payload.hasObject) {
+                        return <circle cx={props.cx} cy={props.cy} r={6} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
+                      }
+                      return <circle cx={props.cx} cy={props.cy} r={3} fill="#10B981" />;
+                    }}
                     activeDot={{ r: 5 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Orange: RULA scores with estimated weight | Green: Estimated weight values
+              Orange: RULA scores with estimated weight | Green: Estimated weight values | Red dots indicate detected objects.
             </p>
           </div>
         )}
@@ -442,7 +489,7 @@ export default function RecordingPanel({
             <h4 className="text-lg font-medium mb-3 text-green-400">Manual Weight Analysis (Post-Recording)</h4>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={chartData} onClick={handleChartClick}>
+                <LineChart data={manualGraphData} onClick={handleChartClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis 
                     dataKey="time" 
@@ -467,29 +514,37 @@ export default function RecordingPanel({
                       color: '#F9FAFB'
                     }}
                   />
-                  <ReferenceLine y={3} stroke="#FEF3C7" strokeDasharray="5 5" label="Investigation Needed" />
-                  <ReferenceLine y={5} stroke="#FEE2E2" strokeDasharray="5 5" label="Changes Required" />
                   <Line 
                     type="monotone" 
                     dataKey="normalScore" 
                     stroke="#9CA3AF" 
                     strokeWidth={1}
                     strokeDasharray="5 5"
-                    dot={{ r: 2 }}
+                    dot={(props: any) => {
+                      if (props.payload.hasObject) {
+                        return <circle cx={props.cx} cy={props.cy} r={4} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
+                      }
+                      return <circle cx={props.cx} cy={props.cy} r={2} fill="#9CA3AF" />;
+                    }}
                   />
                   <Line 
                     type="monotone" 
                     dataKey="adjustedScore" 
                     stroke="#10B981" 
                     strokeWidth={2}
-                    dot={{ r: 4 }}
+                    dot={(props: any) => {
+                      if (props.payload.hasObject) {
+                        return <circle cx={props.cx} cy={props.cy} r={6} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
+                      }
+                      return <circle cx={props.cx} cy={props.cy} r={4} fill="#10B981" />;
+                    }}
                     activeDot={{ r: 6 }}
                   />
                 </LineChart>
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Gray dashed: Normal RULA | Green solid: Manual weight-adjusted RULA (Total: {getTotalManualWeight()}kg)
+              Gray dashed: Normal RULA | Green solid: Manual weight-adjusted RULA (Total: {getTotalManualWeight()}kg) | Red dots indicate detected objects.
             </p>
           </div>
         )}
