@@ -592,7 +592,7 @@ export default function RecordingPanel({
                   <img 
                     src={selectedFrame.imageData} 
                     alt="Original frame"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-contain"
                   />
                 )}
                 {viewMode === 'skeleton' && (
@@ -600,6 +600,7 @@ export default function RecordingPanel({
                     <SkeletonOverlay
                       poseData={selectedFrame.poseData}
                       rulaScore={getCurrentRulaScore(selectedFrame)}
+                      imageData={selectedFrame.imageData}
                       width={640}
                       height={360}
                       showColorCoding={true}
@@ -612,16 +613,18 @@ export default function RecordingPanel({
                     <img 
                       src={selectedFrame.imageData} 
                       alt="Enhanced frame"
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-contain absolute inset-0"
                     />
-                    <SkeletonOverlay
-                      poseData={selectedFrame.poseData}
-                      rulaScore={getCurrentRulaScore(selectedFrame)}
-                      width={640}
-                      height={360}
-                      showColorCoding={true}
-                      weightEstimation={selectedFrame.weightEstimation}
-                    />
+                    <div className="absolute inset-0">
+                      <SkeletonOverlay
+                        poseData={selectedFrame.poseData}
+                        rulaScore={getCurrentRulaScore(selectedFrame)}
+                        width={640}
+                        height={360}
+                        showColorCoding={true}
+                        weightEstimation={selectedFrame.weightEstimation}
+                      />
+                    </div>
                   </div>
                 )}
               </div>
