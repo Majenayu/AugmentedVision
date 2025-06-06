@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import CameraView from "@/components/pose-detection/camera-view";
 import ThreeDView from "@/components/pose-detection/three-d-view";
 import RulaAssessment from "@/components/pose-detection/rula-assessment";
@@ -12,6 +12,8 @@ export default function Home() {
   const [modelLoaded, setModelLoaded] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
+  
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const { 
     cameraActive, 
