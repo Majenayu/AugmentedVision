@@ -215,9 +215,24 @@ export default function RecordingPanel({
   const handleChartClick = (data: any) => {
     if (data && data.activePayload && data.activePayload[0]) {
       const timestamp = data.activePayload[0].payload.time;
-      const frame = processedData.find(f => f.timestamp === timestamp);
-      if (frame) {
-        setSelectedFrame(frame);
+      
+      // For live and estimated graphs, find frame from recording data
+      if (activeGraph === 'live' || activeGraph === 'estimated') {
+        const frame = recordingData.find(f => {
+          const frameSeconds = (recordingStartTimeRef.current ? 
+            (f.timestamp - recordingStartTimeRef.current) / 1000 : 
+            f.timestamp);
+          return Math.abs(frameSeconds - timestamp) < 0.5; // 0.5 second tolerance
+        });
+        if (frame) {
+          setSelectedFrame(frame);
+        }
+      } else {
+        // For manual analysis
+        const frame = processedData.find(f => f.timestamp === timestamp);
+        if (frame) {
+          setSelectedFrame(frame);
+        }
       }
     }
   };
@@ -446,7 +461,7 @@ export default function RecordingPanel({
             <h4 className="text-lg font-medium mb-3 text-blue-400">Normal RULA Score (Recording Session)</h4>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={recordingGraphData}>
+                <LineChart data={recordingGraphData} onClick={handleChartClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis 
                     dataKey="time" 
@@ -485,7 +500,7 @@ export default function RecordingPanel({
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Normal RULA scores from recording session. Red dots indicate detected objects.
+              Normal RULA scores from recording session. Red dots indicate detected objects. Click on points to view frame details.
             </p>
           </div>
         )}
@@ -496,7 +511,7 @@ export default function RecordingPanel({
             <h4 className="text-lg font-medium mb-3 text-orange-400">Weight-Adjusted RULA Analysis (Recording Session)</h4>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={estimatedGraphData}>
+                <LineChart data={estimatedGraphData} onClick={handleChartClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis 
                     dataKey="time" 
@@ -539,7 +554,7 @@ export default function RecordingPanel({
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Weight-adjusted RULA scores from recording session. Red dots indicate detected objects.
+              Weight-adjusted RULA scores from recording session. Red dots indicate detected objects. Click on points to view frame details.
             </p>
           </div>
         )}
@@ -618,7 +633,9 @@ export default function RecordingPanel({
         <div className="space-y-6">
           <div className="flex items-center justify-between">
             <h4 className="text-lg font-medium">
-              Frame at {formatTime(selectedFrame.timestamp)}
+              Frame at {recordingStartTimeRef.current ? 
+                formatTime((selectedFrame.timestamp - recordingStartTimeRef.current) / 1000) : 
+                formatTime(selectedFrame.timestamp)}
             </h4>
             <div className="flex space-x-2">
               <button
@@ -673,7 +690,7 @@ export default function RecordingPanel({
                       width={640}
                       height={360}
                       showColorCoding={true}
-                      weightEstimation={selectedFrame.weightEstimation}
+                      weightEstimation={getCurrentWeightEstimation(selectedFrame)}
                     />
                     {selectedFrame.hasObject && (
                       <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
@@ -693,10 +710,11 @@ export default function RecordingPanel({
                       <SkeletonOverlay
                         poseData={selectedFrame.poseData}
                         rulaScore={getCurrentRulaScore(selectedFrame)}
+                        imageData={selectedFrame.imageData}
                         width={640}
                         height={360}
                         showColorCoding={true}
-                        weightEstimation={selectedFrame.weightEstimation}
+                        weightEstimation={getCurrentWeightEstimation(selectedFrame)}
                       />
                     </div>
                     {selectedFrame.hasObject && (

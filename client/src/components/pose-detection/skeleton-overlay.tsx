@@ -42,6 +42,10 @@ export default function SkeletonOverlay({
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Set canvas dimensions
+    canvas.width = width;
+    canvas.height = height;
+
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
 
@@ -49,15 +53,34 @@ export default function SkeletonOverlay({
     if (imageData) {
       const img = new Image();
       img.onload = () => {
-        ctx.drawImage(img, 0, 0, width, height);
-        drawSkeleton();
+        // Calculate scaling to maintain aspect ratio
+        const imgAspect = img.width / img.height;
+        const canvasAspect = width / height;
+        
+        let drawWidth = width;
+        let drawHeight = height;
+        let offsetX = 0;
+        let offsetY = 0;
+        
+        if (imgAspect > canvasAspect) {
+          // Image is wider - fit to width
+          drawHeight = width / imgAspect;
+          offsetY = (height - drawHeight) / 2;
+        } else {
+          // Image is taller - fit to height
+          drawWidth = height * imgAspect;
+          offsetX = (width - drawWidth) / 2;
+        }
+        
+        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+        drawSkeleton(offsetX, offsetY, drawWidth, drawHeight);
       };
       img.src = imageData;
     } else {
-      drawSkeleton();
+      drawSkeleton(0, 0, width, height);
     }
 
-    function drawSkeleton() {
+    function drawSkeleton(offsetX = 0, offsetY = 0, drawWidth = width, drawHeight = height) {
       if (!ctx || !poseData?.keypoints) return;
 
       const keypoints = poseData.keypoints;
@@ -100,9 +123,14 @@ export default function SkeletonOverlay({
         const endPoint = keypoints[endIdx];
 
         if (startPoint?.score > 0.3 && endPoint?.score > 0.3) {
+          const x1 = offsetX + (startPoint.x * drawWidth);
+          const y1 = offsetY + (startPoint.y * drawHeight);
+          const x2 = offsetX + (endPoint.x * drawWidth);
+          const y2 = offsetY + (endPoint.y * drawHeight);
+          
           ctx.beginPath();
-          ctx.moveTo(startPoint.x * width, startPoint.y * height);
-          ctx.lineTo(endPoint.x * width, endPoint.y * height);
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
           ctx.strokeStyle = getJointColor(startIdx);
           ctx.lineWidth = 3;
           ctx.stroke();
@@ -112,8 +140,8 @@ export default function SkeletonOverlay({
       // Draw keypoints
       keypoints.forEach((keypoint: any, index: number) => {
         if (keypoint.score > 0.3) {
-          const x = keypoint.x * width;
-          const y = keypoint.y * height;
+          const x = offsetX + (keypoint.x * drawWidth);
+          const y = offsetY + (keypoint.y * drawHeight);
 
           // Draw keypoint circle
           ctx.beginPath();
