@@ -69,7 +69,7 @@ export function calculateWeightAdjustedRula(originalRula: any, weightEstimation:
 }
 
 function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
-  // Basic posture analysis - can be enhanced
+  // Enhanced posture analysis for better object detection
   let isLifting = false;
   let isCarrying = false;
   let armPosition: 'extended' | 'close' | 'overhead' = 'close';
@@ -77,22 +77,54 @@ function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
   let loadDirection: 'front' | 'side' | 'back' = 'front';
   
   if (keypoints.length >= 17) {
-    // Check arm positions
+    // Check arm positions with more sensitivity
     const leftShoulder = keypoints[5];
     const rightShoulder = keypoints[6];
+    const leftElbow = keypoints[7];
+    const rightElbow = keypoints[8];
     const leftWrist = keypoints[9];
     const rightWrist = keypoints[10];
+    const leftHip = keypoints[11];
+    const rightHip = keypoints[12];
     
     if (leftShoulder && rightShoulder && leftWrist && rightWrist) {
-      const armExtension = Math.abs(leftWrist.y - leftShoulder.y) + Math.abs(rightWrist.y - rightShoulder.y);
+      // Calculate arm extension (more sensitive)
+      const leftArmExtension = Math.abs(leftWrist.y - leftShoulder.y);
+      const rightArmExtension = Math.abs(rightWrist.y - rightShoulder.y);
+      const avgArmExtension = (leftArmExtension + rightArmExtension) / 2;
       
-      if (armExtension > 0.3) {
+      // Check for arm spread (carrying detection)
+      const leftArmSpread = Math.abs(leftWrist.x - leftShoulder.x);
+      const rightArmSpread = Math.abs(rightWrist.x - rightShoulder.x);
+      const avgArmSpread = (leftArmSpread + rightArmSpread) / 2;
+      
+      // More sensitive thresholds
+      if (avgArmExtension > 0.2 || avgArmSpread > 0.25) {
         isLifting = true;
         armPosition = 'extended';
       }
       
+      // Check for carrying posture (arms bent, holding objects)
+      if (leftElbow && rightElbow) {
+        const leftElbowBend = Math.abs(leftElbow.y - leftShoulder.y) - Math.abs(leftWrist.y - leftElbow.y);
+        const rightElbowBend = Math.abs(rightElbow.y - rightShoulder.y) - Math.abs(rightWrist.y - rightElbow.y);
+        
+        if ((leftElbowBend > 0.1 || rightElbowBend > 0.1) && (avgArmSpread > 0.15)) {
+          isCarrying = true;
+        }
+      }
+      
+      // Check for overhead position
       if (leftWrist.y < leftShoulder.y || rightWrist.y < rightShoulder.y) {
         armPosition = 'overhead';
+        isLifting = true;
+      }
+      
+      // Analyze spine deviation
+      if (leftHip && rightHip) {
+        const hipCenter = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+        const shoulderCenter = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+        spineDeviation = Math.abs(shoulderCenter.x - hipCenter.x) * 100; // Convert to degrees approximation
       }
     }
   }
@@ -107,11 +139,44 @@ function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
 }
 
 function calculateWeightFromPosture(bodyPosture: PostureAnalysis, keypoints: Keypoint[]): number {
-  // Simple weight estimation based on posture
+  // Enhanced weight estimation based on posture and arm positions
   let baseWeight = 0;
   
   if (bodyPosture.isLifting) {
-    baseWeight = 10; // Assume 10kg base weight when lifting detected
+    baseWeight = 8; // Base weight when lifting detected
+  }
+  
+  if (bodyPosture.isCarrying) {
+    baseWeight = Math.max(baseWeight, 6);
+  }
+  
+  // Check arm extension patterns more sensitively
+  if (keypoints.length >= 11) {
+    const leftShoulder = keypoints[5];
+    const rightShoulder = keypoints[6];
+    const leftWrist = keypoints[9];
+    const rightWrist = keypoints[10];
+    
+    if (leftShoulder && rightShoulder && leftWrist && rightWrist) {
+      // Calculate arm extension
+      const leftArmExtension = Math.abs(leftWrist.y - leftShoulder.y);
+      const rightArmExtension = Math.abs(rightWrist.y - rightShoulder.y);
+      const avgExtension = (leftArmExtension + rightArmExtension) / 2;
+      
+      // More sensitive detection
+      if (avgExtension > 0.15) {
+        baseWeight += 6;
+      }
+      
+      // Check for carrying position (arms away from body)
+      const leftArmSpread = Math.abs(leftWrist.x - leftShoulder.x);
+      const rightArmSpread = Math.abs(rightWrist.x - rightShoulder.x);
+      const avgSpread = (leftArmSpread + rightArmSpread) / 2;
+      
+      if (avgSpread > 0.2) {
+        baseWeight += 4;
+      }
+    }
   }
   
   if (bodyPosture.armPosition === 'extended') {

@@ -68,6 +68,11 @@ export default function RecordingPanel({
 
   const recordingStartTime = useRef<number | null>(null);
 
+  // New states for object detection and weight confirmation
+  const [showObjectWeightDialog, setShowObjectWeightDialog] = useState(false);
+  const [detectedObjectPhoto, setDetectedObjectPhoto] = useState<string | null>(null);
+  const [pendingObjectWeight, setPendingObjectWeight] = useState<number | null>(null);
+
   // Clear graph data when recording starts
   useEffect(() => {
     if (isRecording) {
@@ -219,11 +224,6 @@ export default function RecordingPanel({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getCurrentRulaScore = (frame: RecordingFrame) => {
-    if (analysisMode === 'normal') return frame.rulaScore;
-    return frame.adjustedRulaScore || frame.rulaScore;
-  };
-
   const startRecording = () => {
     if (!isRecording) {
       recordingStartTimeRef.current = Date.now();
@@ -232,6 +232,90 @@ export default function RecordingPanel({
       setManualGraphData([]);
       onStartRecording();
     }
+  };
+
+  // Update live graph data continuously and detect objects
+  useEffect(() => {
+    if (currentPoseData && currentRulaScore) {
+      const currentTime = Date.now();
+      const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints || []);
+
+      // Check for object detection during recording
+      if (isRecording && weightEstimation.estimatedWeight > 5 && !showObjectWeightDialog) {
+        // Capture current frame for object identification
+        const canvas = document.createElement('canvas');
+        const video = document.querySelector('video') as HTMLVideoElement;
+        if (video && video.videoWidth > 0) {
+          canvas.width = video.videoWidth;
+          canvas.height = video.videoHeight;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(video, 0, 0);
+            const imageData = canvas.toDataURL('image/jpeg');
+            setDetectedObjectPhoto(imageData);
+            setShowObjectWeightDialog(true);
+          }
+        }
+      }
+
+      setLiveGraphData(prev => {
+        const newData = [...prev, {
+          time: currentTime,
+          estimatedWeight: weightEstimation.estimatedWeight,
+          confidence: weightEstimation.confidence,
+          rulaScore: currentRulaScore.finalScore || 0,
+          hasObject: weightEstimation.estimatedWeight > 0
+        }];
+
+        // Keep only last 100 data points for performance
+        return newData.slice(-100);
+      });
+    }
+  }, [currentPoseData, currentRulaScore, isRecording, showObjectWeightDialog]);
+
+  const handleManualWeightAdd = (weight: ManualWeight) => {
+    setManualWeights(prev => [...prev, weight]);
+    setShowWeightDialog(false);
+  };
+
+  const handleObjectWeightConfirm = (weight: number) => {
+    setPendingObjectWeight(weight);
+    setShowObjectWeightDialog(false);
+    setDetectedObjectPhoto(null);
+
+    // Update current recording frame with object weight
+    if (isRecording && recordingData.length > 0) {
+      const lastFrame = recordingData[recordingData.length - 1];
+      if (lastFrame.weightEstimation) {
+        lastFrame.weightEstimation.estimatedWeight = weight;
+        lastFrame.weightEstimation.confidence = 0.9;
+        lastFrame.hasObject = true;
+      }
+    }
+  };
+
+  const getCurrentRulaScore = (frame: RecordingFrame) => {
+    if (analysisMode === 'manual' && manualWeights.length > 0) {
+      const manualWeight = manualWeights[0].weight;
+      return calculateWeightAdjustedRula(frame.rulaScore, frame.weightEstimation || { estimatedWeight: 0, confidence: 0, detectedObjects: [], bodyPosture: { isLifting: false, isCarrying: false, armPosition: 'close', spineDeviation: 0, loadDirection: 'front' } }, manualWeight);
+    }
+
+    if (analysisMode === 'estimated' && frame.weightEstimation?.estimatedWeight > 0) {
+      return calculateWeightAdjustedRula(frame.rulaScore, frame.weightEstimation);
+    }
+
+    return frame.rulaScore;
+  };
+
+  const getCurrentWeightEstimation = (frame: RecordingFrame) => {
+    if (analysisMode === 'manual' && manualWeights.length > 0) {
+      return {
+        ...frame.weightEstimation,
+        estimatedWeight: manualWeights[0].weight,
+        confidence: 1.0
+      };
+    }
+    return frame.weightEstimation;
   };
 
   return (
@@ -824,6 +908,65 @@ export default function RecordingPanel({
               >
                 Done
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Object Weight Confirmation Dialog */}
+      {showObjectWeightDialog && detectedObjectPhoto && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 p-6 rounded-lg max-w-lg w-full mx-4">
+            <h3 className="text-lg font-medium mb-4 text-red-400">⚠️ Object Detected!</h3>
+            <div className="space-y-4">
+              <div className="text-center">
+                <img 
+                  src={detectedObjectPhoto} 
+                  alt="Detected object"
+                  className="w-48 h-36 object-cover rounded-lg mx-auto border-2 border-red-400"
+                />
+                <p className="text-sm text-gray-300 mt-2">Please specify the weight of this object</p>
+              </div>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                const formData = new FormData(e.target as HTMLFormElement);
+                const weight = parseFloat(formData.get('objectWeight') as string);
+                if (weight > 0) {
+                  handleObjectWeightConfirm(weight);
+                }
+              }}>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Object Weight (kg)</label>
+                  <input
+                    name="objectWeight"
+                    type="number"
+                    step="0.1"
+                    min="0.1"
+                    required
+                    className="w-full px-3 py-2 bg-gray-700 rounded"
+                    placeholder="e.g., 15.5"
+                    autoFocus
+                  />
+                </div>
+                <div className="flex justify-end space-x-3 mt-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowObjectWeightDialog(false);
+                      setDetectedObjectPhoto(null);
+                    }}
+                    className="px-4 py-2 bg-gray-600 rounded hover:bg-gray-500"
+                  >
+                    Skip
+                  </button>
+                  <button
+                    type="submit"
+                    className="px-4 py-2 bg-red-600 rounded hover:bg-red-500"
+                  >
+                    Confirm Weight
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         </div>
