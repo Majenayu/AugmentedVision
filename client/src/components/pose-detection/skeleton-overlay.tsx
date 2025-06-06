@@ -170,10 +170,13 @@ export default function SkeletonOverlay({
       ctx.font = 'bold 24px Arial';
       ctx.fillText(`Score: ${finalScore}`, boxX + 10, boxY + 50);
 
-      // Risk level
+      // Risk level (simplified without "changes needed" text)
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '12px Arial';
-      ctx.fillText(`Risk: ${rulaScore.riskLevel || 'Unknown'}`, boxX + 10, boxY + 70);
+      const riskText = finalScore <= 2 ? 'Low Risk' : 
+                       finalScore <= 4 ? 'Medium Risk' : 
+                       finalScore <= 6 ? 'High Risk' : 'Critical Risk';
+      ctx.fillText(`Risk: ${riskText}`, boxX + 10, boxY + 70);
 
       // Component scores
       let yOffset = 85;
@@ -203,6 +206,13 @@ export default function SkeletonOverlay({
         ctx.fillStyle = '#CCCCCC';
         ctx.font = '10px Arial';
         ctx.fillText(`Confidence: ${Math.round((weightEstimation.confidence || 0) * 100)}%`, boxX + 10, boxY + yOffset + 20);
+      }
+
+      // Object detection indicator
+      if (weightEstimation?.estimatedWeight > 0) {
+        ctx.fillStyle = '#FF0000';
+        ctx.font = 'bold 12px Arial';
+        ctx.fillText('OBJECT DETECTED', boxX + 10, boxY + yOffset + 35);
       }
 
       // Color legend

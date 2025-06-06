@@ -41,6 +41,9 @@ export function useRecording() {
         canvas.height = videoRef.current.videoHeight;
         
         if (ctx) {
+          // Mirror the image horizontally to match the display
+          ctx.scale(-1, 1);
+          ctx.translate(-canvas.width, 0);
           ctx.drawImage(videoRef.current, 0, 0);
           const imageData = canvas.toDataURL('image/jpeg', 0.8);
           

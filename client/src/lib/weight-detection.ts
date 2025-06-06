@@ -39,6 +39,92 @@ export function estimateWeightFromPosture(keypoints: Keypoint[]): WeightEstimati
   };
 }
 
+export function calculateWeightAdjustedRula(originalRula: any, weightEstimation: WeightEstimation, manualWeight?: number): any {
+  if (!originalRula) return originalRula;
+  
+  const effectiveWeight = manualWeight || weightEstimation.estimatedWeight || 0;
+  
+  // Weight adjustment multiplier based on weight ranges
+  let weightMultiplier = 1;
+  if (effectiveWeight > 23) {
+    weightMultiplier = 3; // Very heavy
+  } else if (effectiveWeight > 10) {
+    weightMultiplier = 2; // Heavy
+  } else if (effectiveWeight > 5) {
+    weightMultiplier = 1.5; // Moderate
+  }
+  
+  // Apply weight adjustment to RULA score
+  const adjustedFinalScore = Math.min(7, Math.ceil(originalRula.finalScore * weightMultiplier));
+  
+  return {
+    ...originalRula,
+    finalScore: adjustedFinalScore,
+    effectiveWeight,
+    weightMultiplier,
+    riskLevel: adjustedFinalScore <= 2 ? 'Low Risk' :
+               adjustedFinalScore <= 4 ? 'Medium Risk' : 
+               adjustedFinalScore <= 6 ? 'High Risk' : 'Critical Risk'
+  };
+}
+
+function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
+  // Basic posture analysis - can be enhanced
+  let isLifting = false;
+  let isCarrying = false;
+  let armPosition: 'extended' | 'close' | 'overhead' = 'close';
+  let spineDeviation = 0;
+  let loadDirection: 'front' | 'side' | 'back' = 'front';
+  
+  if (keypoints.length >= 17) {
+    // Check arm positions
+    const leftShoulder = keypoints[5];
+    const rightShoulder = keypoints[6];
+    const leftWrist = keypoints[9];
+    const rightWrist = keypoints[10];
+    
+    if (leftShoulder && rightShoulder && leftWrist && rightWrist) {
+      const armExtension = Math.abs(leftWrist.y - leftShoulder.y) + Math.abs(rightWrist.y - rightShoulder.y);
+      
+      if (armExtension > 0.3) {
+        isLifting = true;
+        armPosition = 'extended';
+      }
+      
+      if (leftWrist.y < leftShoulder.y || rightWrist.y < rightShoulder.y) {
+        armPosition = 'overhead';
+      }
+    }
+  }
+  
+  return {
+    isLifting,
+    isCarrying,
+    armPosition,
+    spineDeviation,
+    loadDirection
+  };
+}
+
+function calculateWeightFromPosture(bodyPosture: PostureAnalysis, keypoints: Keypoint[]): number {
+  // Simple weight estimation based on posture
+  let baseWeight = 0;
+  
+  if (bodyPosture.isLifting) {
+    baseWeight = 10; // Assume 10kg base weight when lifting detected
+  }
+  
+  if (bodyPosture.armPosition === 'extended') {
+    baseWeight += 5;
+  }
+  
+  if (bodyPosture.armPosition === 'overhead') {
+    baseWeight += 8;
+  }
+  
+  return baseWeight;
+}
+
 function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
   // Get key body points
   const leftShoulder = keypoints[5];

@@ -92,11 +92,16 @@ export default function RecordingPanel({
         // Estimated weight data
         if (currentPoseData.keypoints) {
           const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints);
+          const adjustedRulaScore = calculateWeightAdjustedRula(
+            currentRulaScore,
+            weightEstimation
+          );
+          
           const estimatedDataPoint = {
             time: elapsedSeconds,
             estimatedWeight: weightEstimation.estimatedWeight || 0,
             confidence: weightEstimation.confidence || 0,
-            rulaScore: currentRulaScore.finalScore || 0,
+            rulaScore: adjustedRulaScore.finalScore || 0,
             hasObject: weightEstimation.estimatedWeight > 0
           };
           
@@ -409,7 +414,7 @@ export default function RecordingPanel({
         {/* Estimated Weight Graph - Only shows data from recording session */}
         {activeGraph === 'estimated' && (
           <div className="bg-gray-800 rounded-lg p-4">
-            <h4 className="text-lg font-medium mb-3 text-orange-400">Estimated Weight & RULA Analysis (Recording Session)</h4>
+            <h4 className="text-lg font-medium mb-3 text-orange-400">Weight-Adjusted RULA Analysis (Recording Session)</h4>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={estimatedGraphData}>
@@ -421,22 +426,14 @@ export default function RecordingPanel({
                     domain={[0, 60]}
                   />
                   <YAxis 
-                    yAxisId="rula"
                     domain={[1, 7]}
-                    stroke="#F59E0B"
-                    orientation="left"
-                  />
-                  <YAxis 
-                    yAxisId="weight"
-                    domain={[0, 'dataMax']}
-                    stroke="#10B981"
-                    orientation="right"
+                    stroke="#9CA3AF"
                   />
                   <Tooltip 
                     labelFormatter={formatTime}
                     formatter={(value: any, name: string) => {
                       if (name === 'estimatedWeight') return [value + 'kg', 'Estimated Weight'];
-                      if (name === 'rulaScore') return [value, 'RULA Score'];
+                      if (name === 'rulaScore') return [value, 'Weight-Adjusted RULA Score'];
                       return [value, name];
                     }}
                     contentStyle={{
@@ -447,7 +444,6 @@ export default function RecordingPanel({
                     }}
                   />
                   <Line 
-                    yAxisId="rula"
                     type="monotone" 
                     dataKey="rulaScore" 
                     stroke="#F59E0B" 
@@ -460,25 +456,11 @@ export default function RecordingPanel({
                     }}
                     activeDot={{ r: 5 }}
                   />
-                  <Line 
-                    yAxisId="weight"
-                    type="monotone" 
-                    dataKey="estimatedWeight" 
-                    stroke="#10B981" 
-                    strokeWidth={2}
-                    dot={(props: any) => {
-                      if (props.payload.hasObject) {
-                        return <circle cx={props.cx} cy={props.cy} r={6} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
-                      }
-                      return <circle cx={props.cx} cy={props.cy} r={3} fill="#10B981" />;
-                    }}
-                    activeDot={{ r: 5 }}
-                  />
                 </LineChart>
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Orange: RULA scores with estimated weight | Green: Estimated weight values | Red dots indicate detected objects.
+              Weight-adjusted RULA scores from recording session. Red dots indicate detected objects.
             </p>
           </div>
         )}
@@ -589,23 +571,34 @@ export default function RecordingPanel({
             <div>
               <div className="relative w-full aspect-video bg-black rounded-lg overflow-hidden">
                 {viewMode === 'original' && (
-                  <img 
-                    src={selectedFrame.imageData} 
-                    alt="Original frame"
-                    className="w-full h-full object-contain"
-                  />
+                  <div className="relative w-full h-full">
+                    <img 
+                      src={selectedFrame.imageData} 
+                      alt="Original frame"
+                      className="w-full h-full object-contain"
+                    />
+                    {selectedFrame.hasObject && (
+                      <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
+                        OBJECT DETECTED
+                      </div>
+                    )}
+                  </div>
                 )}
                 {viewMode === 'skeleton' && (
                   <div className="relative w-full h-full bg-black">
                     <SkeletonOverlay
                       poseData={selectedFrame.poseData}
                       rulaScore={getCurrentRulaScore(selectedFrame)}
-                      imageData={selectedFrame.imageData}
                       width={640}
                       height={360}
                       showColorCoding={true}
                       weightEstimation={selectedFrame.weightEstimation}
                     />
+                    {selectedFrame.hasObject && (
+                      <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
+                        OBJECT DETECTED
+                      </div>
+                    )}
                   </div>
                 )}
                 {viewMode === 'enhanced' && (
@@ -625,6 +618,11 @@ export default function RecordingPanel({
                         weightEstimation={selectedFrame.weightEstimation}
                       />
                     </div>
+                    {selectedFrame.hasObject && (
+                      <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
+                        OBJECT DETECTED
+                      </div>
+                    )}
                   </div>
                 )}
               </div>
