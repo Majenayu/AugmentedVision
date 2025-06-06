@@ -82,7 +82,7 @@ export default function SkeletonOverlay({
           }
 
           // Adjust for weight bearing
-          if (weightEstimation?.effectiveWeight > 5) {
+          if (weightEstimation?.estimatedWeight > 5) {
             riskLevel = Math.min(6, riskLevel + 1);
           }
         }
@@ -142,43 +142,93 @@ export default function SkeletonOverlay({
     function drawRulaOverlay() {
       if (!ctx || !rulaScore) return;
 
-      // Draw RULA score box
-      const boxWidth = 200;
-      const boxHeight = 120;
+      // Draw RULA score box with enhanced information
+      const boxWidth = 220;
+      const boxHeight = weightEstimation ? 150 : 120;
       const boxX = width - boxWidth - 10;
       const boxY = 10;
 
-      // Semi-transparent background
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      // Background with transparency
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
       ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
-
-      // Border
       ctx.strokeStyle = '#FFFFFF';
       ctx.lineWidth = 2;
       ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
 
-      // Text
+      // Title
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 16px Arial';
-      ctx.fillText('RULA Score', boxX + 10, boxY + 20);
+      ctx.font = 'bold 14px Arial';
+      ctx.fillText('RULA Assessment', boxX + 10, boxY + 20);
 
-      ctx.font = '14px Arial';
-      ctx.fillText(`Final: ${rulaScore.finalScore}`, boxX + 10, boxY + 40);
-      ctx.fillText(`Risk: ${rulaScore.riskLevel}`, boxX + 10, boxY + 60);
+      // Final score with color coding
+      const finalScore = rulaScore.finalScore || 0;
+      let scoreColor = '#00FF00';
+      if (finalScore > 4) scoreColor = '#FF0000';
+      else if (finalScore > 2) scoreColor = '#FFA500';
 
-      if (weightEstimation?.effectiveWeight) {
-        ctx.fillText(`Weight: ${weightEstimation.effectiveWeight}kg`, boxX + 10, boxY + 80);
+      ctx.fillStyle = scoreColor;
+      ctx.font = 'bold 24px Arial';
+      ctx.fillText(`Score: ${finalScore}`, boxX + 10, boxY + 50);
+
+      // Risk level
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '12px Arial';
+      ctx.fillText(`Risk: ${rulaScore.riskLevel || 'Unknown'}`, boxX + 10, boxY + 70);
+
+      // Component scores
+      let yOffset = 85;
+      const components = [
+        { label: 'Upper Arm', value: rulaScore.upperArm },
+        { label: 'Lower Arm', value: rulaScore.lowerArm },
+        { label: 'Wrist', value: rulaScore.wrist },
+        { label: 'Neck', value: rulaScore.neck },
+        { label: 'Trunk', value: rulaScore.trunk }
+      ];
+
+      components.forEach(comp => {
+        if (comp.value) {
+          ctx.fillStyle = '#CCCCCC';
+          ctx.font = '10px Arial';
+          ctx.fillText(`${comp.label}: ${comp.value}`, boxX + 10, boxY + yOffset);
+          yOffset += 12;
+        }
+      });
+
+      // Weight estimation info
+      if (weightEstimation && showColorCoding) {
+        ctx.fillStyle = '#FFFF00';
+        ctx.font = 'bold 12px Arial';
+        ctx.fillText(`Weight: ${weightEstimation.estimatedWeight?.toFixed(1) || 0}kg`, boxX + 10, boxY + yOffset + 5);
+        
+        ctx.fillStyle = '#CCCCCC';
+        ctx.font = '10px Arial';
+        ctx.fillText(`Confidence: ${Math.round((weightEstimation.confidence || 0) * 100)}%`, boxX + 10, boxY + yOffset + 20);
       }
 
-      // Risk level color indicator
-      const indicatorColor = rulaScore.finalScore <= 2 ? '#00FF00' :
-                           rulaScore.finalScore <= 4 ? '#FFFF00' :
-                           rulaScore.finalScore <= 6 ? '#FFA500' : '#FF0000';
+      // Color legend
+      const legendY = boxY + boxHeight + 10;
+      ctx.fillStyle = '#FFFFFF';
+      ctx.font = '10px Arial';
+      ctx.fillText('Color Legend:', boxX, legendY);
       
-      ctx.fillStyle = indicatorColor;
-      ctx.fillRect(boxX + 10, boxY + 90, 20, 20);
-    }
+      const legendItems = [
+        { color: '#00FF00', label: 'Safe (1-2)' },
+        { color: '#FFFF00', label: 'Caution (3)' },
+        { color: '#FFA500', label: 'Warning (4)' },
+        { color: '#FF0000', label: 'Danger (5+)' }
+      ];
 
+      legendItems.forEach((item, index) => {
+        const x = boxX + (index * 50);
+        const y = legendY + 15;
+        
+        ctx.fillStyle = item.color;
+        ctx.fillRect(x, y, 10, 10);
+        ctx.fillStyle = '#FFFFFF';
+        ctx.font = '8px Arial';
+        ctx.fillText(item.label, x, y + 20);
+      });
+    }
   }, [poseData, rulaScore, imageData, width, height, showColorCoding, weightEstimation]);
 
   return (

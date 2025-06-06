@@ -266,6 +266,8 @@ export default function Home() {
           onStartRecording={handleStartRecording}
           onStopRecording={stopRecording}
           onClearRecording={clearRecording}
+          currentPoseData={poseData}
+          currentRulaScore={rulaScore}
         />
       </main>
 

@@ -286,79 +286,214 @@ export default function RecordingPanel({
         </div>
       )}
 
-      {/* RULA Score Graph */}
-      {recordingData.length > 0 && (
-        <div className="mb-6">
-          <h4 className="text-lg font-medium mb-3">RULA Score Timeline</h4>
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={chartData} onClick={handleChartClick}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                <XAxis 
-                  dataKey="time" 
-                  stroke="#9CA3AF"
-                  tickFormatter={formatTime}
-                />
-                <YAxis 
-                  domain={[1, 7]}
-                  stroke="#9CA3AF"
-                />
-                <Tooltip 
-                  labelFormatter={formatTime}
-                  formatter={(value: any, name: string) => {
-                    if (name === 'normalScore') return [value, 'Normal RULA'];
-                    if (name === 'adjustedScore') return [value, 'Weight-Adjusted RULA'];
-                    if (name === 'weight') return [value + 'kg', 'Estimated Weight'];
-                    return [value, 'RULA Score'];
-                  }}
-                  contentStyle={{
-                    backgroundColor: '#1F2937',
-                    border: '1px solid #374151',
-                    borderRadius: '0.5rem',
-                    color: '#F9FAFB'
-                  }}
-                />
-                {analysisMode === 'normal' && (
+      {/* Graph Selection Tabs */}
+      <div className="mb-6">
+        <div className="flex space-x-2 mb-4">
+          <button
+            onClick={() => setActiveGraph('live')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeGraph === 'live' 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            Live RULA Graph
+          </button>
+          <button
+            onClick={() => setActiveGraph('estimated')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeGraph === 'estimated' 
+                ? 'bg-orange-600 text-white' 
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            Estimated Weight Graph
+          </button>
+          <button
+            onClick={() => setActiveGraph('manual')}
+            disabled={recordingData.length === 0 || manualWeights.length === 0}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeGraph === 'manual' && recordingData.length > 0 && manualWeights.length > 0
+                ? 'bg-green-600 text-white' 
+                : recordingData.length === 0 || manualWeights.length === 0
+                ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            Manual Weight Analysis
+          </button>
+        </div>
+
+        {/* Live RULA Graph */}
+        {activeGraph === 'live' && (
+          <div className="bg-gray-800 rounded-lg p-4">
+            <h4 className="text-lg font-medium mb-3 text-blue-400">Live RULA Score (Real-time)</h4>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={liveData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="time" 
+                    stroke="#9CA3AF"
+                    tickFormatter={(value) => new Date(value * 1000).toLocaleTimeString()}
+                  />
+                  <YAxis 
+                    domain={[1, 7]}
+                    stroke="#9CA3AF"
+                  />
+                  <Tooltip 
+                    labelFormatter={(value) => new Date(value * 1000).toLocaleTimeString()}
+                    formatter={(value: any) => [value, 'RULA Score']}
+                    contentStyle={{
+                      backgroundColor: '#1F2937',
+                      border: '1px solid #374151',
+                      borderRadius: '0.5rem',
+                      color: '#F9FAFB'
+                    }}
+                  />
+                  <ReferenceLine y={3} stroke="#FEF3C7" strokeDasharray="5 5" label="Investigation Needed" />
+                  <ReferenceLine y={5} stroke="#FEE2E2" strokeDasharray="5 5" label="Changes Required" />
+                  <Line 
+                    type="monotone" 
+                    dataKey="rulaScore" 
+                    stroke="#3B82F6" 
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-sm text-gray-400 mt-2">
+              Live RULA scores without weight consideration. Values coincide with estimated graph when no weight is present.
+            </p>
+          </div>
+        )}
+
+        {/* Estimated Weight Graph */}
+        {activeGraph === 'estimated' && (
+          <div className="bg-gray-800 rounded-lg p-4">
+            <h4 className="text-lg font-medium mb-3 text-orange-400">Estimated Weight & RULA Analysis</h4>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={estimatedData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="time" 
+                    stroke="#9CA3AF"
+                    tickFormatter={(value) => new Date(value * 1000).toLocaleTimeString()}
+                  />
+                  <YAxis 
+                    yAxisId="rula"
+                    domain={[1, 7]}
+                    stroke="#F59E0B"
+                    orientation="left"
+                  />
+                  <YAxis 
+                    yAxisId="weight"
+                    domain={[0, 'dataMax']}
+                    stroke="#10B981"
+                    orientation="right"
+                  />
+                  <Tooltip 
+                    labelFormatter={(value) => new Date(value * 1000).toLocaleTimeString()}
+                    formatter={(value: any, name: string) => {
+                      if (name === 'estimatedWeight') return [value + 'kg', 'Estimated Weight'];
+                      if (name === 'rulaScore') return [value, 'RULA Score'];
+                      return [value, name];
+                    }}
+                    contentStyle={{
+                      backgroundColor: '#1F2937',
+                      border: '1px solid #374151',
+                      borderRadius: '0.5rem',
+                      color: '#F9FAFB'
+                    }}
+                  />
+                  <Line 
+                    yAxisId="rula"
+                    type="monotone" 
+                    dataKey="rulaScore" 
+                    stroke="#F59E0B" 
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                  <Line 
+                    yAxisId="weight"
+                    type="monotone" 
+                    dataKey="estimatedWeight" 
+                    stroke="#10B981" 
+                    strokeWidth={2}
+                    dot={{ r: 3 }}
+                    activeDot={{ r: 5 }}
+                  />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-sm text-gray-400 mt-2">
+              Orange: RULA scores with estimated weight | Green: Estimated weight values
+            </p>
+          </div>
+        )}
+
+        {/* Manual Weight Analysis Graph */}
+        {activeGraph === 'manual' && recordingData.length > 0 && manualWeights.length > 0 && (
+          <div className="bg-gray-800 rounded-lg p-4">
+            <h4 className="text-lg font-medium mb-3 text-green-400">Manual Weight Analysis (Post-Recording)</h4>
+            <div className="h-64 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <LineChart data={chartData} onClick={handleChartClick}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                  <XAxis 
+                    dataKey="time" 
+                    stroke="#9CA3AF"
+                    tickFormatter={formatTime}
+                  />
+                  <YAxis 
+                    domain={[1, 7]}
+                    stroke="#9CA3AF"
+                  />
+                  <Tooltip 
+                    labelFormatter={formatTime}
+                    formatter={(value: any, name: string) => {
+                      if (name === 'normalScore') return [value, 'Normal RULA'];
+                      if (name === 'adjustedScore') return [value, 'Manual Weight-Adjusted RULA'];
+                      return [value, 'RULA Score'];
+                    }}
+                    contentStyle={{
+                      backgroundColor: '#1F2937',
+                      border: '1px solid #374151',
+                      borderRadius: '0.5rem',
+                      color: '#F9FAFB'
+                    }}
+                  />
+                  <ReferenceLine y={3} stroke="#FEF3C7" strokeDasharray="5 5" label="Investigation Needed" />
+                  <ReferenceLine y={5} stroke="#FEE2E2" strokeDasharray="5 5" label="Changes Required" />
                   <Line 
                     type="monotone" 
                     dataKey="normalScore" 
-                    stroke="#3B82F6" 
+                    stroke="#9CA3AF" 
+                    strokeWidth={1}
+                    strokeDasharray="5 5"
+                    dot={{ r: 2 }}
+                  />
+                  <Line 
+                    type="monotone" 
+                    dataKey="adjustedScore" 
+                    stroke="#10B981" 
                     strokeWidth={2}
                     dot={{ r: 4 }}
                     activeDot={{ r: 6 }}
                   />
-                )}
-                {analysisMode !== 'normal' && (
-                  <>
-                    <Line 
-                      type="monotone" 
-                      dataKey="normalScore" 
-                      stroke="#9CA3AF" 
-                      strokeWidth={1}
-                      strokeDasharray="5 5"
-                      dot={{ r: 2 }}
-                    />
-                    <Line 
-                      type="monotone" 
-                      dataKey="adjustedScore" 
-                      stroke="#F59E0B" 
-                      strokeWidth={2}
-                      dot={{ r: 4 }}
-                      activeDot={{ r: 6 }}
-                    />
-                  </>
-                )}
-              </LineChart>
-            </ResponsiveContainer>
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+            <p className="text-sm text-gray-400 mt-2">
+              Gray dashed: Normal RULA | Green solid: Manual weight-adjusted RULA (Total: {getTotalManualWeight()}kg)
+            </p>
           </div>
-          <p className="text-sm text-text-secondary mt-2">
-            {analysisMode === 'normal' 
-              ? 'Standard RULA analysis without weight consideration'
-              : 'Dashed line: Normal RULA | Solid line: Weight-adjusted RULA'
-            }
-          </p>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Frame Details */}
       {selectedFrame && (
@@ -552,6 +687,66 @@ export default function RecordingPanel({
               {recordingData.filter(f => f.rulaScore?.finalScore > 4).length}
             </div>
             <div className="text-sm text-text-secondary">Risk Postures</div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual Weight Management Dialog */}
+      {showWeightDialog && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-medium mb-4">Manage Objects & Weights</h3>
+            
+            <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+              {manualWeights.map((weight) => (
+                <div key={weight.id} className="flex items-center space-x-2 bg-gray-700 p-3 rounded-lg">
+                  <input
+                    type="text"
+                    value={weight.name}
+                    onChange={(e) => updateManualWeight(weight.id, 'name', e.target.value)}
+                    className="flex-1 px-2 py-1 bg-gray-600 text-white rounded border border-gray-500"
+                    placeholder="Object name"
+                  />
+                  <input
+                    type="number"
+                    value={weight.weight}
+                    onChange={(e) => updateManualWeight(weight.id, 'weight', Number(e.target.value))}
+                    className="w-20 px-2 py-1 bg-gray-600 text-white rounded border border-gray-500"
+                    placeholder="kg"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                  />
+                  <button
+                    onClick={() => removeManualWeight(weight.id)}
+                    className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-sm"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            <div className="flex justify-between items-center mb-4">
+              <button
+                onClick={addManualWeight}
+                className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm"
+              >
+                Add Object
+              </button>
+              <div className="text-sm">
+                Total Weight: <span className="font-bold">{getTotalManualWeight()}kg</span>
+              </div>
+            </div>
+
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setShowWeightDialog(false)}
+                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded"
+              >
+                Done
+              </button>
+            </div>
           </div>
         </div>
       )}
