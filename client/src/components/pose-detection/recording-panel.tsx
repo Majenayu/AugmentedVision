@@ -814,8 +814,7 @@ export default function RecordingPanel({
                 className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm"
               >
                 Add Object
-              </button>
-              <div className="text-sm">
+              </button>              <div className="text-sm">
                 Total Weight: <span className="font-bold">{getTotalManualWeight()}kg</span>
               </div>
             </div>
