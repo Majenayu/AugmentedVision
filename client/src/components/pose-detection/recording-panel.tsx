@@ -1,11 +1,15 @@
 import { useState } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import SkeletonOverlay from './skeleton-overlay';
+import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
 
 interface RecordingFrame {
   timestamp: number;
   rulaScore: any;
   imageData: string;
   poseData: any;
+  weightEstimation?: any;
+  adjustedRulaScore?: any;
 }
 
 interface RecordingPanelProps {
@@ -17,6 +21,9 @@ interface RecordingPanelProps {
   onClearRecording: () => void;
 }
 
+type AnalysisMode = 'normal' | 'estimated' | 'manual';
+type ViewMode = 'original' | 'skeleton' | 'enhanced';
+
 export default function RecordingPanel({
   isRecording,
   recordingData,
@@ -26,17 +33,52 @@ export default function RecordingPanel({
   onClearRecording
 }: RecordingPanelProps) {
   const [selectedFrame, setSelectedFrame] = useState<RecordingFrame | null>(null);
+  const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('normal');
+  const [viewMode, setViewMode] = useState<ViewMode>('original');
+  const [manualWeight, setManualWeight] = useState<number>(0);
 
-  const chartData = recordingData.map(frame => ({
-    time: frame.timestamp,
-    rulaScore: frame.rulaScore?.finalScore || 0,
-    riskLevel: frame.rulaScore?.riskLevel || 'Unknown'
-  }));
+  // Process recording data with weight analysis
+  const processedData = recordingData.map(frame => {
+    if (frame.poseData?.keypoints) {
+      const weightEstimation = estimateWeightFromPosture(frame.poseData.keypoints);
+      const adjustedRulaScore = calculateWeightAdjustedRula(
+        frame.rulaScore,
+        weightEstimation,
+        analysisMode === 'manual' ? manualWeight : undefined
+      );
+      
+      return {
+        ...frame,
+        weightEstimation,
+        adjustedRulaScore
+      };
+    }
+    return frame;
+  });
+
+  const getChartData = () => {
+    return processedData.map(frame => {
+      const score = analysisMode === 'normal' 
+        ? frame.rulaScore?.finalScore || 0
+        : frame.adjustedRulaScore?.finalScore || 0;
+        
+      return {
+        time: frame.timestamp,
+        rulaScore: score,
+        normalScore: frame.rulaScore?.finalScore || 0,
+        adjustedScore: frame.adjustedRulaScore?.finalScore || 0,
+        weight: frame.weightEstimation?.estimatedWeight || 0,
+        riskLevel: frame.rulaScore?.riskLevel || 'Unknown'
+      };
+    });
+  };
+
+  const chartData = getChartData();
 
   const handleChartClick = (data: any) => {
     if (data && data.activePayload && data.activePayload[0]) {
       const timestamp = data.activePayload[0].payload.time;
-      const frame = recordingData.find(f => f.timestamp === timestamp);
+      const frame = processedData.find(f => f.timestamp === timestamp);
       if (frame) {
         setSelectedFrame(frame);
       }
@@ -49,12 +91,17 @@ export default function RecordingPanel({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
+  const getCurrentRulaScore = (frame: RecordingFrame) => {
+    if (analysisMode === 'normal') return frame.rulaScore;
+    return frame.adjustedRulaScore || frame.rulaScore;
+  };
+
   return (
     <div className="bg-dark-card rounded-lg shadow-lg p-6">
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-medium flex items-center space-x-2">
           <span className="material-icon text-red-500">videocam</span>
-          <span>Ergonomic Recording Session</span>
+          <span>Enhanced Ergonomic Recording</span>
         </h3>
         <div className="flex items-center space-x-3">
           {!isRecording && recordingData.length === 0 && (
