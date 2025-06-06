@@ -50,22 +50,36 @@ export default function RecordingPanel({
   const [activeGraph, setActiveGraph] = useState<GraphType>('live');
   const [manualWeights, setManualWeights] = useState<ManualWeight[]>([]);
   const [showWeightDialog, setShowWeightDialog] = useState(false);
-  
+
   // Separate graph data that only records during recording session
   const [recordingGraphData, setRecordingGraphData] = useState<any[]>([]);
   const [estimatedGraphData, setEstimatedGraphData] = useState<any[]>([]);
   const [manualGraphData, setManualGraphData] = useState<any[]>([]);
   const recordingStartTimeRef = useRef<number | null>(null);
 
+  // Live data for estimated weight analysis
+  const [liveGraphData, setLiveGraphData] = useState<Array<{
+    time: number;
+    estimatedWeight: number;
+    confidence: number;
+    rulaScore: number;
+    hasObject: boolean;
+  }>>([]);
+
+  // Function to stop recording
+  const [stopRecording, setStopRecording] = useState(() => () => {});
+
+  const recordingStartTime = useRef<number | null>(null);
+
   // Clear graph data when recording starts
   useEffect(() => {
-    if (isRecording && !recordingStartTimeRef.current) {
-      recordingStartTimeRef.current = Date.now();
+    if (isRecording) {
+      recordingStartTime.current = Date.now();
       setRecordingGraphData([]);
       setEstimatedGraphData([]);
       setManualGraphData([]);
-    } else if (!isRecording) {
-      recordingStartTimeRef.current = null;
+    } else {
+      recordingStartTime.current = null;
     }
   }, [isRecording]);
 
@@ -73,12 +87,12 @@ export default function RecordingPanel({
   useEffect(() => {
     if (isRecording && currentPoseData && currentRulaScore && recordingStartTimeRef.current) {
       const elapsedSeconds = (Date.now() - recordingStartTimeRef.current) / 1000;
-      
+
       // Stop adding data after 60 seconds
       if (elapsedSeconds <= 60) {
         // Detect objects in the current frame
         const hasObject = currentPoseData.keypoints && estimateWeightFromPosture(currentPoseData.keypoints).estimatedWeight > 0;
-        
+
         const newDataPoint = {
           time: elapsedSeconds,
           rulaScore: currentRulaScore.finalScore || 0,
@@ -96,7 +110,7 @@ export default function RecordingPanel({
             currentRulaScore,
             weightEstimation
           );
-          
+
           const estimatedDataPoint = {
             time: elapsedSeconds,
             estimatedWeight: weightEstimation.estimatedWeight || 0,
@@ -104,7 +118,7 @@ export default function RecordingPanel({
             rulaScore: adjustedRulaScore.finalScore || 0,
             hasObject: weightEstimation.estimatedWeight > 0
           };
-          
+
           setEstimatedGraphData(prev => [...prev, estimatedDataPoint]);
         }
       }
@@ -148,7 +162,7 @@ export default function RecordingPanel({
             weightEstimation,
             getTotalManualWeight()
           );
-          
+
           return {
             time: frame.timestamp,
             normalScore: frame.rulaScore?.finalScore || 0,
@@ -165,7 +179,7 @@ export default function RecordingPanel({
           hasObject: false
         };
       });
-      
+
       setManualGraphData(processedManualData);
     }
   }, [recordingData, manualWeights]);
@@ -179,7 +193,7 @@ export default function RecordingPanel({
         weightEstimation,
         analysisMode === 'manual' ? getTotalManualWeight() : undefined
       );
-      
+
       return {
         ...frame,
         weightEstimation,
@@ -211,6 +225,17 @@ export default function RecordingPanel({
     return frame.adjustedRulaScore || frame.rulaScore;
   };
 
+  const startRecording = () => {
+    if (!isRecording) {
+      setRecordingData([]);
+      setRecordedFrames([]);
+      setLiveGraphData([]);
+      setEstimatedGraphData([]);
+      setManualGraphData([]);
+      onStartRecording();
+    }
+  };
+
   return (
     <div className="bg-dark-card rounded-lg shadow-lg p-6">
       <div className="flex items-center justify-between mb-6">
@@ -221,14 +246,14 @@ export default function RecordingPanel({
         <div className="flex items-center space-x-3">
           {!isRecording && recordingData.length === 0 && (
             <button
-              onClick={onStartRecording}
+              onClick={startRecording}
               className="bg-red-600 hover:bg-red-700 px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
             >
               <span className="material-icon">fiber_manual_record</span>
               <span>Record 1 Min</span>
             </button>
           )}
-          
+
           {isRecording && (
             <button
               onClick={onStopRecording}
@@ -238,7 +263,7 @@ export default function RecordingPanel({
               <span>Stop Recording</span>
             </button>
           )}
-          
+
           {recordingData.length > 0 && !isRecording && (
             <button
               onClick={onClearRecording}
@@ -306,7 +331,7 @@ export default function RecordingPanel({
                   Manual Weight
                 </button>
               </div>
-              
+
               {analysisMode === 'manual' && (
                 <div className="flex items-center space-x-2">
                   <span className="text-sm">Total Weight: {getTotalManualWeight()}kg</span>
@@ -627,7 +652,7 @@ export default function RecordingPanel({
                 )}
               </div>
             </div>
-            
+
             <div className="space-y-4">
               <div>
                 <h5 className="text-lg font-medium mb-3">RULA Assessment</h5>
@@ -644,7 +669,7 @@ export default function RecordingPanel({
                         </div>
                       </div>
                     )}
-                    
+
                     <div className="flex justify-between items-center">
                       <span>Final Score:</span>
                       <span className="font-bold text-xl">
@@ -661,7 +686,7 @@ export default function RecordingPanel({
                         {getCurrentRulaScore(selectedFrame)?.riskLevel}
                       </span>
                     </div>
-                    
+
                     <div className="grid grid-cols-2 gap-3 mt-4">
                       <div className="bg-dark-secondary rounded p-3">
                         <div className="text-sm text-text-secondary">Upper Arm</div>
@@ -752,7 +777,7 @@ export default function RecordingPanel({
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
             <h3 className="text-lg font-medium mb-4">Manage Objects & Weights</h3>
-            
+
             <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
               {manualWeights.map((weight) => (
                 <div key={weight.id} className="flex items-center space-x-2 bg-gray-700 p-3 rounded-lg">
