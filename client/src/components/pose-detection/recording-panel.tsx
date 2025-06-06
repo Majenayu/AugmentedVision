@@ -72,6 +72,7 @@ export default function RecordingPanel({
   const [showObjectWeightDialog, setShowObjectWeightDialog] = useState(false);
   const [detectedObjectPhoto, setDetectedObjectPhoto] = useState<string | null>(null);
   const [pendingObjectWeight, setPendingObjectWeight] = useState<number | null>(null);
+  const [identifiedObjects, setIdentifiedObjects] = useState<Set<string>>(new Set());
 
   // Clear graph data when recording starts
   useEffect(() => {
@@ -81,6 +82,7 @@ export default function RecordingPanel({
       setRecordingGraphData([]);
       setEstimatedGraphData([]);
       setManualGraphData([]);
+      setIdentifiedObjects(new Set()); // Clear identified objects for new recording
     } else {
       recordingStartTime.current = null;
       recordingStartTimeRef.current = null;
@@ -234,26 +236,35 @@ export default function RecordingPanel({
     }
   };
 
-  // Update live graph data continuously and detect objects
+  // Update live graph data continuously and detect objects only in manual mode
   useEffect(() => {
     if (currentPoseData && currentRulaScore) {
       const currentTime = Date.now();
       const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints || []);
 
-      // Check for object detection during recording
-      if (isRecording && weightEstimation.estimatedWeight > 5 && !showObjectWeightDialog) {
-        // Capture current frame for object identification
-        const canvas = document.createElement('canvas');
-        const video = document.querySelector('video') as HTMLVideoElement;
-        if (video && video.videoWidth > 0) {
-          canvas.width = video.videoWidth;
-          canvas.height = video.videoHeight;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(video, 0, 0);
-            const imageData = canvas.toDataURL('image/jpeg');
-            setDetectedObjectPhoto(imageData);
-            setShowObjectWeightDialog(true);
+      // Check for object detection during recording ONLY in manual analysis mode
+      if (isRecording && analysisMode === 'manual' && weightEstimation.estimatedWeight > 8 && !showObjectWeightDialog) {
+        // Create a unique identifier for the current posture/object
+        const postureId = `${Math.round(weightEstimation.estimatedWeight)}_${weightEstimation.bodyPosture.armPosition}`;
+        
+        // Only show dialog if this object hasn't been identified before
+        if (!identifiedObjects.has(postureId)) {
+          // Capture current frame for object identification
+          const canvas = document.createElement('canvas');
+          const video = document.querySelector('video') as HTMLVideoElement;
+          if (video && video.videoWidth > 0) {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            const ctx = canvas.getContext('2d');
+            if (ctx) {
+              ctx.drawImage(video, 0, 0);
+              const imageData = canvas.toDataURL('image/jpeg');
+              setDetectedObjectPhoto(imageData);
+              setShowObjectWeightDialog(true);
+              
+              // Mark this object as identified
+              setIdentifiedObjects(prev => new Set([...prev, postureId]));
+            }
           }
         }
       }
@@ -271,7 +282,7 @@ export default function RecordingPanel({
         return newData.slice(-100);
       });
     }
-  }, [currentPoseData, currentRulaScore, isRecording, showObjectWeightDialog]);
+  }, [currentPoseData, currentRulaScore, isRecording, showObjectWeightDialog, analysisMode, identifiedObjects]);
 
   const handleManualWeightAdd = (weight: ManualWeight) => {
     setManualWeights(prev => [...prev, weight]);
@@ -639,13 +650,11 @@ export default function RecordingPanel({
         )}
       </div>
 
-      {/* Frame Details */}
-      {selectedFrame && (
-        <div className="space-y-6">
+      {/* View Mode Controls - Always visible when there's recorded data */}
+      {recordingData.length > 0 && (
+        <div className="mb-6">
           <div className="flex items-center justify-between">
-            <h4 className="text-lg font-medium">
-              Frame at {formatTime(selectedFrame.timestamp)}
-            </h4>
+            <h4 className="text-lg font-medium">View Mode</h4>
             <div className="flex space-x-2">
               <button
                 onClick={() => setViewMode('original')}
@@ -672,6 +681,17 @@ export default function RecordingPanel({
                 Enhanced
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Frame Details */}
+      {selectedFrame && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h4 className="text-lg font-medium">
+              Frame at {formatTime(selectedFrame.timestamp)}
+            </h4>
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -917,7 +937,7 @@ export default function RecordingPanel({
       {showObjectWeightDialog && detectedObjectPhoto && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-gray-800 p-6 rounded-lg max-w-lg w-full mx-4">
-            <h3 className="text-lg font-medium mb-4 text-red-400">⚠️ Object Detected!</h3>
+            <h3 className="text-lg font-medium mb-4 text-red-400">📦 External Object Detected!</h3>
             <div className="space-y-4">
               <div className="text-center">
                 <img 
@@ -925,7 +945,7 @@ export default function RecordingPanel({
                   alt="Detected object"
                   className="w-48 h-36 object-cover rounded-lg mx-auto border-2 border-red-400"
                 />
-                <p className="text-sm text-gray-300 mt-2">Please specify the weight of this object</p>
+                <p className="text-sm text-gray-300 mt-2">An external object (box, tool, equipment) was detected. Please specify its weight for accurate RULA analysis.</p>
               </div>
               <form onSubmit={(e) => {
                 e.preventDefault();

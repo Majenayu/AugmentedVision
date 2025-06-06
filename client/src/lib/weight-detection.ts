@@ -69,7 +69,7 @@ export function calculateWeightAdjustedRula(originalRula: any, weightEstimation:
 }
 
 function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
-  // Enhanced posture analysis for better object detection
+  // Enhanced posture analysis for detecting external objects (not human body)
   let isLifting = false;
   let isCarrying = false;
   let armPosition: 'extended' | 'close' | 'overhead' = 'close';
@@ -77,7 +77,7 @@ function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
   let loadDirection: 'front' | 'side' | 'back' = 'front';
   
   if (keypoints.length >= 17) {
-    // Check arm positions with more sensitivity
+    // Check arm positions with more sensitivity for external object detection
     const leftShoulder = keypoints[5];
     const rightShoulder = keypoints[6];
     const leftElbow = keypoints[7];
@@ -87,35 +87,37 @@ function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
     const leftHip = keypoints[11];
     const rightHip = keypoints[12];
     
-    if (leftShoulder && rightShoulder && leftWrist && rightWrist) {
-      // Calculate arm extension (more sensitive)
-      const leftArmExtension = Math.abs(leftWrist.y - leftShoulder.y);
-      const rightArmExtension = Math.abs(rightWrist.y - rightShoulder.y);
-      const avgArmExtension = (leftArmExtension + rightArmExtension) / 2;
+    if (leftShoulder && rightShoulder && leftWrist && rightWrist && leftElbow && rightElbow) {
+      // More specific detection for external objects
+      // Check if arms are in a carrying/holding position (bent elbows with objects)
+      const leftElbowAngle = calculateElbowAngle(leftShoulder, leftElbow, leftWrist);
+      const rightElbowAngle = calculateElbowAngle(rightShoulder, rightElbow, rightWrist);
       
-      // Check for arm spread (carrying detection)
-      const leftArmSpread = Math.abs(leftWrist.x - leftShoulder.x);
-      const rightArmSpread = Math.abs(rightWrist.x - rightShoulder.x);
-      const avgArmSpread = (leftArmSpread + rightArmSpread) / 2;
+      // Check for specific carrying postures that indicate external objects
+      const leftArmBent = leftElbowAngle > 30 && leftElbowAngle < 150;
+      const rightArmBent = rightElbowAngle > 30 && rightElbowAngle < 150;
       
-      // More sensitive thresholds
-      if (avgArmExtension > 0.2 || avgArmSpread > 0.25) {
+      // Check if wrists are positioned to hold objects (not just natural arm movement)
+      const leftWristForward = leftWrist.y > leftShoulder.y && Math.abs(leftWrist.x - leftShoulder.x) > 0.1;
+      const rightWristForward = rightWrist.y > rightShoulder.y && Math.abs(rightWrist.x - rightShoulder.x) > 0.1;
+      
+      // Detect carrying only when specific conditions are met
+      if ((leftArmBent && leftWristForward) || (rightArmBent && rightWristForward)) {
+        isCarrying = true;
+        armPosition = 'extended';
+      }
+      
+      // Check for lifting posture (both arms engaged, specific angle patterns)
+      const bothArmsEngaged = leftArmBent && rightArmBent;
+      const symmetricPosture = Math.abs(leftElbowAngle - rightElbowAngle) < 30;
+      
+      if (bothArmsEngaged && symmetricPosture && (leftWristForward || rightWristForward)) {
         isLifting = true;
         armPosition = 'extended';
       }
       
-      // Check for carrying posture (arms bent, holding objects)
-      if (leftElbow && rightElbow) {
-        const leftElbowBend = Math.abs(leftElbow.y - leftShoulder.y) - Math.abs(leftWrist.y - leftElbow.y);
-        const rightElbowBend = Math.abs(rightElbow.y - rightShoulder.y) - Math.abs(rightWrist.y - rightElbow.y);
-        
-        if ((leftElbowBend > 0.1 || rightElbowBend > 0.1) && (avgArmSpread > 0.15)) {
-          isCarrying = true;
-        }
-      }
-      
-      // Check for overhead position
-      if (leftWrist.y < leftShoulder.y || rightWrist.y < rightShoulder.y) {
+      // Check for overhead position (clear lifting motion)
+      if ((leftWrist.y < leftShoulder.y - 0.1) || (rightWrist.y < rightShoulder.y - 0.1)) {
         armPosition = 'overhead';
         isLifting = true;
       }
@@ -124,7 +126,7 @@ function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
       if (leftHip && rightHip) {
         const hipCenter = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
         const shoulderCenter = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
-        spineDeviation = Math.abs(shoulderCenter.x - hipCenter.x) * 100; // Convert to degrees approximation
+        spineDeviation = Math.abs(shoulderCenter.x - hipCenter.x) * 100;
       }
     }
   }
@@ -138,53 +140,58 @@ function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
   };
 }
 
+function calculateElbowAngle(shoulder: Keypoint, elbow: Keypoint, wrist: Keypoint): number {
+  const shoulderToElbow = { x: elbow.x - shoulder.x, y: elbow.y - shoulder.y };
+  const elbowToWrist = { x: wrist.x - elbow.x, y: wrist.y - elbow.y };
+  
+  const dot = shoulderToElbow.x * elbowToWrist.x + shoulderToElbow.y * elbowToWrist.y;
+  const magA = Math.sqrt(shoulderToElbow.x ** 2 + shoulderToElbow.y ** 2);
+  const magB = Math.sqrt(elbowToWrist.x ** 2 + elbowToWrist.y ** 2);
+  
+  const angle = Math.acos(dot / (magA * magB)) * (180 / Math.PI);
+  return isNaN(angle) ? 90 : angle;
+}
+
 function calculateWeightFromPosture(bodyPosture: PostureAnalysis, keypoints: Keypoint[]): number {
-  // Enhanced weight estimation based on posture and arm positions
+  // Conservative weight estimation only for confirmed external objects
   let baseWeight = 0;
   
-  if (bodyPosture.isLifting) {
-    baseWeight = 8; // Base weight when lifting detected
+  // Only estimate weight when we have clear indicators of external objects
+  if (bodyPosture.isLifting && bodyPosture.armPosition === 'extended') {
+    baseWeight = 10; // Confirmed lifting with extended arms
+  } else if (bodyPosture.isCarrying && bodyPosture.armPosition === 'extended') {
+    baseWeight = 7; // Confirmed carrying with extended arms
+  } else if (bodyPosture.armPosition === 'overhead') {
+    baseWeight = 12; // Overhead lifting usually involves objects
   }
   
-  if (bodyPosture.isCarrying) {
-    baseWeight = Math.max(baseWeight, 6);
-  }
-  
-  // Check arm extension patterns more sensitively
-  if (keypoints.length >= 11) {
+  // Additional checks for object-specific postures
+  if (keypoints.length >= 17 && baseWeight > 0) {
     const leftShoulder = keypoints[5];
     const rightShoulder = keypoints[6];
+    const leftElbow = keypoints[7];
+    const rightElbow = keypoints[8];
     const leftWrist = keypoints[9];
     const rightWrist = keypoints[10];
     
-    if (leftShoulder && rightShoulder && leftWrist && rightWrist) {
-      // Calculate arm extension
-      const leftArmExtension = Math.abs(leftWrist.y - leftShoulder.y);
-      const rightArmExtension = Math.abs(rightWrist.y - rightShoulder.y);
-      const avgExtension = (leftArmExtension + rightArmExtension) / 2;
+    if (leftShoulder && rightShoulder && leftElbow && rightElbow && leftWrist && rightWrist) {
+      // Check for asymmetric loading (indicates external object)
+      const leftElbowAngle = calculateElbowAngle(leftShoulder, leftElbow, leftWrist);
+      const rightElbowAngle = calculateElbowAngle(rightShoulder, rightElbow, rightWrist);
+      const asymmetry = Math.abs(leftElbowAngle - rightElbowAngle);
       
-      // More sensitive detection
-      if (avgExtension > 0.15) {
-        baseWeight += 6;
+      if (asymmetry > 30) {
+        baseWeight += 3; // Asymmetric posture suggests external load
       }
       
-      // Check for carrying position (arms away from body)
-      const leftArmSpread = Math.abs(leftWrist.x - leftShoulder.x);
-      const rightArmSpread = Math.abs(rightWrist.x - rightShoulder.x);
-      const avgSpread = (leftArmSpread + rightArmSpread) / 2;
+      // Check for forward lean (indicates heavier objects)
+      const shoulderCenter = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+      const wristCenter = { x: (leftWrist.x + rightWrist.x) / 2, y: (leftWrist.y + rightWrist.y) / 2 };
       
-      if (avgSpread > 0.2) {
-        baseWeight += 4;
+      if (wristCenter.y > shoulderCenter.y + 0.15) {
+        baseWeight += 5; // Forward lean with extended arms
       }
     }
-  }
-  
-  if (bodyPosture.armPosition === 'extended') {
-    baseWeight += 5;
-  }
-  
-  if (bodyPosture.armPosition === 'overhead') {
-    baseWeight += 8;
   }
   
   return baseWeight;
