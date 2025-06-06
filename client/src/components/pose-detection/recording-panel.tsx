@@ -1,5 +1,5 @@
-import { useState } from "react";
-import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { useState, useEffect } from "react";
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine } from 'recharts';
 import SkeletonOverlay from './skeleton-overlay';
 import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
 
@@ -19,10 +19,19 @@ interface RecordingPanelProps {
   onStartRecording: () => void;
   onStopRecording: () => void;
   onClearRecording: () => void;
+  currentPoseData?: any;
+  currentRulaScore?: any;
+}
+
+interface ManualWeight {
+  id: string;
+  name: string;
+  weight: number;
 }
 
 type AnalysisMode = 'normal' | 'estimated' | 'manual';
 type ViewMode = 'original' | 'skeleton' | 'enhanced';
+type GraphType = 'live' | 'estimated' | 'manual';
 
 export default function RecordingPanel({
   isRecording,
@@ -30,12 +39,81 @@ export default function RecordingPanel({
   recordingProgress,
   onStartRecording,
   onStopRecording,
-  onClearRecording
+  onClearRecording,
+  currentPoseData,
+  currentRulaScore
 }: RecordingPanelProps) {
   const [selectedFrame, setSelectedFrame] = useState<RecordingFrame | null>(null);
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('normal');
-  const [viewMode, setViewMode] = useState<ViewMode>('original');
-  const [manualWeight, setManualWeight] = useState<number>(0);
+  const [viewMode, setViewMode] = useState<ViewMode>('skeleton');
+  const [activeGraph, setActiveGraph] = useState<GraphType>('live');
+  const [manualWeights, setManualWeights] = useState<ManualWeight[]>([]);
+  const [showWeightDialog, setShowWeightDialog] = useState(false);
+  
+  // Live data for real-time graphs
+  const [liveData, setLiveData] = useState<any[]>([]);
+  const [estimatedData, setEstimatedData] = useState<any[]>([]);
+
+  // Update live data when current pose/rula changes
+  useEffect(() => {
+    if (currentPoseData && currentRulaScore) {
+      const timestamp = Date.now() / 1000;
+      const newDataPoint = {
+        time: timestamp,
+        rulaScore: currentRulaScore.finalScore || 0,
+        stressLevel: currentRulaScore.stressLevel || 0,
+        riskLevel: currentRulaScore.riskLevel || 'Unknown'
+      };
+
+      // Live data (normal RULA)
+      setLiveData(prev => {
+        const updated = [...prev, newDataPoint].slice(-50); // Keep last 50 points
+        return updated;
+      });
+
+      // Estimated weight data
+      if (currentPoseData.keypoints) {
+        const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints);
+        const estimatedDataPoint = {
+          time: timestamp,
+          estimatedWeight: weightEstimation.estimatedWeight || 0,
+          confidence: weightEstimation.confidence || 0,
+          rulaScore: currentRulaScore.finalScore || 0
+        };
+        
+        setEstimatedData(prev => {
+          const updated = [...prev, estimatedDataPoint].slice(-50);
+          return updated;
+        });
+      }
+    }
+  }, [currentPoseData, currentRulaScore]);
+
+  // Add manual weight
+  const addManualWeight = () => {
+    const newWeight: ManualWeight = {
+      id: Date.now().toString(),
+      name: `Object ${manualWeights.length + 1}`,
+      weight: 0
+    };
+    setManualWeights([...manualWeights, newWeight]);
+  };
+
+  const updateManualWeight = (id: string, field: keyof ManualWeight, value: string | number) => {
+    setManualWeights(prev => 
+      prev.map(weight => 
+        weight.id === id ? { ...weight, [field]: value } : weight
+      )
+    );
+  };
+
+  const removeManualWeight = (id: string) => {
+    setManualWeights(prev => prev.filter(weight => weight.id !== id));
+  };
+
+  const getTotalManualWeight = () => {
+    return manualWeights.reduce((total, weight) => total + weight.weight, 0);
+  };
 
   // Process recording data with weight analysis
   const processedData = recordingData.map(frame => {
@@ -44,7 +122,7 @@ export default function RecordingPanel({
       const adjustedRulaScore = calculateWeightAdjustedRula(
         frame.rulaScore,
         weightEstimation,
-        analysisMode === 'manual' ? manualWeight : undefined
+        analysisMode === 'manual' ? getTotalManualWeight() : undefined
       );
       
       return {
@@ -194,15 +272,13 @@ export default function RecordingPanel({
               
               {analysisMode === 'manual' && (
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm">Weight (kg):</span>
-                  <input
-                    type="number"
-                    value={manualWeight}
-                    onChange={(e) => setManualWeight(Number(e.target.value))}
-                    className="w-20 px-2 py-1 rounded bg-gray-700 text-white border border-gray-600"
-                    min="0"
-                    max="100"
-                  />
+                  <span className="text-sm">Total Weight: {getTotalManualWeight()}kg</span>
+                  <button
+                    onClick={() => setShowWeightDialog(true)}
+                    className="px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-sm"
+                  >
+                    Manage Objects
+                  </button>
                 </div>
               )}
             </div>
