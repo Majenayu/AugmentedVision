@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Scatter, ScatterChart } from 'recharts';
 import SkeletonOverlay from './skeleton-overlay';
+import ThreeDView from './three-d-view';
 import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
 
 interface RecordingFrame {
@@ -511,7 +512,14 @@ export default function RecordingPanel({
             <h4 className="text-lg font-medium mb-3 text-orange-400">Weight-Adjusted RULA Analysis (Recording Session)</h4>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart onClick={handleChartClick}>
+                <LineChart 
+                  data={recordingGraphData.map((liveData, index) => ({
+                    ...liveData,
+                    liveRulaScore: liveData.rulaScore,
+                    estimatedRulaScore: estimatedGraphData[index]?.rulaScore || liveData.rulaScore
+                  }))} 
+                  onClick={handleChartClick}
+                >
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis 
                     dataKey="time" 
@@ -539,12 +547,10 @@ export default function RecordingPanel({
                   />
                   {/* Blue line for live RULA scores */}
                   <Line 
-                    data={recordingGraphData}
                     type="monotone" 
-                    dataKey="rulaScore" 
+                    dataKey="liveRulaScore" 
                     stroke="#3B82F6" 
                     strokeWidth={2}
-                    name="liveRulaScore"
                     dot={(props: any) => {
                       if (props.payload.hasObject) {
                         return <circle cx={props.cx} cy={props.cy} r={4} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
@@ -554,12 +560,10 @@ export default function RecordingPanel({
                   />
                   {/* Orange line for estimated weight-adjusted RULA scores */}
                   <Line 
-                    data={estimatedGraphData}
                     type="monotone" 
-                    dataKey="rulaScore" 
+                    dataKey="estimatedRulaScore" 
                     stroke="#F59E0B" 
                     strokeWidth={2}
-                    name="estimatedRulaScore"
                     dot={(props: any) => {
                       if (props.payload.hasObject) {
                         return <circle cx={props.cx} cy={props.cy} r={6} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
@@ -701,15 +705,31 @@ export default function RecordingPanel({
                   </div>
                 )}
                 {viewMode === 'skeleton' && (
-                  <div className="relative w-full h-full bg-black">
-                    <SkeletonOverlay
-                      poseData={selectedFrame.poseData}
-                      rulaScore={getCurrentRulaScore(selectedFrame)}
-                      width={640}
-                      height={360}
-                      showColorCoding={true}
-                      weightEstimation={getCurrentWeightEstimation(selectedFrame)}
-                    />
+                  <div className="relative w-full h-full bg-black grid grid-cols-1 lg:grid-cols-2 gap-2">
+                    {/* 2D Skeleton View */}
+                    <div className="relative bg-black">
+                      <SkeletonOverlay
+                        poseData={selectedFrame.poseData}
+                        rulaScore={getCurrentRulaScore(selectedFrame)}
+                        width={320}
+                        height={180}
+                        showColorCoding={true}
+                        weightEstimation={getCurrentWeightEstimation(selectedFrame)}
+                      />
+                      <div className="absolute bottom-1 left-1 bg-black/70 text-white px-2 py-1 rounded text-xs">
+                        2D Skeleton
+                      </div>
+                    </div>
+                    {/* 3D Skeleton View */}
+                    <div className="relative bg-black">
+                      <ThreeDView
+                        poseData={selectedFrame.poseData}
+                        rulaScore={getCurrentRulaScore(selectedFrame)}
+                      />
+                      <div className="absolute bottom-1 left-1 bg-black/70 text-white px-2 py-1 rounded text-xs">
+                        3D Skeleton
+                      </div>
+                    </div>
                     {selectedFrame.hasObject && (
                       <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
                         OBJECT DETECTED
@@ -746,7 +766,9 @@ export default function RecordingPanel({
             </div>
 
             <div className="space-y-4">
-              <div>
+              {/* Only show RULA table for original and skeleton modes, not enhanced */}
+              {viewMode !== 'enhanced' && (
+                <div>
                 <h5 className="text-lg font-medium mb-3">RULA Assessment</h5>
                 {selectedFrame.rulaScore ? (
                   <div className="space-y-3">
@@ -810,6 +832,7 @@ export default function RecordingPanel({
                   <p className="text-text-secondary">No RULA data available for this frame</p>
                 )}
               </div>
+              )}
 
               {selectedFrame.weightEstimation && (
                 <div>
