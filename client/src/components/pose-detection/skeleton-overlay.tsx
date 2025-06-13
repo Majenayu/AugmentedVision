@@ -131,13 +131,13 @@ export default function SkeletonOverlay({
           ctx.beginPath();
           ctx.moveTo(x1, y1);
           ctx.lineTo(x2, y2);
-          ctx.strokeStyle = getJointColor(startIdx);
+          ctx.strokeStyle = '#0084FF'; // Blue connections
           ctx.lineWidth = 3;
           ctx.stroke();
         }
       });
 
-      // Draw keypoints
+      // Draw keypoints with confidence scores
       keypoints.forEach((keypoint: any, index: number) => {
         if (keypoint.score > 0.3) {
           const x = offsetX + (keypoint.x * drawWidth);
@@ -145,19 +145,19 @@ export default function SkeletonOverlay({
 
           // Draw keypoint circle
           ctx.beginPath();
-          ctx.arc(x, y, 6, 0, 2 * Math.PI);
-          ctx.fillStyle = getJointColor(index);
+          ctx.arc(x, y, 8, 0, 2 * Math.PI);
+          ctx.fillStyle = '#FF0000'; // Red fill
           ctx.fill();
           ctx.strokeStyle = '#FFFFFF';
           ctx.lineWidth = 2;
           ctx.stroke();
 
-          // Draw keypoint label
-          if (showColorCoding) {
-            ctx.fillStyle = '#FFFFFF';
-            ctx.font = '12px Arial';
-            ctx.fillText(KEYPOINT_NAMES[index] || `${index}`, x + 8, y - 8);
-          }
+          // Draw confidence score
+          const confidence = Math.round(keypoint.score * 100);
+          ctx.fillStyle = '#FFFFFF';
+          ctx.font = 'bold 12px Arial';
+          ctx.textAlign = 'center';
+          ctx.fillText(`${confidence}%`, x, y - 12);
         }
       });
 

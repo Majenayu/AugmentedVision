@@ -28,12 +28,14 @@ interface RecordingPanelProps {
 interface ManualWeight {
   id: string;
   name: string;
-  weight: number;
+  weight: number; // weight in grams
+  zoomedImage?: string;
+  timestamp: number;
 }
 
-type AnalysisMode = 'normal' | 'estimated' | 'manual';
-type ViewMode = 'original' | 'skeleton' | 'enhanced';
-type GraphType = 'live' | 'estimated' | 'manual';
+type AnalysisMode = 'normal' | 'manual';
+type ViewMode = 'original' | 'skeleton';
+type GraphType = 'live' | 'manual';
 
 export default function RecordingPanel({
   isRecording,
@@ -127,12 +129,16 @@ export default function RecordingPanel({
     }
   }, [isRecording, currentPoseData, currentRulaScore]);
 
-  // Add manual weight
-  const addManualWeight = () => {
+  // Capture object zoom from current frame
+  const captureObjectZoom = () => {
+    if (!selectedFrame || !selectedFrame.imageData) return;
+    
     const newWeight: ManualWeight = {
       id: Date.now().toString(),
       name: `Object ${manualWeights.length + 1}`,
-      weight: 0
+      weight: 0, // weight in grams
+      zoomedImage: selectedFrame.imageData,
+      timestamp: selectedFrame.timestamp
     };
     setManualWeights([...manualWeights, newWeight]);
   };
@@ -431,16 +437,7 @@ export default function RecordingPanel({
           >
             Live RULA Graph
           </button>
-          <button
-            onClick={() => setActiveGraph('estimated')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              activeGraph === 'estimated' 
-                ? 'bg-orange-600 text-white' 
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            Estimated Weight Graph
-          </button>
+
           <button
             onClick={() => setActiveGraph('manual')}
             disabled={recordingData.length === 0 || manualWeights.length === 0}
