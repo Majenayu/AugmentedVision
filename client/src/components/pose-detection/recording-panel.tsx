@@ -56,7 +56,6 @@ export default function RecordingPanel({
 
   // Separate graph data that only records during recording session
   const [recordingGraphData, setRecordingGraphData] = useState<any[]>([]);
-  const [estimatedGraphData, setEstimatedGraphData] = useState<any[]>([]);
   const [manualGraphData, setManualGraphData] = useState<any[]>([]);
   const recordingStartTimeRef = useRef<number | null>(null);
 
@@ -79,7 +78,6 @@ export default function RecordingPanel({
       recordingStartTime.current = Date.now();
       recordingStartTimeRef.current = Date.now();
       setRecordingGraphData([]);
-      setEstimatedGraphData([]);
       setManualGraphData([]);
     } else {
       recordingStartTime.current = null;
@@ -107,24 +105,7 @@ export default function RecordingPanel({
 
         setRecordingGraphData(prev => [...prev, newDataPoint]);
 
-        // Estimated weight data
-        if (currentPoseData.keypoints) {
-          const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints);
-          const adjustedRulaScore = calculateWeightAdjustedRula(
-            currentRulaScore,
-            weightEstimation
-          );
 
-          const estimatedDataPoint = {
-            time: elapsedSeconds,
-            estimatedWeight: weightEstimation.estimatedWeight || 0,
-            confidence: weightEstimation.confidence || 0,
-            rulaScore: adjustedRulaScore.finalScore || 0,
-            hasObject: weightEstimation.estimatedWeight > 0
-          };
-
-          setEstimatedGraphData(prev => [...prev, estimatedDataPoint]);
-        }
       }
     }
   }, [isRecording, currentPoseData, currentRulaScore]);
@@ -223,8 +204,8 @@ export default function RecordingPanel({
     if (data && data.activePayload && data.activePayload[0]) {
       const timestamp = data.activePayload[0].payload.time;
       
-      // For live and estimated graphs, find frame from recording data
-      if (activeGraph === 'live' || activeGraph === 'estimated') {
+      // For live graph, find frame from recording data
+      if (activeGraph === 'live') {
         const frame = recordingData.find(f => {
           const frameSeconds = (recordingStartTimeRef.current ? 
             (f.timestamp - recordingStartTimeRef.current) / 1000 : 
