@@ -1,11 +1,10 @@
 interface RulaAssessmentProps {
   rulaScore: any;
   poseData: any;
-  confidence: number;
   isProcessing: boolean;
 }
 
-export default function RulaAssessment({ rulaScore, poseData, confidence, isProcessing }: RulaAssessmentProps) {
+export default function RulaAssessment({ rulaScore, poseData, isProcessing }: RulaAssessmentProps) {
   const getRiskLevelColor = (score: number) => {
     if (score <= 2) return 'bg-rula-safe';
     if (score <= 4) return 'bg-rula-investigate';
@@ -47,7 +46,7 @@ export default function RulaAssessment({ rulaScore, poseData, confidence, isProc
       </div>
 
       {/* Main RULA Score Display */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div className="text-center">
           <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-3 ${
             rulaScore ? getRiskLevelColor(rulaScore.finalScore) : 'bg-gray-500'
@@ -72,13 +71,7 @@ export default function RulaAssessment({ rulaScore, poseData, confidence, isProc
           <p className="text-text-secondary text-sm">Risk assessment</p>
         </div>
         
-        <div className="text-center">
-          <div className="bg-purple-500 w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-3">
-            <span className="text-2xl font-bold text-white">{confidence}%</span>
-          </div>
-          <h4 className="text-lg font-medium mb-1">Confidence</h4>
-          <p className="text-text-secondary text-sm">Detection accuracy</p>
-        </div>
+
       </div>
 
       {/* Detailed Metrics */}

@@ -221,16 +221,6 @@ export default function Home() {
 
               <div className="flex items-center space-x-4">
                 <div className="flex items-center space-x-2">
-                  <span className="text-sm text-text-secondary">Confidence:</span>
-                  <div className="w-32 bg-gray-700 rounded-full h-2">
-                    <div 
-                      className="bg-material-blue h-2 rounded-full transition-all duration-300" 
-                      style={{width: `${confidence}%`}}
-                    ></div>
-                  </div>
-                  <span className="text-sm font-mono">{confidence}%</span>
-                </div>
-                <div className="flex items-center space-x-2">
                   <span className="text-sm text-text-secondary">FPS:</span>
                   <span className="text-sm font-mono">{fps}</span>
                 </div>
@@ -254,14 +244,12 @@ export default function Home() {
         <RulaAssessment 
           rulaScore={rulaScore} 
           poseData={poseData} 
-          confidence={confidence}
           isProcessing={isProcessing}
         />
 
         {/* Real-time Metrics Dashboard */}
         <MetricsDashboard 
           fps={fps}
-          confidence={confidence}
           sessionDuration={formatDuration(sessionDuration)}
           rulaScore={rulaScore}
           poseData={poseData}
