@@ -505,13 +505,13 @@ export default function RecordingPanel({
           </div>
         )}
 
-        {/* Estimated Weight Graph - Only shows data from recording session */}
+        {/* Estimated Weight Graph - Shows both live and estimated data */}
         {activeGraph === 'estimated' && (
           <div className="bg-gray-800 rounded-lg p-4">
             <h4 className="text-lg font-medium mb-3 text-orange-400">Weight-Adjusted RULA Analysis (Recording Session)</h4>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={estimatedGraphData} onClick={handleChartClick}>
+                <LineChart onClick={handleChartClick}>
                   <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
                   <XAxis 
                     dataKey="time" 
@@ -526,8 +526,8 @@ export default function RecordingPanel({
                   <Tooltip 
                     labelFormatter={formatTime}
                     formatter={(value: any, name: string) => {
-                      if (name === 'estimatedWeight') return [value + 'kg', 'Estimated Weight'];
-                      if (name === 'rulaScore') return [value, 'Weight-Adjusted RULA Score'];
+                      if (name === 'liveRulaScore') return [value, 'Live RULA Score'];
+                      if (name === 'estimatedRulaScore') return [value, 'Weight-Adjusted RULA Score'];
                       return [value, name];
                     }}
                     contentStyle={{
@@ -537,11 +537,29 @@ export default function RecordingPanel({
                       color: '#F9FAFB'
                     }}
                   />
+                  {/* Blue line for live RULA scores */}
                   <Line 
+                    data={recordingGraphData}
+                    type="monotone" 
+                    dataKey="rulaScore" 
+                    stroke="#3B82F6" 
+                    strokeWidth={2}
+                    name="liveRulaScore"
+                    dot={(props: any) => {
+                      if (props.payload.hasObject) {
+                        return <circle cx={props.cx} cy={props.cy} r={4} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
+                      }
+                      return <circle cx={props.cx} cy={props.cy} r={2} fill="#3B82F6" />;
+                    }}
+                  />
+                  {/* Orange line for estimated weight-adjusted RULA scores */}
+                  <Line 
+                    data={estimatedGraphData}
                     type="monotone" 
                     dataKey="rulaScore" 
                     stroke="#F59E0B" 
                     strokeWidth={2}
+                    name="estimatedRulaScore"
                     dot={(props: any) => {
                       if (props.payload.hasObject) {
                         return <circle cx={props.cx} cy={props.cy} r={6} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
@@ -554,7 +572,7 @@ export default function RecordingPanel({
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Weight-adjusted RULA scores from recording session. Red dots indicate detected objects. Click on points to view frame details.
+              Blue line: Live RULA scores | Orange line: Weight-adjusted RULA scores | Red dots indicate detected objects. Click on points to view frame details.
             </p>
           </div>
         )}

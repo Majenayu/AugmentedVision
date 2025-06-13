@@ -1,6 +1,5 @@
 interface MetricsDashboardProps {
   fps: number;
-  confidence: number;
   sessionDuration: string;
   rulaScore: any;
   poseData: any;
@@ -8,7 +7,6 @@ interface MetricsDashboardProps {
 
 export default function MetricsDashboard({ 
   fps, 
-  confidence, 
   sessionDuration, 
   rulaScore, 
   poseData 
@@ -35,10 +33,7 @@ export default function MetricsDashboard({
             <span className="text-text-secondary">Frame Rate</span>
             <span className="font-mono">{fps} FPS</span>
           </div>
-          <div className="flex justify-between items-center">
-            <span className="text-text-secondary">Model Accuracy</span>
-            <span className="font-mono text-green-400">{confidence}%</span>
-          </div>
+
         </div>
       </div>
 
@@ -99,11 +94,11 @@ export default function MetricsDashboard({
           <div className="flex justify-between items-center">
             <span className="text-text-secondary">Detection Quality</span>
             <span className={`font-mono ${
-              confidence >= 80 ? 'text-green-400' :
-              confidence >= 60 ? 'text-yellow-400' : 'text-red-400'
+              keypointsDetected >= 15 ? 'text-green-400' :
+              keypointsDetected >= 10 ? 'text-yellow-400' : 'text-red-400'
             }`}>
-              {confidence >= 80 ? 'Excellent' :
-               confidence >= 60 ? 'Good' : 'Poor'}
+              {keypointsDetected >= 15 ? 'Excellent' :
+               keypointsDetected >= 10 ? 'Good' : 'Poor'}
             </span>
           </div>
         </div>
