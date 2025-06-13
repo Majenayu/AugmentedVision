@@ -28,14 +28,12 @@ interface RecordingPanelProps {
 interface ManualWeight {
   id: string;
   name: string;
-  weight: number; // weight in grams
-  zoomedImage?: string;
-  timestamp: number;
+  weight: number;
 }
 
-type AnalysisMode = 'normal' | 'manual';
-type ViewMode = 'original' | 'skeleton';
-type GraphType = 'live' | 'manual';
+type AnalysisMode = 'normal' | 'estimated' | 'manual';
+type ViewMode = 'original' | 'skeleton' | 'enhanced';
+type GraphType = 'live' | 'estimated' | 'manual';
 
 export default function RecordingPanel({
   isRecording,
@@ -56,6 +54,7 @@ export default function RecordingPanel({
 
   // Separate graph data that only records during recording session
   const [recordingGraphData, setRecordingGraphData] = useState<any[]>([]);
+  const [estimatedGraphData, setEstimatedGraphData] = useState<any[]>([]);
   const [manualGraphData, setManualGraphData] = useState<any[]>([]);
   const recordingStartTimeRef = useRef<number | null>(null);
 
@@ -78,6 +77,7 @@ export default function RecordingPanel({
       recordingStartTime.current = Date.now();
       recordingStartTimeRef.current = Date.now();
       setRecordingGraphData([]);
+      setEstimatedGraphData([]);
       setManualGraphData([]);
     } else {
       recordingStartTime.current = null;
@@ -105,21 +105,34 @@ export default function RecordingPanel({
 
         setRecordingGraphData(prev => [...prev, newDataPoint]);
 
+        // Estimated weight data
+        if (currentPoseData.keypoints) {
+          const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints);
+          const adjustedRulaScore = calculateWeightAdjustedRula(
+            currentRulaScore,
+            weightEstimation
+          );
 
+          const estimatedDataPoint = {
+            time: elapsedSeconds,
+            estimatedWeight: weightEstimation.estimatedWeight || 0,
+            confidence: weightEstimation.confidence || 0,
+            rulaScore: adjustedRulaScore.finalScore || 0,
+            hasObject: weightEstimation.estimatedWeight > 0
+          };
+
+          setEstimatedGraphData(prev => [...prev, estimatedDataPoint]);
+        }
       }
     }
   }, [isRecording, currentPoseData, currentRulaScore]);
 
-  // Capture object zoom from current frame
-  const captureObjectZoom = () => {
-    if (!selectedFrame || !selectedFrame.imageData) return;
-    
+  // Add manual weight
+  const addManualWeight = () => {
     const newWeight: ManualWeight = {
       id: Date.now().toString(),
       name: `Object ${manualWeights.length + 1}`,
-      weight: 0, // weight in grams
-      zoomedImage: selectedFrame.imageData,
-      timestamp: selectedFrame.timestamp
+      weight: 0
     };
     setManualWeights([...manualWeights, newWeight]);
   };
@@ -204,8 +217,8 @@ export default function RecordingPanel({
     if (data && data.activePayload && data.activePayload[0]) {
       const timestamp = data.activePayload[0].payload.time;
       
-      // For live graph, find frame from recording data
-      if (activeGraph === 'live') {
+      // For live and estimated graphs, find frame from recording data
+      if (activeGraph === 'live' || activeGraph === 'estimated') {
         const frame = recordingData.find(f => {
           const frameSeconds = (recordingStartTimeRef.current ? 
             (f.timestamp - recordingStartTimeRef.current) / 1000 : 
@@ -418,7 +431,16 @@ export default function RecordingPanel({
           >
             Live RULA Graph
           </button>
-
+          <button
+            onClick={() => setActiveGraph('estimated')}
+            className={`px-4 py-2 rounded-lg transition-colors ${
+              activeGraph === 'estimated' 
+                ? 'bg-orange-600 text-white' 
+                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
+            }`}
+          >
+            Estimated Weight Graph
+          </button>
           <button
             onClick={() => setActiveGraph('manual')}
             disabled={recordingData.length === 0 || manualWeights.length === 0}
@@ -809,7 +831,7 @@ export default function RecordingPanel({
                 ) : (
                   <p className="text-text-secondary">No RULA data available for this frame</p>
                 )}
-                </div>
+              </div>
               )}
 
               {selectedFrame.weightEstimation && (

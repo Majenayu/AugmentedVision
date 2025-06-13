@@ -3,7 +3,7 @@ import CameraView from "@/components/pose-detection/camera-view";
 import ThreeDView from "@/components/pose-detection/three-d-view";
 import RulaAssessment from "@/components/pose-detection/rula-assessment";
 import MetricsDashboard from "@/components/pose-detection/metrics-dashboard";
-import RecordingPanel from "@/components/pose-detection/recording-panel-fixed";
+import RecordingPanel from "@/components/pose-detection/recording-panel";
 import { usePoseDetection } from "@/hooks/use-pose-detection";
 import { useCamera, type CameraDevice } from "@/hooks/use-camera";
 import { useRecording } from "@/hooks/use-recording";
@@ -261,6 +261,7 @@ export default function Home() {
         {/* Real-time Metrics Dashboard */}
         <MetricsDashboard 
           fps={fps}
+          confidence={confidence}
           sessionDuration={formatDuration(sessionDuration)}
           rulaScore={rulaScore}
           poseData={poseData}

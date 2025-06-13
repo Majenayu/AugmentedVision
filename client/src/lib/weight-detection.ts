@@ -69,7 +69,7 @@ export function calculateWeightAdjustedRula(originalRula: any, weightEstimation:
 }
 
 function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
-  // Enhanced posture analysis for detecting only grabbed/held objects (not environment objects)
+  // Enhanced posture analysis for detecting external objects (not human body)
   let isLifting = false;
   let isCarrying = false;
   let armPosition: 'extended' | 'close' | 'overhead' = 'close';
@@ -77,6 +77,7 @@ function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
   let loadDirection: 'front' | 'side' | 'back' = 'front';
   
   if (keypoints.length >= 17) {
+    // Check arm positions with more sensitivity for external object detection
     const leftShoulder = keypoints[5];
     const rightShoulder = keypoints[6];
     const leftElbow = keypoints[7];
@@ -87,66 +88,45 @@ function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
     const rightHip = keypoints[12];
     
     if (leftShoulder && rightShoulder && leftWrist && rightWrist && leftElbow && rightElbow) {
+      // More specific detection for external objects
+      // Check if arms are in a carrying/holding position (bent elbows with objects)
       const leftElbowAngle = calculateElbowAngle(leftShoulder, leftElbow, leftWrist);
       const rightElbowAngle = calculateElbowAngle(rightShoulder, rightElbow, rightWrist);
       
-      // Stricter criteria for detecting grabbed objects only
-      const leftArmActive = leftElbowAngle > 45 && leftElbowAngle < 135;
-      const rightArmActive = rightElbowAngle > 45 && rightElbowAngle < 135;
+      // Check for specific carrying postures that indicate external objects
+      const leftArmBent = leftElbowAngle > 30 && leftElbowAngle < 150;
+      const rightArmBent = rightElbowAngle > 30 && rightElbowAngle < 150;
       
-      // Check for intentional grasping positions (hands positioned for holding objects)
-      const leftHandGrasping = leftWrist.y > leftElbow.y && Math.abs(leftWrist.x - leftElbow.x) > 0.05;
-      const rightHandGrasping = rightWrist.y > rightElbow.y && Math.abs(rightWrist.x - rightElbow.x) > 0.05;
+      // Check if wrists are positioned to hold objects (not just natural arm movement)
+      const leftWristForward = leftWrist.y > leftShoulder.y && Math.abs(leftWrist.x - leftShoulder.x) > 0.1;
+      const rightWristForward = rightWrist.y > rightShoulder.y && Math.abs(rightWrist.x - rightShoulder.x) > 0.1;
       
-      // Detect actual object manipulation (not just arm movement)
-      const leftGraspingObject = leftArmActive && leftHandGrasping && 
-        (leftWrist.y > leftShoulder.y + 0.1) && // Hand below shoulder level
-        (Math.abs(leftWrist.x - leftShoulder.x) > 0.15); // Hand away from body
-        
-      const rightGraspingObject = rightArmActive && rightHandGrasping && 
-        (rightWrist.y > rightShoulder.y + 0.1) && // Hand below shoulder level
-        (Math.abs(rightWrist.x - rightShoulder.x) > 0.15); // Hand away from body
-      
-      // Only detect carrying when hands are clearly holding something
-      if (leftGraspingObject || rightGraspingObject) {
+      // Detect carrying only when specific conditions are met
+      if ((leftArmBent && leftWristForward) || (rightArmBent && rightWristForward)) {
         isCarrying = true;
         armPosition = 'extended';
       }
       
-      // Lifting detection - both hands engaged in coordinated motion
-      const bothHandsEngaged = leftGraspingObject && rightGraspingObject;
-      const coordinatedMotion = Math.abs(leftElbowAngle - rightElbowAngle) < 25;
-      const liftingHeight = (leftWrist.y + rightWrist.y) / 2 > (leftShoulder.y + rightShoulder.y) / 2 + 0.05;
+      // Check for lifting posture (both arms engaged, specific angle patterns)
+      const bothArmsEngaged = leftArmBent && rightArmBent;
+      const symmetricPosture = Math.abs(leftElbowAngle - rightElbowAngle) < 30;
       
-      if (bothHandsEngaged && coordinatedMotion && liftingHeight) {
+      if (bothArmsEngaged && symmetricPosture && (leftWristForward || rightWristForward)) {
         isLifting = true;
         armPosition = 'extended';
       }
       
-      // Overhead lifting - clear object manipulation above shoulder level
-      const leftOverhead = leftWrist.y < leftShoulder.y - 0.15 && leftArmActive;
-      const rightOverhead = rightWrist.y < rightShoulder.y - 0.15 && rightArmActive;
-      
-      if (leftOverhead || rightOverhead) {
+      // Check for overhead position (clear lifting motion)
+      if ((leftWrist.y < leftShoulder.y - 0.1) || (rightWrist.y < rightShoulder.y - 0.1)) {
         armPosition = 'overhead';
         isLifting = true;
       }
       
-      // Analyze spine deviation for load assessment
+      // Analyze spine deviation
       if (leftHip && rightHip) {
         const hipCenter = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
         const shoulderCenter = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
         spineDeviation = Math.abs(shoulderCenter.x - hipCenter.x) * 100;
-        
-        // Determine load direction based on hand positions
-        const handCenter = { x: (leftWrist.x + rightWrist.x) / 2, y: (leftWrist.y + rightWrist.y) / 2 };
-        if (handCenter.x < shoulderCenter.x - 0.1) {
-          loadDirection = 'side';
-        } else if (handCenter.x > shoulderCenter.x + 0.1) {
-          loadDirection = 'side';
-        } else {
-          loadDirection = 'front';
-        }
       }
     }
   }
@@ -173,19 +153,19 @@ function calculateElbowAngle(shoulder: Keypoint, elbow: Keypoint, wrist: Keypoin
 }
 
 function calculateWeightFromPosture(bodyPosture: PostureAnalysis, keypoints: Keypoint[]): number {
-  // Very conservative weight estimation - only for clearly grabbed objects
+  // Conservative weight estimation only for confirmed external objects
   let baseWeight = 0;
   
-  // Only estimate weight when we have strong indicators of actual object manipulation
+  // Only estimate weight when we have clear indicators of external objects
   if (bodyPosture.isLifting && bodyPosture.armPosition === 'extended') {
-    baseWeight = 8; // Confirmed lifting with clear grasping posture
+    baseWeight = 10; // Confirmed lifting with extended arms
   } else if (bodyPosture.isCarrying && bodyPosture.armPosition === 'extended') {
-    baseWeight = 5; // Confirmed carrying with intentional hand positioning
+    baseWeight = 7; // Confirmed carrying with extended arms
   } else if (bodyPosture.armPosition === 'overhead') {
-    baseWeight = 10; // Overhead manipulation typically involves objects
+    baseWeight = 12; // Overhead lifting usually involves objects
   }
   
-  // Additional validation for object presence (not just posture)
+  // Additional checks for object-specific postures
   if (keypoints.length >= 17 && baseWeight > 0) {
     const leftShoulder = keypoints[5];
     const rightShoulder = keypoints[6];
@@ -195,44 +175,26 @@ function calculateWeightFromPosture(bodyPosture: PostureAnalysis, keypoints: Key
     const rightWrist = keypoints[10];
     
     if (leftShoulder && rightShoulder && leftElbow && rightElbow && leftWrist && rightWrist) {
-      // Check for grip-specific posture indicators
+      // Check for asymmetric loading (indicates external object)
       const leftElbowAngle = calculateElbowAngle(leftShoulder, leftElbow, leftWrist);
       const rightElbowAngle = calculateElbowAngle(rightShoulder, rightElbow, rightWrist);
+      const asymmetry = Math.abs(leftElbowAngle - rightElbowAngle);
       
-      // Object-specific asymmetry (different from natural movement asymmetry)
-      const significantAsymmetry = Math.abs(leftElbowAngle - rightElbowAngle) > 40;
-      const oneArmDominant = (leftElbowAngle < 90 && rightElbowAngle > 120) || 
-                            (rightElbowAngle < 90 && leftElbowAngle > 120);
-      
-      if (significantAsymmetry && oneArmDominant) {
-        baseWeight += 2; // Clear indication of holding an object with one hand
+      if (asymmetry > 30) {
+        baseWeight += 3; // Asymmetric posture suggests external load
       }
       
-      // Load-bearing posture analysis
+      // Check for forward lean (indicates heavier objects)
       const shoulderCenter = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
       const wristCenter = { x: (leftWrist.x + rightWrist.x) / 2, y: (leftWrist.y + rightWrist.y) / 2 };
       
-      // Forward reach with load compensation
-      const forwardReach = wristCenter.y > shoulderCenter.y + 0.2;
-      const lateralStability = Math.abs(wristCenter.x - shoulderCenter.x) > 0.1;
-      
-      if (forwardReach && lateralStability) {
-        baseWeight += 3; // Clear object manipulation with body compensation
-      }
-      
-      // Spine compensation for external load
-      if (bodyPosture.spineDeviation > 15) {
-        baseWeight += 2; // Body compensating for external weight
+      if (wristCenter.y > shoulderCenter.y + 0.15) {
+        baseWeight += 5; // Forward lean with extended arms
       }
     }
   }
   
-  // Final validation - only return weight if multiple indicators confirm object presence
-  const hasMultipleIndicators = (bodyPosture.isLifting || bodyPosture.isCarrying) && 
-                                bodyPosture.spineDeviation > 10 && 
-                                baseWeight > 5;
-  
-  return hasMultipleIndicators ? baseWeight : 0;
+  return baseWeight;
 }
 
 
