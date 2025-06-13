@@ -32,7 +32,7 @@ interface ManualWeight {
 }
 
 type AnalysisMode = 'normal' | 'estimated' | 'manual';
-type ViewMode = 'original' | 'skeleton' | 'enhanced';
+type ViewMode = 'original' | 'skeleton';
 type GraphType = 'live' | 'estimated' | 'manual';
 
 export default function RecordingPanel({
@@ -676,14 +676,7 @@ export default function RecordingPanel({
               >
                 Skeleton
               </button>
-              <button
-                onClick={() => setViewMode('enhanced')}
-                className={`px-3 py-1 rounded text-sm ${
-                  viewMode === 'enhanced' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'
-                }`}
-              >
-                Enhanced
-              </button>
+
             </div>
           </div>
 
@@ -737,37 +730,12 @@ export default function RecordingPanel({
                     )}
                   </div>
                 )}
-                {viewMode === 'enhanced' && (
-                  <div className="relative w-full h-full">
-                    <img 
-                      src={selectedFrame.imageData} 
-                      alt="Enhanced frame"
-                      className="w-full h-full object-contain absolute inset-0"
-                    />
-                    <div className="absolute inset-0">
-                      <SkeletonOverlay
-                        poseData={selectedFrame.poseData}
-                        rulaScore={getCurrentRulaScore(selectedFrame)}
-                        imageData={selectedFrame.imageData}
-                        width={640}
-                        height={360}
-                        showColorCoding={true}
-                        weightEstimation={getCurrentWeightEstimation(selectedFrame)}
-                      />
-                    </div>
-                    {selectedFrame.hasObject && (
-                      <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
-                        OBJECT DETECTED
-                      </div>
-                    )}
-                  </div>
-                )}
+
               </div>
             </div>
 
             <div className="space-y-4">
-              {/* Only show RULA table for original and skeleton modes, not enhanced */}
-              {viewMode !== 'enhanced' && (
+              {/* RULA table for both original and skeleton modes */}
                 <div>
                 <h5 className="text-lg font-medium mb-3">RULA Assessment</h5>
                 {selectedFrame.rulaScore ? (
@@ -832,7 +800,6 @@ export default function RecordingPanel({
                   <p className="text-text-secondary">No RULA data available for this frame</p>
                 )}
               </div>
-              )}
 
               {selectedFrame.weightEstimation && (
                 <div>
