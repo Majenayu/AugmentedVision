@@ -831,7 +831,7 @@ export default function RecordingPanel({
                 ) : (
                   <p className="text-text-secondary">No RULA data available for this frame</p>
                 )}
-              </div>
+                </div>
               )}
 
               {selectedFrame.weightEstimation && (

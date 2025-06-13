@@ -261,7 +261,6 @@ export default function Home() {
         {/* Real-time Metrics Dashboard */}
         <MetricsDashboard 
           fps={fps}
-          confidence={confidence}
           sessionDuration={formatDuration(sessionDuration)}
           rulaScore={rulaScore}
           poseData={poseData}
