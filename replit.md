@@ -106,6 +106,7 @@ Changelog:
 - June 17, 2025. Removed object detection analysis section from recording panel per user request
 - June 17, 2025. Simplified live object detection to show only cropped photos with manual weight input in grams
 - June 17, 2025. Modified object detection to analyze all recorded frames instead of current camera frame
+- June 17, 2025. Added deduplication logic to show only unique objects, keeping highest confidence detection
 
 # User Preferences
 

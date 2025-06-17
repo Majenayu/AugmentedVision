@@ -162,7 +162,24 @@ export default function ObjectDetectionWeightInput({
       }
       
       console.log(`Analysis complete: Found ${allObjectsWithCrops.length} total objects across all frames`);
-      setDetectedObjects(allObjectsWithCrops);
+      
+      // Remove duplicates - keep only one instance of each object type
+      const uniqueObjects: ObjectWithCrop[] = [];
+      
+      allObjectsWithCrops.forEach(obj => {
+        const existingObj = uniqueObjects.find(u => u.class === obj.class);
+        if (!existingObj) {
+          // First occurrence of this object type
+          uniqueObjects.push(obj);
+        } else if (obj.confidence > existingObj.confidence) {
+          // Replace with higher confidence detection
+          const index = uniqueObjects.indexOf(existingObj);
+          uniqueObjects[index] = obj;
+        }
+      });
+      
+      console.log(`After deduplication: ${uniqueObjects.length} unique objects`);
+      setDetectedObjects(uniqueObjects);
     } catch (error) {
       console.error('Recorded frames analysis error:', error);
     } finally {
