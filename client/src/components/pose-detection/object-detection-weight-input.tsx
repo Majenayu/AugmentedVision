@@ -34,14 +34,18 @@ export default function ObjectDetectionWeightInput({
   useEffect(() => {
     const initModel = async () => {
       try {
+        console.log('Starting object detection model initialization...');
         await initializeObjectDetection();
+        console.log('Object detection model initialized successfully');
         setIsModelLoaded(true);
       } catch (error) {
         console.error('Failed to initialize object detection:', error);
+        setIsModelLoaded(false);
       }
     };
 
     if (isVisible) {
+      console.log('Object detection dialog is visible, initializing model...');
       initModel();
     }
   }, [isVisible]);
@@ -77,31 +81,53 @@ export default function ObjectDetectionWeightInput({
   };
 
   const analyzeCurrentFrame = async () => {
-    if (!videoRef?.current || !isModelLoaded) return;
+    if (!videoRef?.current || !isModelLoaded) {
+      console.log('Video ref or model not ready:', { 
+        hasVideo: !!videoRef?.current, 
+        isModelLoaded 
+      });
+      return;
+    }
 
     setIsAnalyzing(true);
     try {
       console.log('Analyzing current frame for objects...');
+      console.log('Video element:', videoRef.current);
+      console.log('Video dimensions:', {
+        width: videoRef.current.videoWidth,
+        height: videoRef.current.videoHeight,
+        readyState: videoRef.current.readyState
+      });
       
       // Detect objects in the current video frame
       const objects = await detectObjects(videoRef.current);
       
-      console.log(`Found ${objects.length} objects in current frame:`, objects.map(o => o.class));
+      console.log(`Found ${objects.length} objects in current frame:`, objects.map(o => ({ class: o.class, confidence: o.confidence })));
 
       // Create cropped images for each detected object
       const objectsWithCrops: ObjectWithCrop[] = [];
       
       for (const obj of objects) {
+        console.log('Processing object:', obj.class, 'bbox:', obj.bbox);
         const croppedImage = await cropObjectFromVideo(obj.bbox);
-        objectsWithCrops.push({
-          ...obj,
-          croppedImage
-        });
+        if (croppedImage) {
+          objectsWithCrops.push({
+            ...obj,
+            croppedImage
+          });
+          console.log('Successfully cropped image for:', obj.class);
+        } else {
+          console.log('Failed to crop image for:', obj.class);
+        }
       }
       
+      console.log('Final objects with crops:', objectsWithCrops.length);
       setDetectedObjects(objectsWithCrops);
     } catch (error) {
       console.error('Frame analysis error:', error);
+      if (error instanceof Error) {
+        console.error('Error details:', error.message, error.stack);
+      }
     } finally {
       setIsAnalyzing(false);
     }
@@ -167,13 +193,20 @@ export default function ObjectDetectionWeightInput({
               <p className="text-sm text-gray-400">Loading detection model...</p>
             </div>
           ) : (
-            <Button
-              onClick={analyzeCurrentFrame}
-              disabled={isAnalyzing}
-              className="w-full"
-            >
-              {isAnalyzing ? 'Analyzing Current Frame...' : 'Detect Objects in Current Frame'}
-            </Button>
+            <div className="space-y-2">
+              <Button
+                onClick={analyzeCurrentFrame}
+                disabled={isAnalyzing}
+                className="w-full"
+              >
+                {isAnalyzing ? 'Analyzing Current Frame...' : 'Detect Objects in Current Frame'}
+              </Button>
+              <div className="text-xs text-gray-500 text-center">
+                Model loaded: {isModelLoaded ? 'Yes' : 'No'} | 
+                Video ready: {videoRef?.current ? 'Yes' : 'No'} |
+                Objects found: {detectedObjects.length}
+              </div>
+            </div>
           )}
         </CardContent>
       </Card>
