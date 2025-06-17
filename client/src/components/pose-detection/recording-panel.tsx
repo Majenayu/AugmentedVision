@@ -3,6 +3,7 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import SkeletonOverlay from './skeleton-overlay';
 import ThreeDView from './three-d-view';
 import ManualWeightInput, { type ManualWeight } from './manual-weight-input';
+import ObjectDetectionWeightInput from './object-detection-weight-input';
 import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
 
 interface RecordingFrame {
@@ -715,17 +716,17 @@ export default function RecordingPanel({
                 )}
                 {viewMode === 'skeleton' && (
                   <div className="relative w-full h-full bg-black">
-                    {/* Full 2D Skeleton View - No background image */}
+                    {/* Full 2D Skeleton View - With background image */}
                     <div className="relative w-full h-full bg-black">
                       <SkeletonOverlay
                         poseData={selectedFrame.poseData}
                         rulaScore={getCurrentRulaScore(selectedFrame)}
-                        imageData={selectedFrame.imageData} // Pass image data for proper coordinate scaling
+                        imageData={selectedFrame.imageData}
                         width={640}
                         height={360}
                         showColorCoding={true}
                         weightEstimation={getCurrentWeightEstimation(selectedFrame)}
-                        skeletonOnly={true}
+                        skeletonOnly={false}
                         videoRef={videoRef}
                       />
                       <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
@@ -883,61 +884,27 @@ export default function RecordingPanel({
         </div>
       )}
 
-      {/* Manual Weight Management Dialog */}
+      {/* Smart Object Detection Weight Management Dialog */}
       {showWeightDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
-            <h3 className="text-lg font-medium mb-4">Manage Objects & Weights</h3>
-
-            <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
-              {manualWeights.map((weight) => (
-                <div key={weight.id} className="flex items-center space-x-2 bg-gray-700 p-3 rounded-lg">
-                  <input
-                    type="text"
-                    value={weight.name}
-                    onChange={(e) => updateManualWeight(weight.id, 'name', e.target.value)}
-                    className="flex-1 px-2 py-1 bg-gray-600 text-white rounded border border-gray-500"
-                    placeholder="Object name"
-                  />
-                  <input
-                    type="number"
-                    value={weight.weight}
-                    onChange={(e) => updateManualWeight(weight.id, 'weight', Number(e.target.value))}
-                    className="w-20 px-2 py-1 bg-gray-600 text-white rounded border border-gray-500"
-                    placeholder="kg"
-                    min="0"
-                    max="100"
-                    step="0.1"
-                  />
-                  <button
-                    onClick={() => removeManualWeight(weight.id)}
-                    className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-sm"
-                  >
-                    ×
-                  </button>
-                </div>
-              ))}
-            </div>
-
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
-              <button
-                onClick={addManualWeight}
-                className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm"
-              >
-                Add Object
-              </button>              <div className="text-sm">
-                Total Weight: <span className="font-bold">{getTotalManualWeight()}kg</span>
-              </div>
-            </div>
-
-            <div className="flex space-x-2">
+              <h3 className="text-lg font-medium">Smart Object Detection & Weight Management</h3>
               <button
                 onClick={() => setShowWeightDialog(false)}
-                className="flex-1 px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded"
+                className="text-gray-400 hover:text-white text-xl"
               >
-                Done
+                ×
               </button>
             </div>
+
+            <ObjectDetectionWeightInput
+              onAddWeight={addManualWeightFromInput}
+              existingWeights={manualWeights}
+              videoRef={videoRef}
+              currentPoseData={currentPoseData}
+              isVisible={showWeightDialog}
+            />
           </div>
         </div>
       )}
