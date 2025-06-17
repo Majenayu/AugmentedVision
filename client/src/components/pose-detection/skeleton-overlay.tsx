@@ -53,8 +53,31 @@ export default function SkeletonOverlay({
     if (imageData) {
       const img = new Image();
       img.onload = () => {
-        // For recorded images, fill the entire canvas
-        ctx.drawImage(img, 0, 0, width, height);
+        // Calculate how to draw the image to maintain aspect ratio
+        const imgAspect = img.width / img.height;
+        const canvasAspect = width / height;
+        
+        let drawWidth, drawHeight, drawX, drawY;
+        
+        if (imgAspect > canvasAspect) {
+          // Image is wider - fit to width, center vertically
+          drawWidth = width;
+          drawHeight = width / imgAspect;
+          drawX = 0;
+          drawY = (height - drawHeight) / 2;
+        } else {
+          // Image is taller - fit to height, center horizontally
+          drawWidth = height * imgAspect;
+          drawHeight = height;
+          drawX = (width - drawWidth) / 2;
+          drawY = 0;
+        }
+        
+        // Clear canvas and draw image with proper aspect ratio
+        ctx.clearRect(0, 0, width, height);
+        ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+        
+        // Draw skeleton aligned to the image
         drawSkeleton(0, 0, width, height);
       };
       img.src = imageData;
@@ -68,16 +91,17 @@ export default function SkeletonOverlay({
       const keypoints = poseData.keypoints;
       
       // For recorded images, we need to properly scale the coordinates
-      // The keypoints are in normalized coordinates (0-1) relative to the original video/capture size
+      // The keypoints are in pixel coordinates relative to the original capture size
       let scaleX = drawWidth;
       let scaleY = drawHeight;
       let actualOffsetX = offsetX;
       let actualOffsetY = offsetY;
       
-      // If we have an image, we need to maintain aspect ratio and center it
+      // If we have an image, we need to maintain aspect ratio and align skeleton properly
       if (imageData) {
         const img = new Image();
         img.onload = () => {
+          // Calculate how the image is displayed within the canvas
           const imgAspect = img.width / img.height;
           const canvasAspect = drawWidth / drawHeight;
           
@@ -95,17 +119,17 @@ export default function SkeletonOverlay({
             actualOffsetY = offsetY;
           }
           
-          // Now draw with correct scaling
-          drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY);
+          // Now draw with correct scaling - keypoints need to be scaled relative to the displayed image size
+          drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY, img.width, img.height);
         };
         img.src = imageData;
       } else {
-        // For live view, use full canvas
-        drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY);
+        // For live view, use full canvas - assume keypoints are normalized (0-1)
+        drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY, 1, 1);
       }
     }
 
-    function drawSkeletonWithScaling(offsetX: number, offsetY: number, scaleX: number, scaleY: number) {
+    function drawSkeletonWithScaling(offsetX: number, offsetY: number, scaleX: number, scaleY: number, originalWidth: number = 1, originalHeight: number = 1) {
       if (!ctx || !poseData?.keypoints) return;
 
       const keypoints = poseData.keypoints;
@@ -148,10 +172,22 @@ export default function SkeletonOverlay({
         const endPoint = keypoints[endIdx];
 
         if (startPoint?.score > 0.3 && endPoint?.score > 0.3) {
-          const x1 = offsetX + (startPoint.x * scaleX);
-          const y1 = offsetY + (startPoint.y * scaleY);
-          const x2 = offsetX + (endPoint.x * scaleX);
-          const y2 = offsetY + (endPoint.y * scaleY);
+          // Transform coordinates based on whether we have an image or live view
+          let x1, y1, x2, y2;
+          
+          if (imageData) {
+            // For recorded images, keypoints are in pixel coordinates relative to original image
+            x1 = offsetX + (startPoint.x / originalWidth) * scaleX;
+            y1 = offsetY + (startPoint.y / originalHeight) * scaleY;
+            x2 = offsetX + (endPoint.x / originalWidth) * scaleX;
+            y2 = offsetY + (endPoint.y / originalHeight) * scaleY;
+          } else {
+            // For live view, keypoints are normalized (0-1)
+            x1 = offsetX + (startPoint.x * scaleX);
+            y1 = offsetY + (startPoint.y * scaleY);
+            x2 = offsetX + (endPoint.x * scaleX);
+            y2 = offsetY + (endPoint.y * scaleY);
+          }
           
           // Draw connection with outline for better visibility
           ctx.beginPath();
@@ -173,8 +209,18 @@ export default function SkeletonOverlay({
       // Draw keypoints with enhanced visibility
       keypoints.forEach((keypoint: any, index: number) => {
         if (keypoint.score > 0.3) {
-          const x = offsetX + (keypoint.x * scaleX);
-          const y = offsetY + (keypoint.y * scaleY);
+          // Transform coordinates based on whether we have an image or live view
+          let x, y;
+          
+          if (imageData) {
+            // For recorded images, keypoints are in pixel coordinates relative to original image
+            x = offsetX + (keypoint.x / originalWidth) * scaleX;
+            y = offsetY + (keypoint.y / originalHeight) * scaleY;
+          } else {
+            // For live view, keypoints are normalized (0-1)
+            x = offsetX + (keypoint.x * scaleX);
+            y = offsetY + (keypoint.y * scaleY);
+          }
 
           // Draw keypoint with black outline for better visibility
           ctx.beginPath();
