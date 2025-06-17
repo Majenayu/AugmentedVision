@@ -89,8 +89,15 @@ export default function RecordingPanel({
 
       // Stop adding data after 60 seconds
       if (elapsedSeconds <= 60) {
-        // Detect objects in the current frame
-        const hasObject = currentPoseData.keypoints && estimateWeightFromPosture(currentPoseData.keypoints).estimatedWeight > 0;
+        // Detect objects based on arm position and pose characteristics
+        const hasObject = currentPoseData.keypoints && (() => {
+          const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints);
+          // Consider object present if estimated weight > 0.5kg or arms are in carrying position
+          return weightEstimation.estimatedWeight > 0.5 || 
+                 weightEstimation.bodyPosture.isCarrying || 
+                 weightEstimation.bodyPosture.isLifting ||
+                 weightEstimation.bodyPosture.armPosition === 'extended';
+        })();
 
         const newDataPoint = {
           time: elapsedSeconds,
@@ -902,7 +909,23 @@ export default function RecordingPanel({
 
             <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
               {manualWeights.map((weight) => (
-                <div key={weight.id} className="flex items-center space-x-2 bg-gray-700 p-3 rounded-lg">
+                <div key={weight.id} className="flex items-center space-x-3 bg-gray-700 p-3 rounded-lg">
+                  {/* Display captured object image or icon */}
+                  <div className="w-12 h-12 flex-shrink-0">
+                    {weight.previewImage ? (
+                      <img 
+                        src={weight.previewImage} 
+                        alt={weight.name}
+                        className="w-full h-full object-cover rounded border border-gray-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-600 rounded border border-gray-500 flex items-center justify-center">
+                        <span className="text-lg">{weight.icon}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Object name input */}
                   <input
                     type="text"
                     value={weight.name}
@@ -910,6 +933,8 @@ export default function RecordingPanel({
                     className="flex-1 px-2 py-1 bg-gray-600 text-white rounded border border-gray-500"
                     placeholder="Object name"
                   />
+                  
+                  {/* Weight input */}
                   <input
                     type="number"
                     value={weight.weight}
@@ -920,6 +945,8 @@ export default function RecordingPanel({
                     max="100"
                     step="0.1"
                   />
+                  
+                  {/* Remove button */}
                   <button
                     onClick={() => removeManualWeight(weight.id)}
                     className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-sm"
@@ -930,13 +957,15 @@ export default function RecordingPanel({
               ))}
             </div>
 
-            <div className="flex justify-between items-center mb-4">
-              <button
-                onClick={addManualWeight}
-                className="px-3 py-1 bg-green-600 hover:bg-green-700 rounded text-sm"
-              >
-                Add Object
-              </button>              <div className="text-sm">
+            {/* Manual Weight Input Component */}
+            <ManualWeightInput 
+              onAddWeight={addManualWeightFromInput}
+              existingWeights={manualWeights}
+              recordedFrames={recordingData}
+            />
+            
+            <div className="flex justify-between items-center mb-4 mt-4">
+              <div className="text-sm">
                 Total Weight: <span className="font-bold">{getTotalManualWeight()}kg</span>
               </div>
             </div>

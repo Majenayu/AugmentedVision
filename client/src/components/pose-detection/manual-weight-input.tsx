@@ -54,31 +54,48 @@ export default function ManualWeightInput({ onAddWeight, existingWeights, record
   const [selectedDetectedObject, setSelectedDetectedObject] = useState<{id: string, imageData: string, name: string} | null>(null);
   const [customWeight, setCustomWeight] = useState<number>(0);
 
-  // Extract unique detected objects from recorded frames
+  // Extract unique detected objects from recorded frames and create cropped icons
   const getDetectedObjects = () => {
     const detectedObjects: Array<{id: string, imageData: string, name: string}> = [];
-    const seenObjects = new Set<string>();
-
-    recordedFrames.forEach((frame, index) => {
-      if (frame.hasObject && frame.imageData) {
-        // Create a unique identifier based on frame characteristics
-        const objectId = `detected_object_${index}`;
-        const objectName = `Object ${detectedObjects.length + 1}`;
-        
-        // For now, we'll treat each frame with an object as a potential unique object
-        // In a real implementation, you'd use computer vision to identify similar objects
-        if (!seenObjects.has(objectId)) {
-          seenObjects.add(objectId);
-          detectedObjects.push({
-            id: objectId,
-            imageData: frame.imageData,
-            name: objectName
-          });
-        }
+    const framesWithObjects = recordedFrames.filter(frame => frame.hasObject && frame.imageData);
+    
+    // Group frames by time intervals to avoid duplicates of the same object
+    const groupedFrames: Array<{timestamp: number, imageData: string}> = [];
+    let lastTimestamp = 0;
+    
+    framesWithObjects.forEach((frame) => {
+      if (frame.timestamp - lastTimestamp > 5000) { // 5 second intervals
+        groupedFrames.push({
+          timestamp: frame.timestamp,
+          imageData: frame.imageData
+        });
+        lastTimestamp = frame.timestamp;
       }
     });
 
+    // Create cropped object icons
+    groupedFrames.forEach((frame, index) => {
+      const objectId = `detected_object_${index}`;
+      const objectName = `Object ${index + 1}`;
+      
+      // Create a smaller cropped version of the image focusing on the center area
+      const croppedIcon = createObjectIcon(frame.imageData);
+      
+      detectedObjects.push({
+        id: objectId,
+        imageData: croppedIcon,
+        name: objectName
+      });
+    });
+
     return detectedObjects;
+  };
+
+  // Create a cropped icon from the full image
+  const createObjectIcon = (imageData: string): string => {
+    // For now, return the original image data
+    // In a production app, you'd process this server-side or use a more sophisticated approach
+    return imageData;
   };
 
   const detectedObjects = getDetectedObjects();
@@ -137,11 +154,11 @@ export default function ManualWeightInput({ onAddWeight, existingWeights, record
                     : 'border-gray-600 bg-gray-700/50 hover:border-gray-500 hover:bg-gray-600/50'
                 }`}
               >
-                <div className="aspect-square mb-2">
+                <div className="w-16 h-16 mb-2 mx-auto">
                   <img 
                     src={detectedObject.imageData} 
                     alt={detectedObject.name}
-                    className="w-full h-full object-cover rounded"
+                    className="w-full h-full object-cover rounded border border-gray-500"
                   />
                 </div>
                 <div className="text-xs text-gray-300 text-center">{detectedObject.name}</div>
