@@ -907,6 +907,7 @@ export default function RecordingPanel({
               videoRef={videoRef}
               currentPoseData={currentPoseData}
               isVisible={showWeightDialog}
+              recordedFrames={recordingData}
             />
           </div>
         </div>
