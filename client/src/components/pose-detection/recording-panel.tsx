@@ -29,7 +29,7 @@ interface RecordingPanelProps {
 
 
 type AnalysisMode = 'normal' | 'estimated' | 'manual';
-type ViewMode = 'original' | 'skeleton';
+type ViewMode = 'original' | 'skeleton' | 'enhanced';
 type GraphType = 'live' | 'estimated' | 'manual';
 
 export default function RecordingPanel({
@@ -52,7 +52,7 @@ export default function RecordingPanel({
   // Separate graph data that only records during recording session
   const [recordingGraphData, setRecordingGraphData] = useState<any[]>([]);
   const [estimatedGraphData, setEstimatedGraphData] = useState<any[]>([]);
-  const [manualGraphData, setManualGraphData] = useState<any[]>(([]);
+  const [manualGraphData, setManualGraphData] = useState<any[]>([]);
   const recordingStartTimeRef = useRef<number | null>(null);
 
   // Live data for estimated weight analysis
@@ -138,7 +138,8 @@ export default function RecordingPanel({
     const newWeight: ManualWeight = {
       id: Date.now().toString(),
       name: `Object ${manualWeights.length + 1}`,
-      weight: 0
+      weight: 0,
+      icon: "📦"
     };
     setManualWeights([...manualWeights, newWeight]);
   };
