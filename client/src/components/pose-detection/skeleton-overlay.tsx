@@ -203,9 +203,9 @@ export default function SkeletonOverlay({
           x = offsetX + (x * scaleX);
           y = offsetY + (y * scaleY);
         } else {
-          // For skeleton-only mode - match camera view scaling
-          x = offsetX + (x * scaleX);
-          y = offsetY + (y * scaleY);
+          // For skeleton-only mode - use simple scaling to match canvas dimensions
+          x = x * scaleX + offsetX;
+          y = y * scaleY + offsetY;
           
           // Mirror X coordinate to match camera view mirroring
           x = width - x;
