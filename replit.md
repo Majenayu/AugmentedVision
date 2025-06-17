@@ -101,6 +101,7 @@ This is a full-stack web application built with TypeScript, React, Express.js, a
 Changelog:
 - June 13, 2025. Initial setup
 - June 17, 2025. Fixed pose detection skeleton alignment issues and syntax errors in recording panel
+- June 17, 2025. Added smart object detection system with COCO-SSD model for automatic weight estimation in manual mode
 
 # User Preferences
 
