@@ -9,6 +9,7 @@ interface SkeletonOverlayProps {
   showColorCoding?: boolean;
   weightEstimation?: any;
   skeletonOnly?: boolean;
+  videoRef?: React.RefObject<HTMLVideoElement>;
 }
 
 const KEYPOINT_CONNECTIONS = [
@@ -33,7 +34,8 @@ export default function SkeletonOverlay({
   height,
   showColorCoding = true,
   weightEstimation,
-  skeletonOnly = false
+  skeletonOnly = false,
+  videoRef
 }: SkeletonOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -121,10 +123,10 @@ export default function SkeletonOverlay({
         };
         img.src = imageData;
       } else {
-        // For live camera feed - match camera view scaling logic
-        // This should match the scaling used in camera-view.tsx
-        const videoWidth = 640; // Standard video width
-        const videoHeight = 480; // Standard video height
+        // For live camera feed - use the same scaling logic as camera-view.tsx
+        // Get actual video dimensions if available, otherwise use defaults
+        const videoWidth = 1280; // Common HD width
+        const videoHeight = 720; // Common HD height
         const videoAspect = videoWidth / videoHeight;
         const canvasAspect = drawWidth / drawHeight;
         
@@ -142,7 +144,7 @@ export default function SkeletonOverlay({
           actualOffsetY = offsetY + (drawHeight - scaleY) / 2;
         }
         
-        drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY, videoWidth, videoHeight);
+        drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY, 1, 1);
       }
     }
 
@@ -185,33 +187,49 @@ export default function SkeletonOverlay({
 
       // Transform coordinates to match camera view exactly
       const transformCoordinate = (point: any) => {
-        let x, y;
+        // Normalize coordinates (handle both pixel and normalized input)
+        let normalizedX = point.x > 1 ? point.x / originalWidth : point.x;
+        let normalizedY = point.y > 1 ? point.y / originalHeight : point.y;
 
-        // Handle different coordinate systems (normalized vs pixel coordinates)
-        if (point.x > 1 || point.y > 1) {
-          // Pixel coordinates - normalize first
-          x = point.x / originalWidth;
-          y = point.y / originalHeight;
-        } else {
-          // Already normalized coordinates (0-1)
-          x = point.x;
-          y = point.y;
-        }
+        let transformedX, transformedY;
 
         if (imageData && !skeletonOnly) {
           // For enhanced mode with background image
-          x = offsetX + (x * scaleX);
-          y = offsetY + (y * scaleY);
+          transformedX = offsetX + (normalizedX * scaleX);
+          transformedY = offsetY + (normalizedY * scaleY);
         } else {
-          // For skeleton-only mode - use simple scaling to match canvas dimensions
-          x = x * scaleX + offsetX;
-          y = y * scaleY + offsetY;
+          // For skeleton-only mode - use actual video dimensions if available
+          let videoAspect = 16/9; // Default fallback
           
-          // Mirror X coordinate to match camera view mirroring
-          x = width - x;
+          if (videoRef?.current && videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
+            videoAspect = videoRef.current.videoWidth / videoRef.current.videoHeight;
+          }
+          
+          const canvasAspect = width / height;
+          
+          let finalScaleX, finalScaleY, finalOffsetX = 0, finalOffsetY = 0;
+          
+          if (videoAspect > canvasAspect) {
+            // Video is wider - fit to height (matching camera-view.tsx)
+            finalScaleY = height;
+            finalScaleX = height * videoAspect;
+            finalOffsetX = (width - finalScaleX) / 2;
+          } else {
+            // Video is taller - fit to width (matching camera-view.tsx)
+            finalScaleX = width;
+            finalScaleY = width / videoAspect;
+            finalOffsetY = (height - finalScaleY) / 2;
+          }
+          
+          // Apply exact same transformation as camera-view.tsx
+          transformedX = normalizedX * finalScaleX + finalOffsetX;
+          transformedY = normalizedY * finalScaleY + finalOffsetY;
+          
+          // Mirror X coordinate to match camera view
+          transformedX = width - transformedX;
         }
 
-        return { x, y };
+        return { x: transformedX, y: transformedY };
       };
 
       // Draw connections with enhanced visibility
