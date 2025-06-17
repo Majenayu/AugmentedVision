@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine, Scatter, ScatterChart } from 'recharts';
 import SkeletonOverlay from './skeleton-overlay';
 import ThreeDView from './three-d-view';
+import ManualWeightInput, { type ManualWeight } from './manual-weight-input';
 import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
 
 interface RecordingFrame {
@@ -25,14 +26,10 @@ interface RecordingPanelProps {
   currentRulaScore?: any;
 }
 
-interface ManualWeight {
-  id: string;
-  name: string;
-  weight: number;
-}
+
 
 type AnalysisMode = 'normal' | 'estimated' | 'manual';
-type ViewMode = 'original' | 'skeleton' | 'enhanced';
+type ViewMode = 'original' | 'skeleton';
 type GraphType = 'live' | 'estimated' | 'manual';
 
 export default function RecordingPanel({
