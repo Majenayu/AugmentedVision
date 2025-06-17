@@ -52,7 +52,7 @@ export default function RecordingPanel({
   // Separate graph data that only records during recording session
   const [recordingGraphData, setRecordingGraphData] = useState<any[]>([]);
   const [estimatedGraphData, setEstimatedGraphData] = useState<any[]>([]);
-  const [manualGraphData, setManualGraphData] = useState<any[]>([]);
+  const [manualGraphData, setManualGraphData] = useState<any[]>(([]);
   const recordingStartTimeRef = useRef<number | null>(null);
 
   // Live data for estimated weight analysis
