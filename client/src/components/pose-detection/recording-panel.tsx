@@ -44,7 +44,7 @@ export default function RecordingPanel({
 }: RecordingPanelProps) {
   const [selectedFrame, setSelectedFrame] = useState<RecordingFrame | null>(null);
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('normal');
-  const [viewMode, setViewMode] = useState<ViewMode>('skeleton');
+  const [viewMode, setViewMode] = useState<ViewMode>('enhanced');
   const [activeGraph, setActiveGraph] = useState<GraphType>('live');
   const [manualWeights, setManualWeights] = useState<ManualWeight[]>([]);
   const [showWeightDialog, setShowWeightDialog] = useState(false);
@@ -745,22 +745,15 @@ export default function RecordingPanel({
                 )}
                 {viewMode === 'enhanced' && (
                   <div className="relative w-full h-full">
-                    <img 
-                      src={selectedFrame.imageData} 
-                      alt="Enhanced frame"
-                      className="w-full h-full object-contain absolute inset-0"
+                    <SkeletonOverlay
+                      poseData={selectedFrame.poseData}
+                      rulaScore={getCurrentRulaScore(selectedFrame)}
+                      imageData={selectedFrame.imageData}
+                      width={640}
+                      height={360}
+                      showColorCoding={true}
+                      weightEstimation={getCurrentWeightEstimation(selectedFrame)}
                     />
-                    <div className="absolute inset-0">
-                      <SkeletonOverlay
-                        poseData={selectedFrame.poseData}
-                        rulaScore={getCurrentRulaScore(selectedFrame)}
-                        imageData={selectedFrame.imageData}
-                        width={640}
-                        height={360}
-                        showColorCoding={true}
-                        weightEstimation={getCurrentWeightEstimation(selectedFrame)}
-                      />
-                    </div>
                     {selectedFrame.hasObject && (
                       <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
                         OBJECT DETECTED

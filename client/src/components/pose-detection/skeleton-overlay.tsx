@@ -53,27 +53,9 @@ export default function SkeletonOverlay({
     if (imageData) {
       const img = new Image();
       img.onload = () => {
-        // Calculate scaling to maintain aspect ratio
-        const imgAspect = img.width / img.height;
-        const canvasAspect = width / height;
-        
-        let drawWidth = width;
-        let drawHeight = height;
-        let offsetX = 0;
-        let offsetY = 0;
-        
-        if (imgAspect > canvasAspect) {
-          // Image is wider - fit to width
-          drawHeight = width / imgAspect;
-          offsetY = (height - drawHeight) / 2;
-        } else {
-          // Image is taller - fit to height
-          drawWidth = height * imgAspect;
-          offsetX = (width - drawWidth) / 2;
-        }
-        
-        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
-        drawSkeleton(offsetX, offsetY, drawWidth, drawHeight);
+        // For recorded images, fill the entire canvas
+        ctx.drawImage(img, 0, 0, width, height);
+        drawSkeleton(0, 0, width, height);
       };
       img.src = imageData;
     } else {
@@ -117,7 +99,7 @@ export default function SkeletonOverlay({
         return '#FF0000'; // Red - Danger
       };
 
-      // Draw connections
+      // Draw connections with enhanced visibility
       KEYPOINT_CONNECTIONS.forEach(([startIdx, endIdx]) => {
         const startPoint = keypoints[startIdx];
         const endPoint = keypoints[endIdx];
@@ -128,35 +110,57 @@ export default function SkeletonOverlay({
           const x2 = offsetX + (endPoint.x * drawWidth);
           const y2 = offsetY + (endPoint.y * drawHeight);
           
+          // Draw connection with outline for better visibility
+          ctx.beginPath();
+          ctx.moveTo(x1, y1);
+          ctx.lineTo(x2, y2);
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 6;
+          ctx.stroke();
+          
           ctx.beginPath();
           ctx.moveTo(x1, y1);
           ctx.lineTo(x2, y2);
           ctx.strokeStyle = getJointColor(startIdx);
-          ctx.lineWidth = 3;
+          ctx.lineWidth = 4;
           ctx.stroke();
         }
       });
 
-      // Draw keypoints
+      // Draw keypoints with enhanced visibility
       keypoints.forEach((keypoint: any, index: number) => {
         if (keypoint.score > 0.3) {
           const x = offsetX + (keypoint.x * drawWidth);
           const y = offsetY + (keypoint.y * drawHeight);
 
-          // Draw keypoint circle
+          // Draw keypoint with black outline for better visibility
+          ctx.beginPath();
+          ctx.arc(x, y, 8, 0, 2 * Math.PI);
+          ctx.fillStyle = '#000000';
+          ctx.fill();
+          
           ctx.beginPath();
           ctx.arc(x, y, 6, 0, 2 * Math.PI);
           ctx.fillStyle = getJointColor(index);
           ctx.fill();
+          
           ctx.strokeStyle = '#FFFFFF';
           ctx.lineWidth = 2;
           ctx.stroke();
 
-          // Draw keypoint label
+          // Draw keypoint labels with background for better readability
           if (showColorCoding) {
+            const label = KEYPOINT_NAMES[index] || `${index}`;
+            ctx.font = 'bold 10px Arial';
+            const textWidth = ctx.measureText(label).width;
+            
+            // Draw text background
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(x + 8, y - 16, textWidth + 4, 12);
+            
+            // Draw text
             ctx.fillStyle = '#FFFFFF';
-            ctx.font = '12px Arial';
-            ctx.fillText(KEYPOINT_NAMES[index] || `${index}`, x + 8, y - 8);
+            ctx.fillText(label, x + 10, y - 6);
           }
         }
       });
