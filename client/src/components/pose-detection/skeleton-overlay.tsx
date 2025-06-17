@@ -66,6 +66,49 @@ export default function SkeletonOverlay({
       if (!ctx || !poseData?.keypoints) return;
 
       const keypoints = poseData.keypoints;
+      
+      // For recorded images, we need to properly scale the coordinates
+      // The keypoints are in normalized coordinates (0-1) relative to the original video/capture size
+      let scaleX = drawWidth;
+      let scaleY = drawHeight;
+      let actualOffsetX = offsetX;
+      let actualOffsetY = offsetY;
+      
+      // If we have an image, we need to maintain aspect ratio and center it
+      if (imageData) {
+        const img = new Image();
+        img.onload = () => {
+          const imgAspect = img.width / img.height;
+          const canvasAspect = drawWidth / drawHeight;
+          
+          if (imgAspect > canvasAspect) {
+            // Image is wider - fit to width, center vertically
+            scaleX = drawWidth;
+            scaleY = drawWidth / imgAspect;
+            actualOffsetX = offsetX;
+            actualOffsetY = offsetY + (drawHeight - scaleY) / 2;
+          } else {
+            // Image is taller - fit to height, center horizontally
+            scaleX = drawHeight * imgAspect;
+            scaleY = drawHeight;
+            actualOffsetX = offsetX + (drawWidth - scaleX) / 2;
+            actualOffsetY = offsetY;
+          }
+          
+          // Now draw with correct scaling
+          drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY);
+        };
+        img.src = imageData;
+      } else {
+        // For live view, use full canvas
+        drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY);
+      }
+    }
+
+    function drawSkeletonWithScaling(offsetX: number, offsetY: number, scaleX: number, scaleY: number) {
+      if (!ctx || !poseData?.keypoints) return;
+
+      const keypoints = poseData.keypoints;
 
       // Get color based on RULA score and weight
       const getJointColor = (jointIndex: number) => {
@@ -105,10 +148,10 @@ export default function SkeletonOverlay({
         const endPoint = keypoints[endIdx];
 
         if (startPoint?.score > 0.3 && endPoint?.score > 0.3) {
-          const x1 = offsetX + (startPoint.x * drawWidth);
-          const y1 = offsetY + (startPoint.y * drawHeight);
-          const x2 = offsetX + (endPoint.x * drawWidth);
-          const y2 = offsetY + (endPoint.y * drawHeight);
+          const x1 = offsetX + (startPoint.x * scaleX);
+          const y1 = offsetY + (startPoint.y * scaleY);
+          const x2 = offsetX + (endPoint.x * scaleX);
+          const y2 = offsetY + (endPoint.y * scaleY);
           
           // Draw connection with outline for better visibility
           ctx.beginPath();
@@ -130,8 +173,8 @@ export default function SkeletonOverlay({
       // Draw keypoints with enhanced visibility
       keypoints.forEach((keypoint: any, index: number) => {
         if (keypoint.score > 0.3) {
-          const x = offsetX + (keypoint.x * drawWidth);
-          const y = offsetY + (keypoint.y * drawHeight);
+          const x = offsetX + (keypoint.x * scaleX);
+          const y = offsetY + (keypoint.y * scaleY);
 
           // Draw keypoint with black outline for better visibility
           ctx.beginPath();

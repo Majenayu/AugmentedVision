@@ -711,29 +711,19 @@ export default function RecordingPanel({
                   </div>
                 )}
                 {viewMode === 'skeleton' && (
-                  <div className="relative w-full h-full bg-black grid grid-cols-1 lg:grid-cols-2 gap-2">
-                    {/* 2D Skeleton View */}
-                    <div className="relative bg-black">
+                  <div className="relative w-full h-full bg-black">
+                    {/* Full 2D Skeleton View */}
+                    <div className="relative w-full h-full bg-black">
                       <SkeletonOverlay
                         poseData={selectedFrame.poseData}
                         rulaScore={getCurrentRulaScore(selectedFrame)}
-                        width={320}
-                        height={180}
+                        width={640}
+                        height={360}
                         showColorCoding={true}
                         weightEstimation={getCurrentWeightEstimation(selectedFrame)}
                       />
-                      <div className="absolute bottom-1 left-1 bg-black/70 text-white px-2 py-1 rounded text-xs">
-                        2D Skeleton
-                      </div>
-                    </div>
-                    {/* 3D Skeleton View */}
-                    <div className="relative bg-black">
-                      <ThreeDView
-                        poseData={selectedFrame.poseData}
-                        rulaScore={getCurrentRulaScore(selectedFrame)}
-                      />
-                      <div className="absolute bottom-1 left-1 bg-black/70 text-white px-2 py-1 rounded text-xs">
-                        3D Skeleton
+                      <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
+                        2D Skeleton View
                       </div>
                     </div>
                     {selectedFrame.hasObject && (
@@ -744,7 +734,7 @@ export default function RecordingPanel({
                   </div>
                 )}
                 {viewMode === 'enhanced' && (
-                  <div className="relative w-full h-full">
+                  <div className="relative w-full h-full bg-black">
                     <SkeletonOverlay
                       poseData={selectedFrame.poseData}
                       rulaScore={getCurrentRulaScore(selectedFrame)}
