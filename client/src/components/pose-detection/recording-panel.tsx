@@ -92,11 +92,22 @@ export default function RecordingPanel({
         // Detect objects based on arm position and pose characteristics
         const hasObject = currentPoseData.keypoints && (() => {
           const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints);
-          // Consider object present if estimated weight > 0.5kg or arms are in carrying position
-          return weightEstimation.estimatedWeight > 0.5 || 
-                 weightEstimation.bodyPosture.isCarrying || 
+          
+          // Debug logging to see what's being detected
+          if (weightEstimation.bodyPosture.isCarrying || weightEstimation.bodyPosture.isLifting) {
+            console.log('Object detected:', {
+              isCarrying: weightEstimation.bodyPosture.isCarrying,
+              isLifting: weightEstimation.bodyPosture.isLifting,
+              armPosition: weightEstimation.bodyPosture.armPosition,
+              estimatedWeight: weightEstimation.estimatedWeight
+            });
+          }
+          
+          // More sensitive detection - consider object present if any holding behavior is detected
+          return weightEstimation.bodyPosture.isCarrying || 
                  weightEstimation.bodyPosture.isLifting ||
-                 weightEstimation.bodyPosture.armPosition === 'extended';
+                 weightEstimation.bodyPosture.armPosition === 'extended' ||
+                 weightEstimation.bodyPosture.armPosition === 'overhead';
         })();
 
         const newDataPoint = {

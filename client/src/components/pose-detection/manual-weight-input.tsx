@@ -217,10 +217,29 @@ export default function ManualWeightInput({ onAddWeight, existingWeights, record
           )}
         </>
       ) : (
-        <div className="text-center py-8 text-gray-400">
+        <div className="text-center py-6 text-gray-400">
           <div className="text-4xl mb-2">📷</div>
-          <div className="text-sm">No objects detected in recording</div>
-          <div className="text-xs mt-1">Record a session while holding objects to add their weights</div>
+          <div className="text-sm mb-3">No objects detected in recording</div>
+          <div className="text-xs mb-4">Record a session while holding objects to add their weights automatically</div>
+          
+          {/* Manual Add Option */}
+          <div className="border-t border-gray-600 pt-4 mt-4">
+            <div className="text-sm text-gray-300 mb-3">Or add objects manually:</div>
+            <button
+              onClick={() => {
+                const manualObject = {
+                  id: `manual_object_${Date.now()}`,
+                  imageData: "",
+                  name: "Manual Object"
+                };
+                setSelectedDetectedObject(manualObject);
+                setCustomWeight(1000);
+              }}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
+            >
+              Add Object Manually
+            </button>
+          </div>
         </div>
       )}
 
