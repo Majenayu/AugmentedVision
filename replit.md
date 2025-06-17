@@ -104,6 +104,7 @@ Changelog:
 - June 17, 2025. Added smart object detection system with COCO-SSD model for automatic weight estimation in manual mode
 - June 17, 2025. Simplified object detection to show cropped photos of detected objects with manual weight input in grams
 - June 17, 2025. Removed object detection analysis section from recording panel per user request
+- June 17, 2025. Simplified live object detection to show only cropped photos with manual weight input in grams
 
 # User Preferences
 
