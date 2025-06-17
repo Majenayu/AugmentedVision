@@ -712,15 +712,17 @@ export default function RecordingPanel({
                 )}
                 {viewMode === 'skeleton' && (
                   <div className="relative w-full h-full bg-black">
-                    {/* Full 2D Skeleton View */}
+                    {/* Full 2D Skeleton View - No background image */}
                     <div className="relative w-full h-full bg-black">
                       <SkeletonOverlay
                         poseData={selectedFrame.poseData}
                         rulaScore={getCurrentRulaScore(selectedFrame)}
+                        imageData={selectedFrame.imageData} // Pass image data for proper coordinate scaling
                         width={640}
                         height={360}
                         showColorCoding={true}
                         weightEstimation={getCurrentWeightEstimation(selectedFrame)}
+                        skeletonOnly={true}
                       />
                       <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
                         2D Skeleton View

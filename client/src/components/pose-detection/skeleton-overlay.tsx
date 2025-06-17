@@ -8,6 +8,7 @@ interface SkeletonOverlayProps {
   height: number;
   showColorCoding?: boolean;
   weightEstimation?: any;
+  skeletonOnly?: boolean;
 }
 
 const KEYPOINT_CONNECTIONS = [
@@ -31,7 +32,8 @@ export default function SkeletonOverlay({
   width,
   height,
   showColorCoding = true,
-  weightEstimation
+  weightEstimation,
+  skeletonOnly = false
 }: SkeletonOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -49,8 +51,8 @@ export default function SkeletonOverlay({
     // Clear canvas
     ctx.clearRect(0, 0, width, height);
 
-    // Draw background image if provided
-    if (imageData) {
+    // Draw background image if provided and not skeleton-only mode
+    if (imageData && !skeletonOnly) {
       const img = new Image();
       img.onload = () => {
         // Calculate how to draw the image to maintain aspect ratio
@@ -82,6 +84,7 @@ export default function SkeletonOverlay({
       };
       img.src = imageData;
     } else {
+      // For skeleton-only mode or no image, just draw skeleton with proper scaling
       drawSkeleton(0, 0, width, height);
     }
 
@@ -99,6 +102,7 @@ export default function SkeletonOverlay({
       
       // If we have an image, we need to maintain aspect ratio and align skeleton properly
       if (imageData) {
+        // Create a temporary image to get dimensions synchronously for skeleton-only mode
         const img = new Image();
         img.onload = () => {
           // Calculate how the image is displayed within the canvas
@@ -124,8 +128,11 @@ export default function SkeletonOverlay({
         };
         img.src = imageData;
       } else {
-        // For live view, use full canvas - assume keypoints are normalized (0-1)
-        drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY, 1, 1);
+        // For live view, keypoints are usually normalized to video dimensions
+        // Assume keypoints are in pixel coordinates relative to video capture size (640x480 typically)
+        const assumedVideoWidth = 640;
+        const assumedVideoHeight = 480;
+        drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY, assumedVideoWidth, assumedVideoHeight);
       }
     }
 
@@ -166,40 +173,43 @@ export default function SkeletonOverlay({
         return '#FF0000'; // Red - Danger
       };
 
+      // Transform coordinates properly based on context
+      const transformCoordinate = (point: any) => {
+        let x, y;
+        
+        if (imageData) {
+          // For recorded images, keypoints are in pixel coordinates relative to original image
+          x = offsetX + (point.x / originalWidth) * scaleX;
+          y = offsetY + (point.y / originalHeight) * scaleY;
+        } else {
+          // For live view, keypoints are in pixel coordinates relative to video capture
+          x = offsetX + (point.x / originalWidth) * scaleX;
+          y = offsetY + (point.y / originalHeight) * scaleY;
+        }
+        
+        return { x, y };
+      };
+
       // Draw connections with enhanced visibility
       KEYPOINT_CONNECTIONS.forEach(([startIdx, endIdx]) => {
         const startPoint = keypoints[startIdx];
         const endPoint = keypoints[endIdx];
 
         if (startPoint?.score > 0.3 && endPoint?.score > 0.3) {
-          // Transform coordinates based on whether we have an image or live view
-          let x1, y1, x2, y2;
-          
-          if (imageData) {
-            // For recorded images, keypoints are in pixel coordinates relative to original image
-            x1 = offsetX + (startPoint.x / originalWidth) * scaleX;
-            y1 = offsetY + (startPoint.y / originalHeight) * scaleY;
-            x2 = offsetX + (endPoint.x / originalWidth) * scaleX;
-            y2 = offsetY + (endPoint.y / originalHeight) * scaleY;
-          } else {
-            // For live view, keypoints are normalized (0-1)
-            x1 = offsetX + (startPoint.x * scaleX);
-            y1 = offsetY + (startPoint.y * scaleY);
-            x2 = offsetX + (endPoint.x * scaleX);
-            y2 = offsetY + (endPoint.y * scaleY);
-          }
+          const start = transformCoordinate(startPoint);
+          const end = transformCoordinate(endPoint);
           
           // Draw connection with outline for better visibility
           ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          ctx.lineTo(x2, y2);
+          ctx.moveTo(start.x, start.y);
+          ctx.lineTo(end.x, end.y);
           ctx.strokeStyle = '#000000';
           ctx.lineWidth = 6;
           ctx.stroke();
           
           ctx.beginPath();
-          ctx.moveTo(x1, y1);
-          ctx.lineTo(x2, y2);
+          ctx.moveTo(start.x, start.y);
+          ctx.lineTo(end.x, end.y);
           ctx.strokeStyle = getJointColor(startIdx);
           ctx.lineWidth = 4;
           ctx.stroke();
@@ -209,27 +219,16 @@ export default function SkeletonOverlay({
       // Draw keypoints with enhanced visibility
       keypoints.forEach((keypoint: any, index: number) => {
         if (keypoint.score > 0.3) {
-          // Transform coordinates based on whether we have an image or live view
-          let x, y;
-          
-          if (imageData) {
-            // For recorded images, keypoints are in pixel coordinates relative to original image
-            x = offsetX + (keypoint.x / originalWidth) * scaleX;
-            y = offsetY + (keypoint.y / originalHeight) * scaleY;
-          } else {
-            // For live view, keypoints are normalized (0-1)
-            x = offsetX + (keypoint.x * scaleX);
-            y = offsetY + (keypoint.y * scaleY);
-          }
+          const pos = transformCoordinate(keypoint);
 
           // Draw keypoint with black outline for better visibility
           ctx.beginPath();
-          ctx.arc(x, y, 8, 0, 2 * Math.PI);
+          ctx.arc(pos.x, pos.y, 8, 0, 2 * Math.PI);
           ctx.fillStyle = '#000000';
           ctx.fill();
           
           ctx.beginPath();
-          ctx.arc(x, y, 6, 0, 2 * Math.PI);
+          ctx.arc(pos.x, pos.y, 6, 0, 2 * Math.PI);
           ctx.fillStyle = getJointColor(index);
           ctx.fill();
           
@@ -245,11 +244,11 @@ export default function SkeletonOverlay({
             
             // Draw text background
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-            ctx.fillRect(x + 8, y - 16, textWidth + 4, 12);
+            ctx.fillRect(pos.x + 8, pos.y - 16, textWidth + 4, 12);
             
             // Draw text
             ctx.fillStyle = '#FFFFFF';
-            ctx.fillText(label, x + 10, y - 6);
+            ctx.fillText(label, pos.x + 10, pos.y - 6);
           }
         }
       });
