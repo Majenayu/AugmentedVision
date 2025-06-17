@@ -1,9 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { initializeObjectDetection, detectObjectsFromImageData, analyzeObjectInteraction, type DetectedObject } from '@/lib/object-detection';
+import { initializeObjectDetection, detectObjectsFromImageData, type DetectedObject } from '@/lib/object-detection';
 import { ManualWeight } from './manual-weight-input';
+
+interface ObjectWithCrop extends DetectedObject {
+  croppedImage: string;
+}
 
 interface RecordedFrameObjectDetectionProps {
   selectedFrame: {
@@ -22,13 +26,10 @@ export default function RecordedFrameObjectDetection({
 }: RecordedFrameObjectDetectionProps) {
   const [isModelLoaded, setIsModelLoaded] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [detectedObjects, setDetectedObjects] = useState<DetectedObject[]>([]);
-  const [analysisResult, setAnalysisResult] = useState<{
-    isHoldingObject: boolean;
-    heldObjects: DetectedObject[];
-    totalEstimatedWeight: number;
-  } | null>(null);
+  const [detectedObjects, setDetectedObjects] = useState<ObjectWithCrop[]>([]);
+  const [weightInputs, setWeightInputs] = useState<{[key: string]: string}>({});
   const [lastAnalyzedFrame, setLastAnalyzedFrame] = useState<string>('');
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Initialize object detection model
   useEffect(() => {
@@ -53,6 +54,36 @@ export default function RecordedFrameObjectDetection({
     }
   }, [selectedFrame, isModelLoaded]);
 
+  const cropObjectFromImage = (imageData: string, bbox: [number, number, number, number]): Promise<string> => {
+    return new Promise((resolve) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return resolve('');
+        
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve('');
+
+        const [x, y, width, height] = bbox;
+        
+        // Set canvas size to cropped area with some padding
+        const padding = 20;
+        canvas.width = width + padding * 2;
+        canvas.height = height + padding * 2;
+        
+        // Draw the cropped area
+        ctx.drawImage(
+          img,
+          x - padding, y - padding, width + padding * 2, height + padding * 2,
+          0, 0, canvas.width, canvas.height
+        );
+        
+        resolve(canvas.toDataURL('image/jpeg', 0.8));
+      };
+      img.src = imageData;
+    });
+  };
+
   const analyzeFrame = async () => {
     if (!selectedFrame || !isModelLoaded) return;
 
@@ -62,33 +93,21 @@ export default function RecordedFrameObjectDetection({
       
       // Detect objects in the recorded frame image
       const objects = await detectObjectsFromImageData(selectedFrame.imageData);
-      setDetectedObjects(objects);
       
       console.log(`Found ${objects.length} objects in recorded frame:`, objects.map(o => o.class));
 
-      // Analyze if person was holding objects in this frame
-      if (selectedFrame.poseData?.keypoints && objects.length > 0) {
-        // Estimate frame dimensions (assuming standard recording size)
-        const frameWidth = 640;
-        const frameHeight = 480;
-        
-        const result = analyzeObjectInteraction(
-          objects,
-          selectedFrame.poseData.keypoints,
-          frameWidth,
-          frameHeight
-        );
-        setAnalysisResult(result);
-        
-        console.log('Object interaction analysis:', result);
-      } else {
-        setAnalysisResult({
-          isHoldingObject: false,
-          heldObjects: [],
-          totalEstimatedWeight: 0
+      // Create cropped images for each detected object
+      const objectsWithCrops: ObjectWithCrop[] = [];
+      
+      for (const obj of objects) {
+        const croppedImage = await cropObjectFromImage(selectedFrame.imageData, obj.bbox);
+        objectsWithCrops.push({
+          ...obj,
+          croppedImage
         });
       }
-
+      
+      setDetectedObjects(objectsWithCrops);
       setLastAnalyzedFrame(selectedFrame.imageData);
     } catch (error) {
       console.error('Frame analysis error:', error);
@@ -97,38 +116,56 @@ export default function RecordedFrameObjectDetection({
     }
   };
 
-  const addDetectedObject = (obj: DetectedObject) => {
+  const handleWeightChange = (objectId: string, value: string) => {
+    setWeightInputs(prev => ({
+      ...prev,
+      [objectId]: value
+    }));
+  };
+
+  const addObjectWithWeight = (obj: ObjectWithCrop, index: number) => {
+    const objectId = `${obj.class}-${index}`;
+    const weightValue = weightInputs[objectId];
+    
+    if (!weightValue || isNaN(Number(weightValue)) || Number(weightValue) <= 0) {
+      alert('Please enter a valid weight in grams');
+      return;
+    }
+
     const weight: ManualWeight = {
       id: `${Date.now()}-${obj.class}`,
       name: obj.class,
-      weight: obj.estimatedWeight,
-      icon: obj.icon
+      weight: Number(weightValue),
+      icon: obj.icon,
+      previewImage: obj.croppedImage
     };
+    
     onAddWeight(weight);
-  };
-
-  const addAllHeldObjects = () => {
-    if (analysisResult?.heldObjects) {
-      analysisResult.heldObjects.forEach(obj => {
-        addDetectedObject(obj);
-      });
-    }
+    
+    // Clear the input after adding
+    setWeightInputs(prev => ({
+      ...prev,
+      [objectId]: ''
+    }));
   };
 
   if (!isVisible || !selectedFrame) return null;
 
   return (
     <div className="space-y-4">
+      {/* Hidden canvas for image cropping */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+
       {/* Analysis Status */}
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
-            <span>🔍</span>
-            <span>Recorded Frame Analysis</span>
+            <span>📷</span>
+            <span>Object Detection</span>
             {isModelLoaded && (
-              <Badge variant="outline" className="ml-2">
+              <span className="ml-2 px-2 py-1 bg-blue-900/20 border border-blue-700 rounded text-xs">
                 {isAnalyzing ? 'Analyzing...' : 'Ready'}
-              </Badge>
+              </span>
             )}
           </CardTitle>
         </CardHeader>
@@ -136,7 +173,7 @@ export default function RecordedFrameObjectDetection({
           {!isModelLoaded ? (
             <div className="text-center py-4">
               <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
-              <p className="text-sm text-gray-400">Loading object detection model...</p>
+              <p className="text-sm text-gray-400">Loading detection model...</p>
             </div>
           ) : (
             <div className="space-y-4">
@@ -153,92 +190,69 @@ export default function RecordedFrameObjectDetection({
                   {isAnalyzing ? 'Analyzing...' : 'Re-analyze Frame'}
                 </Button>
               </div>
-
-              {/* Analysis Results */}
-              {analysisResult && (
-                <div className="bg-blue-900/20 border border-blue-700 rounded-lg p-3">
-                  <h4 className="font-medium text-blue-400 mb-2">Analysis Result</h4>
-                  <div className="space-y-2 text-sm">
-                    <div>
-                      Status: {analysisResult.isHoldingObject ? 
-                        <span className="text-green-400">Person was holding object(s)</span> : 
-                        <span className="text-gray-400">No objects detected in hands</span>
-                      }
-                    </div>
-                    {analysisResult.heldObjects.length > 0 && (
-                      <>
-                        <div>
-                          Objects in hands: {analysisResult.heldObjects.map(obj => obj.class).join(', ')}
-                        </div>
-                        <div>
-                          Estimated weight: <span className="font-bold">{analysisResult.totalEstimatedWeight}g</span>
-                        </div>
-                        <Button
-                          onClick={addAllHeldObjects}
-                          size="sm"
-                          className="mt-2"
-                        >
-                          Add All Held Objects ({analysisResult.heldObjects.length})
-                        </Button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              )}
             </div>
           )}
         </CardContent>
       </Card>
 
-      {/* All Detected Objects */}
+      {/* Detected Objects with Cropped Images */}
       {detectedObjects.length > 0 && (
         <Card>
           <CardHeader>
-            <CardTitle>All Detected Objects ({detectedObjects.length})</CardTitle>
+            <CardTitle>Detected Objects ({detectedObjects.length})</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="grid grid-cols-1 gap-3">
+            <div className="grid grid-cols-1 gap-4">
               {detectedObjects.map((obj, index) => {
-                const isHeld = analysisResult?.heldObjects.some(held => held.class === obj.class) || false;
+                const objectId = `${obj.class}-${index}`;
                 
                 return (
                   <div
-                    key={`${obj.class}-${index}`}
-                    className={`flex items-center justify-between p-3 rounded-lg border ${
-                      isHeld 
-                        ? 'bg-green-900/20 border-green-700' 
-                        : 'bg-gray-800 border-gray-600'
-                    }`}
+                    key={objectId}
+                    className="bg-gray-800 border border-gray-600 rounded-lg p-4"
                   >
-                    <div className="flex items-center space-x-3">
-                      <span className="text-2xl">{obj.icon}</span>
-                      <div>
-                        <div className="font-medium flex items-center space-x-2">
-                          <span>{obj.class}</span>
-                          {isHeld && (
-                            <Badge variant="outline" className="text-green-400 border-green-400">
-                              In Hands
-                            </Badge>
-                          )}
+                    <div className="flex items-start space-x-4">
+                      {/* Cropped Object Image */}
+                      <div className="flex-shrink-0">
+                        <img
+                          src={obj.croppedImage}
+                          alt={`Detected ${obj.class}`}
+                          className="w-24 h-24 object-cover rounded-lg border border-gray-500"
+                        />
+                      </div>
+                      
+                      {/* Object Details and Weight Input */}
+                      <div className="flex-1 space-y-3">
+                        <div>
+                          <div className="font-medium text-white flex items-center space-x-2">
+                            <span className="text-xl">{obj.icon}</span>
+                            <span>{obj.class}</span>
+                          </div>
+                          <div className="text-sm text-gray-400">
+                            Confidence: {Math.round(obj.confidence * 100)}%
+                          </div>
                         </div>
-                        <div className="text-sm text-gray-400">
-                          Confidence: {Math.round(obj.confidence * 100)}% • 
-                          Category: {obj.category}
+                        
+                        {/* Weight Input */}
+                        <div className="flex items-center space-x-2">
+                          <Input
+                            type="number"
+                            placeholder="Weight in grams"
+                            value={weightInputs[objectId] || ''}
+                            onChange={(e) => handleWeightChange(objectId, e.target.value)}
+                            className="w-32"
+                            min="1"
+                          />
+                          <span className="text-sm text-gray-400">grams</span>
+                          <Button
+                            onClick={() => addObjectWithWeight(obj, index)}
+                            size="sm"
+                            disabled={!weightInputs[objectId] || isNaN(Number(weightInputs[objectId])) || Number(weightInputs[objectId]) <= 0}
+                          >
+                            Add Object
+                          </Button>
                         </div>
                       </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <div className="text-right">
-                        <div className="font-bold">{obj.estimatedWeight}g</div>
-                        <div className="text-xs text-gray-400">estimated</div>
-                      </div>
-                      <Button
-                        onClick={() => addDetectedObject(obj)}
-                        size="sm"
-                        variant="outline"
-                      >
-                        Add
-                      </Button>
                     </div>
                   </div>
                 );
@@ -254,7 +268,7 @@ export default function RecordedFrameObjectDetection({
           <CardContent className="text-center py-6">
             <div className="text-gray-400 mb-2">No objects detected in this frame</div>
             <div className="text-sm text-gray-500">
-              The person may not be holding any recognizable objects, or objects may be partially obscured
+              Try selecting a frame where objects are clearly visible
             </div>
           </CardContent>
         </Card>
