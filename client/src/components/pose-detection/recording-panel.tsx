@@ -52,7 +52,7 @@ export default function RecordingPanel({
   // Separate graph data that only records during recording session
   const [recordingGraphData, setRecordingGraphData] = useState<any[]>([]);
   const [estimatedGraphData, setEstimatedGraphData] = useState<any[]>([]);
-  const [manualGraphData, setManualGraphData] = useState<any[]>([]);
+  const [manualGraphData, setManualGraphData] = useState<any[]>(([]);
   const recordingStartTimeRef = useRef<number | null>(null);
 
   // Live data for estimated weight analysis
@@ -66,7 +66,7 @@ export default function RecordingPanel({
 
   const recordingStartTime = useRef<number | null>(null);
 
-  
+
 
   // Clear graph data when recording starts
   useEffect(() => {
@@ -124,7 +124,16 @@ export default function RecordingPanel({
     }
   }, [isRecording, currentPoseData, currentRulaScore]);
 
-  // Add manual weight
+  const addManualWeightFromInput = (weight: ManualWeight) => {
+    setManualWeights(prev => [...prev, {
+      id: weight.id,
+      name: weight.name,
+      weight: weight.weight / 1000, // Convert grams to kg for internal storage
+      icon: weight.icon,
+      previewImage: weight.previewImage
+    }]);
+  };
+
   const addManualWeight = () => {
     const newWeight: ManualWeight = {
       id: Date.now().toString(),
@@ -213,7 +222,7 @@ export default function RecordingPanel({
   const handleChartClick = (data: any) => {
     if (data && data.activePayload && data.activePayload[0]) {
       const timestamp = data.activePayload[0].payload.time;
-      
+
       // For live and estimated graphs, find frame from recording data
       if (activeGraph === 'live' || activeGraph === 'estimated') {
         const frame = recordingData.find(f => {
@@ -277,7 +286,7 @@ export default function RecordingPanel({
     setShowWeightDialog(false);
   };
 
-  
+
 
   const getCurrentRulaScore = (frame: RecordingFrame) => {
     if (analysisMode === 'manual' && manualWeights.length > 0) {
@@ -645,7 +654,7 @@ export default function RecordingPanel({
         )}
       </div>
 
-      
+
 
       {/* Frame Details */}
       {selectedFrame && (
@@ -806,7 +815,7 @@ export default function RecordingPanel({
                         </div>
                       </div>
                       <div className="bg-dark-secondary rounded p-3">
-                        <div className="text-sm text-text-secondary">Lower Arm</div>
+                        <div className="text-sm text-text-secondary">Lower Arm                        </div>
                         <div className="text-lg font-bold">
                           {getCurrentRulaScore(selectedFrame)?.lowerArm}
                         </div>
@@ -943,7 +952,7 @@ export default function RecordingPanel({
         </div>
       )}
 
-      
+
     </div>
   );
 }

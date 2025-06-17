@@ -13,11 +13,18 @@ export interface ManualWeight {
   name: string;
   weight: number;
   icon: string;
+  previewImage?: string;
 }
 
 interface ManualWeightInputProps {
   onAddWeight: (weight: ManualWeight) => void;
   existingWeights: ManualWeight[];
+  recordedFrames?: Array<{
+    timestamp: number;
+    imageData: string;
+    poseData: any;
+    hasObject?: boolean;
+  }>;
 }
 
 const OBJECT_TYPES: ObjectType[] = [
@@ -43,7 +50,7 @@ const OBJECT_TYPES: ObjectType[] = [
   { id: 'keyboard', name: 'Keyboard', icon: '⌨️', defaultWeight: 800, category: 'equipment' },
 ];
 
-export default function ManualWeightInput({ onAddWeight, existingWeights }: ManualWeightInputProps) {
+export default function ManualWeightInput({ onAddWeight, existingWeights, recordedFrames = [] }: ManualWeightInputProps) {
   const [selectedCategory, setSelectedCategory] = useState<ObjectType['category']>('tools');
   const [customWeight, setCustomWeight] = useState<number>(0);
   const [selectedObject, setSelectedObject] = useState<ObjectType | null>(null);
@@ -56,16 +63,28 @@ export default function ManualWeightInput({ onAddWeight, existingWeights }: Manu
     setCustomWeight(object.defaultWeight);
   };
 
+  // Get preview image for detected objects
+  const getObjectPreviewImage = () => {
+    if (recordedFrames.length > 0) {
+      // Find a frame where an object was detected
+      const frameWithObject = recordedFrames.find(frame => frame.hasObject);
+      return frameWithObject?.imageData || recordedFrames[Math.floor(recordedFrames.length / 2)]?.imageData;
+    }
+    return null;
+  };
+
   const handleAddWeight = () => {
     if (selectedObject && customWeight > 0) {
       // Check if object already exists
       const exists = existingWeights.some(w => w.id === selectedObject.id);
       if (!exists) {
+        const previewImage = getObjectPreviewImage();
         const newWeight: ManualWeight = {
           id: selectedObject.id,
           name: selectedObject.name,
           weight: customWeight,
-          icon: selectedObject.icon
+          icon: selectedObject.icon,
+          previewImage: previewImage || undefined
         };
         onAddWeight(newWeight);
         setSelectedObject(null);
@@ -130,6 +149,25 @@ export default function ManualWeightInput({ onAddWeight, existingWeights }: Manu
           <div className="text-center p-3 bg-blue-900/30 rounded-lg">
             <div className="text-3xl mb-2">{selectedObject.icon}</div>
             <div className="text-white font-medium">{selectedObject.name}</div>
+            
+            {/* Preview Image */}
+            {getObjectPreviewImage() && (
+              <div className="mt-3">
+                <div className="text-xs text-gray-300 mb-2">Detected in recording:</div>
+                <div className="relative mx-auto w-32 h-24 bg-gray-800 rounded-lg overflow-hidden border border-gray-600">
+                  <img 
+                    src={getObjectPreviewImage()!} 
+                    alt="Object preview"
+                    className="w-full h-full object-cover"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center">
+                    <div className="text-white text-xs bg-black bg-opacity-60 px-2 py-1 rounded">
+                      Object detected
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
           
           <div>
@@ -170,14 +208,26 @@ export default function ManualWeightInput({ onAddWeight, existingWeights }: Manu
       {existingWeights.length > 0 && (
         <div className="mt-4 pt-4 border-t border-gray-600">
           <h5 className="text-sm font-medium text-gray-300 mb-2">Added Objects:</h5>
-          <div className="space-y-1">
+          <div className="space-y-2">
             {existingWeights.map(weight => (
-              <div key={weight.id} className="flex items-center justify-between text-sm">
-                <span className="flex items-center space-x-2">
-                  <span>{weight.icon}</span>
-                  <span className="text-gray-300">{weight.name}</span>
-                </span>
-                <span className="text-white">{weight.weight}g</span>
+              <div key={weight.id} className="flex items-center space-x-3 bg-gray-700/50 p-2 rounded-lg">
+                {weight.previewImage ? (
+                  <div className="w-12 h-9 bg-gray-800 rounded overflow-hidden border border-gray-600 flex-shrink-0">
+                    <img 
+                      src={weight.previewImage} 
+                      alt={weight.name}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-12 h-9 bg-gray-800 rounded border border-gray-600 flex items-center justify-center flex-shrink-0">
+                    <span className="text-lg">{weight.icon}</span>
+                  </div>
+                )}
+                <div className="flex-1 min-w-0">
+                  <div className="text-gray-300 text-sm truncate">{weight.name}</div>
+                  <div className="text-white text-sm font-medium">{weight.weight}g</div>
+                </div>
               </div>
             ))}
           </div>
