@@ -58,9 +58,9 @@ export default function SkeletonOverlay({
         // Calculate how to draw the image to maintain aspect ratio
         const imgAspect = img.width / img.height;
         const canvasAspect = width / height;
-        
+
         let drawWidth, drawHeight, drawX, drawY;
-        
+
         if (imgAspect > canvasAspect) {
           // Image is wider - fit to width, center vertically
           drawWidth = width;
@@ -74,11 +74,11 @@ export default function SkeletonOverlay({
           drawX = (width - drawWidth) / 2;
           drawY = 0;
         }
-        
+
         // Clear canvas and draw image with proper aspect ratio
         ctx.clearRect(0, 0, width, height);
         ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
-        
+
         // Draw skeleton aligned to the image
         drawSkeleton(0, 0, width, height);
       };
@@ -92,14 +92,14 @@ export default function SkeletonOverlay({
       if (!ctx || !poseData?.keypoints) return;
 
       const keypoints = poseData.keypoints;
-      
+
       // For recorded images, we need to properly scale the coordinates
       // The keypoints are in pixel coordinates relative to the original capture size
       let scaleX = drawWidth;
       let scaleY = drawHeight;
       let actualOffsetX = offsetX;
       let actualOffsetY = offsetY;
-      
+
       // If we have an image, we need to maintain aspect ratio and align skeleton properly
       if (imageData) {
         // Create a temporary image to get dimensions synchronously for skeleton-only mode
@@ -108,7 +108,7 @@ export default function SkeletonOverlay({
           // Calculate how the image is displayed within the canvas
           const imgAspect = img.width / img.height;
           const canvasAspect = drawWidth / drawHeight;
-          
+
           if (imgAspect > canvasAspect) {
             // Image is wider - fit to width, center vertically
             scaleX = drawWidth;
@@ -122,7 +122,7 @@ export default function SkeletonOverlay({
             actualOffsetX = offsetX + (drawWidth - scaleX) / 2;
             actualOffsetY = offsetY;
           }
-          
+
           // Now draw with correct scaling - keypoints need to be scaled relative to the displayed image size
           drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY, img.width, img.height);
         };
@@ -147,7 +147,7 @@ export default function SkeletonOverlay({
 
         // Color coding based on RULA components and weight
         let riskLevel = 1;
-        
+
         if (rulaScore) {
           // Map joint to RULA component
           if ([5, 6, 7, 8].includes(jointIndex)) { // Arms
@@ -176,7 +176,7 @@ export default function SkeletonOverlay({
       // Transform coordinates properly based on context
       const transformCoordinate = (point: any) => {
         let x, y;
-        
+
         if (imageData) {
           // For recorded images, keypoints are in pixel coordinates relative to original image
           x = offsetX + (point.x / originalWidth) * scaleX;
@@ -186,7 +186,7 @@ export default function SkeletonOverlay({
           x = offsetX + (point.x / originalWidth) * scaleX;
           y = offsetY + (point.y / originalHeight) * scaleY;
         }
-        
+
         return { x, y };
       };
 
@@ -198,7 +198,7 @@ export default function SkeletonOverlay({
         if (startPoint?.score > 0.3 && endPoint?.score > 0.3) {
           const start = transformCoordinate(startPoint);
           const end = transformCoordinate(endPoint);
-          
+
           // Draw connection with outline for better visibility
           ctx.beginPath();
           ctx.moveTo(start.x, start.y);
@@ -206,7 +206,7 @@ export default function SkeletonOverlay({
           ctx.strokeStyle = '#000000';
           ctx.lineWidth = 6;
           ctx.stroke();
-          
+
           ctx.beginPath();
           ctx.moveTo(start.x, start.y);
           ctx.lineTo(end.x, end.y);
@@ -226,12 +226,12 @@ export default function SkeletonOverlay({
           ctx.arc(pos.x, pos.y, 8, 0, 2 * Math.PI);
           ctx.fillStyle = '#000000';
           ctx.fill();
-          
+
           ctx.beginPath();
           ctx.arc(pos.x, pos.y, 6, 0, 2 * Math.PI);
           ctx.fillStyle = getJointColor(index);
           ctx.fill();
-          
+
           ctx.strokeStyle = '#FFFFFF';
           ctx.lineWidth = 2;
           ctx.stroke();
@@ -241,11 +241,11 @@ export default function SkeletonOverlay({
             const label = KEYPOINT_NAMES[index] || `${index}`;
             ctx.font = 'bold 10px Arial';
             const textWidth = ctx.measureText(label).width;
-            
+
             // Draw text background
             ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
             ctx.fillRect(pos.x + 8, pos.y - 16, textWidth + 4, 12);
-            
+
             // Draw text
             ctx.fillStyle = '#FFFFFF';
             ctx.fillText(label, pos.x + 10, pos.y - 6);
@@ -322,7 +322,7 @@ export default function SkeletonOverlay({
         ctx.fillStyle = '#FFFF00';
         ctx.font = 'bold 12px Arial';
         ctx.fillText(`Weight: ${weightEstimation.estimatedWeight?.toFixed(1) || 0}kg`, boxX + 10, boxY + yOffset + 5);
-        
+
         ctx.fillStyle = '#CCCCCC';
         ctx.font = '10px Arial';
         ctx.fillText(`Confidence: ${Math.round((weightEstimation.confidence || 0) * 100)}%`, boxX + 10, boxY + yOffset + 20);
@@ -340,7 +340,7 @@ export default function SkeletonOverlay({
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '10px Arial';
       ctx.fillText('Color Legend:', boxX, legendY);
-      
+
       const legendItems = [
         { color: '#00FF00', label: 'Safe (1-2)' },
         { color: '#FFFF00', label: 'Caution (3)' },
@@ -351,7 +351,7 @@ export default function SkeletonOverlay({
       legendItems.forEach((item, index) => {
         const x = boxX + (index * 50);
         const y = legendY + 15;
-        
+
         ctx.fillStyle = item.color;
         ctx.fillRect(x, y, 10, 10);
         ctx.fillStyle = '#FFFFFF';
