@@ -4,6 +4,7 @@ import SkeletonOverlay from './skeleton-overlay';
 import ThreeDView from './three-d-view';
 import ManualWeightInput, { type ManualWeight } from './manual-weight-input';
 import ObjectDetectionWeightInput from './object-detection-weight-input';
+import RecordedFrameObjectDetection from './recorded-frame-object-detection';
 import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
 
 interface RecordingFrame {
@@ -857,6 +858,16 @@ export default function RecordingPanel({
                   </div>
                 </div>
               )}
+
+              {/* Object Detection Analysis for Selected Frame */}
+              <div>
+                <h5 className="text-lg font-medium mb-3">Object Detection Analysis</h5>
+                <RecordedFrameObjectDetection
+                  selectedFrame={selectedFrame}
+                  onAddWeight={addManualWeightFromInput}
+                  isVisible={true}
+                />
+              </div>
             </div>
           </div>
         </div>

@@ -67,19 +67,37 @@ export async function initializeObjectDetection(): Promise<void> {
   }
 }
 
-// Detect objects in the video frame
+// Detect objects in the video frame or image data
 export async function detectObjects(
-  videoElement: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement
+  input: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement | string
 ): Promise<DetectedObject[]> {
   if (!objectDetector) {
     throw new Error('Object detection model not initialized');
   }
 
   try {
-    const predictions = await objectDetector.detect(videoElement);
+    let element: HTMLVideoElement | HTMLImageElement | HTMLCanvasElement;
+
+    // Handle base64 image data (from recorded frames)
+    if (typeof input === 'string') {
+      const img = new Image();
+      img.crossOrigin = 'anonymous';
+      
+      await new Promise((resolve, reject) => {
+        img.onload = resolve;
+        img.onerror = reject;
+        img.src = input;
+      });
+      
+      element = img;
+    } else {
+      element = input;
+    }
+
+    const predictions = await objectDetector.detect(element);
     
     const detectedObjects: DetectedObject[] = predictions
-      .filter(prediction => prediction.score > 0.5) // Only high confidence detections
+      .filter(prediction => prediction.score > 0.4) // Lower threshold for recorded frames
       .map(prediction => {
         const className = prediction.class.toLowerCase();
         const objectInfo = DETECTABLE_OBJECTS[className as keyof typeof DETECTABLE_OBJECTS];
@@ -104,6 +122,11 @@ export async function detectObjects(
     console.error('Object detection failed:', error);
     return [];
   }
+}
+
+// Detect objects from base64 image data (for recorded frames)
+export async function detectObjectsFromImageData(imageData: string): Promise<DetectedObject[]> {
+  return detectObjects(imageData);
 }
 
 // Analyze frame for objects and pose to determine if person is holding something
