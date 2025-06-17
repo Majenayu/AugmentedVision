@@ -93,20 +93,15 @@ export default function SkeletonOverlay({
 
       const keypoints = poseData.keypoints;
 
-      // For recorded images, we need to properly scale the coordinates
-      let scaleX = drawWidth;
-      let scaleY = drawHeight;
-      let actualOffsetX = offsetX;
-      let actualOffsetY = offsetY;
-
-      // If we have an image and not skeleton-only mode, we need to maintain aspect ratio
+      // Calculate proper scaling for live camera feed
       if (imageData && !skeletonOnly) {
-        // Create a temporary image to get dimensions for proper scaling
+        // For recorded images with background
         const img = new Image();
         img.onload = () => {
-          // Calculate how the image is displayed within the canvas
           const imgAspect = img.width / img.height;
           const canvasAspect = drawWidth / drawHeight;
+
+          let scaleX, scaleY, actualOffsetX, actualOffsetY;
 
           if (imgAspect > canvasAspect) {
             // Image is wider - fit to width, center vertically
@@ -122,17 +117,32 @@ export default function SkeletonOverlay({
             actualOffsetY = offsetY;
           }
 
-          // Draw with correct scaling relative to the original image dimensions
           drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY, img.width, img.height);
         };
         img.src = imageData;
       } else {
-        // For skeleton-only mode or live view
-        // Keypoints are typically in pixel coordinates relative to capture dimensions
-        // Use the dimensions from the recording or assume standard video capture size
-        const originalWidth = imageData ? 640 : 640;  // Default capture width
-        const originalHeight = imageData ? 480 : 480; // Default capture height
-        drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY, originalWidth, originalHeight);
+        // For live camera feed - match camera view scaling logic
+        // This should match the scaling used in camera-view.tsx
+        const videoWidth = 640; // Standard video width
+        const videoHeight = 480; // Standard video height
+        const videoAspect = videoWidth / videoHeight;
+        const canvasAspect = drawWidth / drawHeight;
+        
+        let scaleX, scaleY, actualOffsetX = offsetX, actualOffsetY = offsetY;
+        
+        if (videoAspect > canvasAspect) {
+          // Video is wider - fit to height
+          scaleY = drawHeight;
+          scaleX = drawHeight * videoAspect;
+          actualOffsetX = offsetX + (drawWidth - scaleX) / 2;
+        } else {
+          // Video is taller - fit to width
+          scaleX = drawWidth;
+          scaleY = drawWidth / videoAspect;
+          actualOffsetY = offsetY + (drawHeight - scaleY) / 2;
+        }
+        
+        drawSkeletonWithScaling(actualOffsetX, actualOffsetY, scaleX, scaleY, videoWidth, videoHeight);
       }
     }
 
@@ -173,21 +183,32 @@ export default function SkeletonOverlay({
         return '#FF0000'; // Red - Danger
       };
 
-      // Transform coordinates properly based on context
+      // Transform coordinates to match camera view exactly
       const transformCoordinate = (point: any) => {
         let x, y;
 
-        if (imageData && !skeletonOnly) {
-          // For enhanced mode with background image, keypoints need to be scaled to match displayed image
-          // The keypoints are normalized coordinates (0-1) or pixel coordinates relative to original capture
-          // We need to map them to the actual displayed image area within the canvas
-          x = offsetX + (point.x / originalWidth) * scaleX;
-          y = offsetY + (point.y / originalHeight) * scaleY;
+        // Handle different coordinate systems (normalized vs pixel coordinates)
+        if (point.x > 1 || point.y > 1) {
+          // Pixel coordinates - normalize first
+          x = point.x / originalWidth;
+          y = point.y / originalHeight;
         } else {
-          // For skeleton-only mode or live view
-          // Scale keypoints directly to canvas dimensions
-          x = (point.x / originalWidth) * width;
-          y = (point.y / originalHeight) * height;
+          // Already normalized coordinates (0-1)
+          x = point.x;
+          y = point.y;
+        }
+
+        if (imageData && !skeletonOnly) {
+          // For enhanced mode with background image
+          x = offsetX + (x * scaleX);
+          y = offsetY + (y * scaleY);
+        } else {
+          // For skeleton-only mode - match camera view scaling
+          x = offsetX + (x * scaleX);
+          y = offsetY + (y * scaleY);
+          
+          // Mirror X coordinate to match camera view mirroring
+          x = width - x;
         }
 
         return { x, y };
