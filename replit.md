@@ -107,6 +107,7 @@ Changelog:
 - June 17, 2025. Simplified live object detection to show only cropped photos with manual weight input in grams
 - June 17, 2025. Modified object detection to analyze all recorded frames instead of current camera frame
 - June 17, 2025. Added deduplication logic to show only unique objects, keeping highest confidence detection
+- June 17, 2025. Fixed skeleton and enhanced view modes to properly use manual weight data from object detection
 
 # User Preferences
 

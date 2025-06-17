@@ -295,8 +295,20 @@ export default function RecordingPanel({
 
   const getCurrentRulaScore = (frame: RecordingFrame) => {
     if (analysisMode === 'manual' && manualWeights.length > 0) {
-      const manualWeight = manualWeights[0].weight;
-      return calculateWeightAdjustedRula(frame.rulaScore, frame.weightEstimation || { estimatedWeight: 0, confidence: 0, detectedObjects: [], bodyPosture: { isLifting: false, isCarrying: false, armPosition: 'close', spineDeviation: 0, loadDirection: 'front' } }, manualWeight);
+      const totalManualWeight = manualWeights.reduce((total, weight) => total + weight.weight, 0);
+      const defaultWeightEstimation = { 
+        estimatedWeight: 0, 
+        confidence: 0, 
+        detectedObjects: [], 
+        bodyPosture: { 
+          isLifting: false, 
+          isCarrying: false, 
+          armPosition: 'close' as const, 
+          spineDeviation: 0, 
+          loadDirection: 'front' as const 
+        } 
+      };
+      return calculateWeightAdjustedRula(frame.rulaScore, frame.weightEstimation || defaultWeightEstimation, totalManualWeight);
     }
 
     if (analysisMode === 'estimated' && frame.weightEstimation?.estimatedWeight > 0) {
@@ -308,9 +320,23 @@ export default function RecordingPanel({
 
   const getCurrentWeightEstimation = (frame: RecordingFrame) => {
     if (analysisMode === 'manual' && manualWeights.length > 0) {
+      const totalManualWeight = manualWeights.reduce((total, weight) => total + weight.weight, 0);
+      const defaultWeightEstimation = { 
+        estimatedWeight: 0, 
+        confidence: 0, 
+        detectedObjects: [], 
+        bodyPosture: { 
+          isLifting: false, 
+          isCarrying: false, 
+          armPosition: 'close' as const, 
+          spineDeviation: 0, 
+          loadDirection: 'front' as const 
+        } 
+      };
+      
       return {
-        ...frame.weightEstimation,
-        estimatedWeight: manualWeights[0].weight,
+        ...(frame.weightEstimation || defaultWeightEstimation),
+        estimatedWeight: totalManualWeight / 1000, // Convert grams to kg
         confidence: 1.0
       };
     }
