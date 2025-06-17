@@ -265,6 +265,7 @@ export default function Home() {
             onClearRecording={clearRecording}
             currentPoseData={poseData}
             currentRulaScore={rulaScore}
+            videoRef={videoRef}
           />
       </main>
 

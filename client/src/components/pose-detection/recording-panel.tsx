@@ -24,6 +24,7 @@ interface RecordingPanelProps {
   onClearRecording: () => void;
   currentPoseData?: any;
   currentRulaScore?: any;
+  videoRef?: React.RefObject<HTMLVideoElement>;
 }
 
 
@@ -40,7 +41,8 @@ export default function RecordingPanel({
   onStopRecording,
   onClearRecording,
   currentPoseData,
-  currentRulaScore
+  currentRulaScore,
+  videoRef
 }: RecordingPanelProps) {
   const [selectedFrame, setSelectedFrame] = useState<RecordingFrame | null>(null);
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('normal');
@@ -724,6 +726,7 @@ export default function RecordingPanel({
                         showColorCoding={true}
                         weightEstimation={getCurrentWeightEstimation(selectedFrame)}
                         skeletonOnly={true}
+                        videoRef={videoRef}
                       />
                       <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
                         2D Skeleton View
@@ -746,6 +749,7 @@ export default function RecordingPanel({
                       height={360}
                       showColorCoding={true}
                       weightEstimation={getCurrentWeightEstimation(selectedFrame)}
+                      videoRef={videoRef}
                     />
                     {selectedFrame.hasObject && (
                       <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">

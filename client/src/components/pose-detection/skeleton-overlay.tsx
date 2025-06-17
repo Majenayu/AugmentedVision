@@ -185,50 +185,55 @@ export default function SkeletonOverlay({
         return '#FF0000'; // Red - Danger
       };
 
-      // Transform coordinates to match camera view exactly
+      // Transform coordinates to match camera view exactly - replicate camera-view.tsx logic
       const transformCoordinate = (point: any) => {
-        // Normalize coordinates (handle both pixel and normalized input)
-        let normalizedX = point.x > 1 ? point.x / originalWidth : point.x;
-        let normalizedY = point.y > 1 ? point.y / originalHeight : point.y;
-
-        let transformedX, transformedY;
-
-        if (imageData && !skeletonOnly) {
-          // For enhanced mode with background image
-          transformedX = offsetX + (normalizedX * scaleX);
-          transformedY = offsetY + (normalizedY * scaleY);
-        } else {
-          // For skeleton-only mode - use actual video dimensions if available
-          let videoAspect = 16/9; // Default fallback
-          
-          if (videoRef?.current && videoRef.current.videoWidth > 0 && videoRef.current.videoHeight > 0) {
-            videoAspect = videoRef.current.videoWidth / videoRef.current.videoHeight;
-          }
-          
-          const canvasAspect = width / height;
-          
-          let finalScaleX, finalScaleY, finalOffsetX = 0, finalOffsetY = 0;
-          
-          if (videoAspect > canvasAspect) {
-            // Video is wider - fit to height (matching camera-view.tsx)
-            finalScaleY = height;
-            finalScaleX = height * videoAspect;
-            finalOffsetX = (width - finalScaleX) / 2;
-          } else {
-            // Video is taller - fit to width (matching camera-view.tsx)
-            finalScaleX = width;
-            finalScaleY = width / videoAspect;
-            finalOffsetY = (height - finalScaleY) / 2;
-          }
-          
-          // Apply exact same transformation as camera-view.tsx
-          transformedX = normalizedX * finalScaleX + finalOffsetX;
-          transformedY = normalizedY * finalScaleY + finalOffsetY;
-          
-          // Mirror X coordinate to match camera view
-          transformedX = width - transformedX;
+        // Use the exact same transformation logic as camera-view.tsx transformCoordinates function
+        let x = point.x;
+        let y = point.y;
+        
+        // Get video dimensions - use actual video if available, otherwise defaults
+        let videoWidth = 640;
+        let videoHeight = 480;
+        
+        if (videoRef?.current && videoRef.current.videoWidth > 0) {
+          videoWidth = videoRef.current.videoWidth;
+          videoHeight = videoRef.current.videoHeight;
         }
-
+        
+        // Calculate scaling factors exactly like camera-view.tsx
+        const videoAspect = videoWidth / videoHeight;
+        const canvasAspect = width / height;
+        
+        let scaleX, scaleY, finalOffsetX = 0, finalOffsetY = 0;
+        
+        if (videoAspect > canvasAspect) {
+          // Video is wider - fit to height
+          scaleY = height;
+          scaleX = height * videoAspect;
+          finalOffsetX = (width - scaleX) / 2;
+        } else {
+          // Video is taller - fit to width
+          scaleX = width;
+          scaleY = width / videoAspect;
+          finalOffsetY = (height - scaleY) / 2;
+        }
+        
+        let transformedX, transformedY;
+        
+        // Handle coordinate normalization exactly like camera-view.tsx
+        if (x > 1 || y > 1) {
+          // Absolute coordinates - normalize first
+          transformedX = (x / videoWidth) * scaleX + finalOffsetX;
+          transformedY = (y / videoHeight) * scaleY + finalOffsetY;
+        } else {
+          // Normalized coordinates (0-1)
+          transformedX = x * scaleX + finalOffsetX;
+          transformedY = y * scaleY + finalOffsetY;
+        }
+        
+        // Mirror X coordinate exactly like camera-view.tsx
+        transformedX = width - transformedX;
+        
         return { x: transformedX, y: transformedY };
       };
 
