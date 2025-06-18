@@ -109,6 +109,8 @@ Changelog:
 - June 17, 2025. Added deduplication logic to show only unique objects, keeping highest confidence detection
 - June 17, 2025. Fixed skeleton and enhanced view modes to properly use manual weight data from object detection
 - June 18, 2025. Added Excel export functionality for graph data with separate sheets for each analysis type (Live, Recording, Estimated Weight, Manual Weight)
+- June 18, 2025. Fixed skeleton color coding to properly reflect weight-adjusted RULA scores in manual mode
+- June 18, 2025. Enhanced Excel export with detailed breakdown of body part scores, risk level changes, and comprehensive object data
 
 # User Preferences
 

@@ -153,7 +153,7 @@ export default function SkeletonOverlay({
 
       const keypoints = poseData.keypoints;
 
-      // Get color based on RULA score and weight
+      // Get color based on RULA score and weight - use weight-adjusted scores when available
       const getJointColor = (jointIndex: number) => {
         if (!showColorCoding) return '#00FF00'; // Default green
 
@@ -161,6 +161,7 @@ export default function SkeletonOverlay({
         let riskLevel = 1;
 
         if (rulaScore) {
+          // Use the actual RULA score passed in (which should be weight-adjusted in manual mode)
           // Map joint to RULA component
           if ([5, 6, 7, 8].includes(jointIndex)) { // Arms
             riskLevel = Math.max(rulaScore.upperArm || 1, rulaScore.lowerArm || 1);
@@ -172,17 +173,19 @@ export default function SkeletonOverlay({
             riskLevel = rulaScore.trunk || 1;
           }
 
-          // Adjust for weight bearing
-          if (weightEstimation?.estimatedWeight > 5) {
-            riskLevel = Math.min(6, riskLevel + 1);
+          // Use final score for better color representation when available
+          if (rulaScore.finalScore) {
+            riskLevel = Math.max(riskLevel, rulaScore.finalScore);
           }
         }
 
-        // Color mapping
+        // Enhanced color mapping with more gradual transitions
         if (riskLevel <= 2) return '#00FF00'; // Green - Safe
-        if (riskLevel <= 3) return '#FFFF00'; // Yellow - Caution
-        if (riskLevel <= 4) return '#FFA500'; // Orange - Warning
-        return '#FF0000'; // Red - Danger
+        if (riskLevel <= 3) return '#80FF00'; // Light green - Low risk
+        if (riskLevel <= 4) return '#FFFF00'; // Yellow - Medium risk  
+        if (riskLevel <= 5) return '#FF8000'; // Orange - High risk
+        if (riskLevel <= 6) return '#FF4000'; // Red-orange - Very high risk
+        return '#FF0000'; // Red - Critical
       };
 
       // Transform coordinates to match camera view exactly - replicate camera-view.tsx logic

@@ -353,32 +353,74 @@ export default function RecordingPanel({
       'Time (seconds)': index * 0.1, // Assuming 10fps recording
       'RULA Score': point.rulaScore,
       'Estimated Weight (kg)': point.estimatedWeight,
-      'Confidence': point.confidence
+      'Confidence': point.confidence,
+      'Has Object': point.hasObject ? 'Yes' : 'No'
     }));
 
     // Prepare Recording Graph Data (Normal)
     const recordingData = recordingGraphData.map((point, index) => ({
       'Time (seconds)': index * (60 / recordingGraphData.length), // 60 seconds total
       'RULA Score': point.rulaScore,
-      'Risk Level': point.riskLevel
+      'Risk Level': point.riskLevel,
+      'Upper Arm Score': point.upperArm || 'N/A',
+      'Lower Arm Score': point.lowerArm || 'N/A',
+      'Wrist Score': point.wrist || 'N/A',
+      'Neck Score': point.neck || 'N/A',
+      'Trunk Score': point.trunk || 'N/A'
     }));
 
-    // Prepare Estimated Graph Data
+    // Prepare Estimated Graph Data with detailed breakdown
     const estimatedData = estimatedGraphData.map((point, index) => ({
       'Time (seconds)': index * (60 / estimatedGraphData.length),
       'Original RULA Score': point.originalRulaScore,
       'Adjusted RULA Score': point.adjustedRulaScore,
       'Estimated Weight (kg)': point.estimatedWeight,
-      'Weight Multiplier': point.weightMultiplier
+      'Weight Multiplier': point.weightMultiplier,
+      'Original Upper Arm': point.originalUpperArm || 'N/A',
+      'Adjusted Upper Arm': point.adjustedUpperArm || 'N/A',
+      'Original Lower Arm': point.originalLowerArm || 'N/A',
+      'Adjusted Lower Arm': point.adjustedLowerArm || 'N/A',
+      'Original Wrist': point.originalWrist || 'N/A',
+      'Adjusted Wrist': point.adjustedWrist || 'N/A',
+      'Original Neck': point.originalNeck || 'N/A',
+      'Adjusted Neck': point.adjustedNeck || 'N/A',
+      'Original Trunk': point.originalTrunk || 'N/A',
+      'Adjusted Trunk': point.adjustedTrunk || 'N/A',
+      'Risk Level Change': point.riskLevelChange || 'N/A',
+      'Confidence': point.confidence || 'N/A'
     }));
 
-    // Prepare Manual Graph Data
+    // Prepare Manual Graph Data with detailed breakdown
     const manualData = manualGraphData.map((point, index) => ({
       'Time (seconds)': index * (60 / manualGraphData.length),
       'Original RULA Score': point.originalRulaScore,
       'Adjusted RULA Score': point.adjustedRulaScore,
       'Manual Weight (kg)': point.manualWeight,
-      'Weight Multiplier': point.weightMultiplier
+      'Weight Multiplier': point.weightMultiplier,
+      'Original Upper Arm': point.originalUpperArm || 'N/A',
+      'Adjusted Upper Arm': point.adjustedUpperArm || 'N/A',
+      'Original Lower Arm': point.originalLowerArm || 'N/A',
+      'Adjusted Lower Arm': point.adjustedLowerArm || 'N/A',
+      'Original Wrist': point.originalWrist || 'N/A',
+      'Adjusted Wrist': point.adjustedWrist || 'N/A',
+      'Original Neck': point.originalNeck || 'N/A',
+      'Adjusted Neck': point.adjustedNeck || 'N/A',
+      'Original Trunk': point.originalTrunk || 'N/A',
+      'Adjusted Trunk': point.adjustedTrunk || 'N/A',
+      'Risk Level Change': point.riskLevelChange || 'N/A',
+      'Object Names': point.objectNames || 'N/A',
+      'Object Weights (g)': point.objectWeights || 'N/A'
+    }));
+
+    // Prepare detailed manual weight objects data
+    const manualWeightsData = manualWeights.map((weight, index) => ({
+      'Object ID': weight.id,
+      'Object Name': weight.name,
+      'Weight (grams)': weight.weight,
+      'Weight (kg)': (weight.weight / 1000).toFixed(3),
+      'Icon': weight.icon,
+      'Order Added': index + 1,
+      'Has Preview Image': weight.previewImage ? 'Yes' : 'No'
     }));
 
     // Create workbook with multiple sheets
@@ -402,6 +444,11 @@ export default function RecordingPanel({
     if (manualData.length > 0) {
       const manualSheet = XLSX.utils.json_to_sheet(manualData);
       XLSX.utils.book_append_sheet(workbook, manualSheet, 'Manual Weight Data');
+    }
+
+    if (manualWeightsData.length > 0) {
+      const weightsSheet = XLSX.utils.json_to_sheet(manualWeightsData);
+      XLSX.utils.book_append_sheet(workbook, weightsSheet, 'Manual Objects List');
     }
 
     // Download the file
