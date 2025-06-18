@@ -108,6 +108,7 @@ Changelog:
 - June 17, 2025. Modified object detection to analyze all recorded frames instead of current camera frame
 - June 17, 2025. Added deduplication logic to show only unique objects, keeping highest confidence detection
 - June 17, 2025. Fixed skeleton and enhanced view modes to properly use manual weight data from object detection
+- June 18, 2025. Added Excel export functionality for graph data with separate sheets for each analysis type (Live, Recording, Estimated Weight, Manual Weight)
 
 # User Preferences
 

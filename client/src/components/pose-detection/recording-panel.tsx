@@ -4,6 +4,7 @@ import SkeletonOverlay from './skeleton-overlay';
 import ThreeDView from './three-d-view';
 import ManualWeightInput, { type ManualWeight } from './manual-weight-input';
 import ObjectDetectionWeightInput from './object-detection-weight-input';
+import * as XLSX from 'xlsx';
 
 import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
 
@@ -343,6 +344,71 @@ export default function RecordingPanel({
     return frame.weightEstimation;
   };
 
+  // Excel export functions
+  const exportGraphDataToExcel = () => {
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+    
+    // Prepare Live Graph Data
+    const liveData = liveGraphData.map((point, index) => ({
+      'Time (seconds)': index * 0.1, // Assuming 10fps recording
+      'RULA Score': point.rulaScore,
+      'Estimated Weight (kg)': point.estimatedWeight,
+      'Confidence': point.confidence
+    }));
+
+    // Prepare Recording Graph Data (Normal)
+    const recordingData = recordingGraphData.map((point, index) => ({
+      'Time (seconds)': index * (60 / recordingGraphData.length), // 60 seconds total
+      'RULA Score': point.rulaScore,
+      'Risk Level': point.riskLevel
+    }));
+
+    // Prepare Estimated Graph Data
+    const estimatedData = estimatedGraphData.map((point, index) => ({
+      'Time (seconds)': index * (60 / estimatedGraphData.length),
+      'Original RULA Score': point.originalRulaScore,
+      'Adjusted RULA Score': point.adjustedRulaScore,
+      'Estimated Weight (kg)': point.estimatedWeight,
+      'Weight Multiplier': point.weightMultiplier
+    }));
+
+    // Prepare Manual Graph Data
+    const manualData = manualGraphData.map((point, index) => ({
+      'Time (seconds)': index * (60 / manualGraphData.length),
+      'Original RULA Score': point.originalRulaScore,
+      'Adjusted RULA Score': point.adjustedRulaScore,
+      'Manual Weight (kg)': point.manualWeight,
+      'Weight Multiplier': point.weightMultiplier
+    }));
+
+    // Create workbook with multiple sheets
+    const workbook = XLSX.utils.book_new();
+
+    if (liveData.length > 0) {
+      const liveSheet = XLSX.utils.json_to_sheet(liveData);
+      XLSX.utils.book_append_sheet(workbook, liveSheet, 'Live Graph Data');
+    }
+
+    if (recordingData.length > 0) {
+      const recordingSheet = XLSX.utils.json_to_sheet(recordingData);
+      XLSX.utils.book_append_sheet(workbook, recordingSheet, 'Recording Graph Data');
+    }
+
+    if (estimatedData.length > 0) {
+      const estimatedSheet = XLSX.utils.json_to_sheet(estimatedData);
+      XLSX.utils.book_append_sheet(workbook, estimatedSheet, 'Estimated Weight Data');
+    }
+
+    if (manualData.length > 0) {
+      const manualSheet = XLSX.utils.json_to_sheet(manualData);
+      XLSX.utils.book_append_sheet(workbook, manualSheet, 'Manual Weight Data');
+    }
+
+    // Download the file
+    const fileName = `ErgoTrack_Analysis_${timestamp}.xlsx`;
+    XLSX.writeFile(workbook, fileName);
+  };
+
   return (
     <div className="bg-dark-card rounded-lg shadow-lg p-6">
       <div className="flex items-center justify-between mb-6">
@@ -372,13 +438,23 @@ export default function RecordingPanel({
           )}
 
           {recordingData.length > 0 && !isRecording && (
-            <button
-              onClick={onClearRecording}
-              className="bg-gray-600 hover:bg-gray-700 px-2 py-2 rounded-lg transition-colors"
-              title="Clear Recording"
-            >
-              <span className="material-icon">delete</span>
-            </button>
+            <>
+              <button
+                onClick={exportGraphDataToExcel}
+                className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
+                title="Export Graph Data to Excel"
+              >
+                <span className="material-icon">download</span>
+                <span>Export Excel</span>
+              </button>
+              <button
+                onClick={onClearRecording}
+                className="bg-gray-600 hover:bg-gray-700 px-2 py-2 rounded-lg transition-colors"
+                title="Clear Recording"
+              >
+                <span className="material-icon">delete</span>
+              </button>
+            </>
           )}
         </div>
       </div>
