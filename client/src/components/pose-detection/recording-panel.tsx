@@ -94,8 +94,26 @@ export default function RecordingPanel({
 
       // Stop adding data after 60 seconds
       if (elapsedSeconds <= 60) {
-        // Detect objects in the current frame
-        const hasObject = currentPoseData.keypoints && estimateWeightFromPosture(currentPoseData.keypoints).estimatedWeight > 0;
+        // Detect objects based on arm position and pose characteristics
+        const hasObject = currentPoseData.keypoints && (() => {
+          const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints);
+          
+          // Debug logging to see what's being detected
+          if (weightEstimation.bodyPosture.isCarrying || weightEstimation.bodyPosture.isLifting) {
+            console.log('Object detected:', {
+              isCarrying: weightEstimation.bodyPosture.isCarrying,
+              isLifting: weightEstimation.bodyPosture.isLifting,
+              armPosition: weightEstimation.bodyPosture.armPosition,
+              estimatedWeight: weightEstimation.estimatedWeight
+            });
+          }
+          
+          // More sensitive detection - consider object present if any holding behavior is detected
+          return weightEstimation.bodyPosture.isCarrying || 
+                 weightEstimation.bodyPosture.isLifting ||
+                 weightEstimation.bodyPosture.armPosition === 'extended' ||
+                 weightEstimation.bodyPosture.armPosition === 'overhead';
+        })();
 
         const newDataPoint = {
           time: elapsedSeconds,
@@ -144,7 +162,11 @@ export default function RecordingPanel({
       id: Date.now().toString(),
       name: `Object ${manualWeights.length + 1}`,
       weight: 0,
+ HEAD
       icon: '📦'
+
+      icon: "📦"
+ 8aec0b5ba0bad59b164834ccf0998d125ee1ffbe
     };
     setManualWeights([...manualWeights, newWeight]);
   };
@@ -1039,9 +1061,79 @@ export default function RecordingPanel({
       {/* Smart Object Detection Weight Management Dialog */}
       {showWeightDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+<<<<<<< HEAD
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium">Smart Object Detection & Weight Management</h3>
+=======
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-medium mb-4">Manage Objects & Weights</h3>
+
+            <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+              {manualWeights.map((weight) => (
+                <div key={weight.id} className="flex items-center space-x-3 bg-gray-700 p-3 rounded-lg">
+                  {/* Display captured object image or icon */}
+                  <div className="w-12 h-12 flex-shrink-0">
+                    {weight.previewImage ? (
+                      <img 
+                        src={weight.previewImage} 
+                        alt={weight.name}
+                        className="w-full h-full object-cover rounded border border-gray-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-600 rounded border border-gray-500 flex items-center justify-center">
+                        <span className="text-lg">{weight.icon}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Object name input */}
+                  <input
+                    type="text"
+                    value={weight.name}
+                    onChange={(e) => updateManualWeight(weight.id, 'name', e.target.value)}
+                    className="flex-1 px-2 py-1 bg-gray-600 text-white rounded border border-gray-500"
+                    placeholder="Object name"
+                  />
+                  
+                  {/* Weight input */}
+                  <input
+                    type="number"
+                    value={weight.weight}
+                    onChange={(e) => updateManualWeight(weight.id, 'weight', Number(e.target.value))}
+                    className="w-20 px-2 py-1 bg-gray-600 text-white rounded border border-gray-500"
+                    placeholder="kg"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                  />
+                  
+                  {/* Remove button */}
+                  <button
+                    onClick={() => removeManualWeight(weight.id)}
+                    className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-sm"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Manual Weight Input Component */}
+            <ManualWeightInput 
+              onAddWeight={addManualWeightFromInput}
+              existingWeights={manualWeights}
+              recordedFrames={recordingData}
+            />
+            
+            <div className="flex justify-between items-center mb-4 mt-4">
+              <div className="text-sm">
+                Total Weight: <span className="font-bold">{getTotalManualWeight()}kg</span>
+              </div>
+            </div>
+
+            <div className="flex space-x-2">
+>>>>>>> 8aec0b5ba0bad59b164834ccf0998d125ee1ffbe
               <button
                 onClick={() => setShowWeightDialog(false)}
                 className="text-gray-400 hover:text-white text-xl"

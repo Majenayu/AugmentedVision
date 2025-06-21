@@ -91,29 +91,26 @@ function analyzePosture(keypoints: Keypoint[]): PostureAnalysis {
     const neck = keypoints[1];
     
     if (leftShoulder && rightShoulder && leftWrist && rightWrist && leftElbow && rightElbow) {
-      // Only detect objects when arms are in specific holding/lifting postures
+      // More sensitive object detection for when arms are away from body
       const leftElbowAngle = calculateElbowAngle(leftShoulder, leftElbow, leftWrist);
       const rightElbowAngle = calculateElbowAngle(rightShoulder, rightElbow, rightWrist);
       
-      // Stricter criteria: both arms must be in holding position
-      const leftArmHolding = leftElbowAngle > 45 && leftElbowAngle < 135 && leftWrist.y < leftShoulder.y + 50;
-      const rightArmHolding = rightElbowAngle > 45 && rightElbowAngle < 135 && rightWrist.y < rightShoulder.y + 50;
+      // Check if arms are extended or holding objects (less strict criteria)
+      const leftArmExtended = leftElbowAngle > 30 && leftElbowAngle < 150;
+      const rightArmExtended = rightElbowAngle > 30 && rightElbowAngle < 150;
       
-      // Check if wrists are positioned to hold objects (not just natural arm movement)
-      const leftWristForward = leftWrist.y > leftShoulder.y && Math.abs(leftWrist.x - leftShoulder.x) > 0.1;
-      const rightWristForward = rightWrist.y > rightShoulder.y && Math.abs(rightWrist.x - rightShoulder.x) > 0.1;
+      // Check if wrists are positioned away from body (indicating holding something)
+      const leftWristAway = Math.abs(leftWrist.x - leftShoulder.x) > 0.05;
+      const rightWristAway = Math.abs(rightWrist.x - rightShoulder.x) > 0.05;
       
-      // Detect carrying only when specific conditions are met
-      if ((leftArmHolding && leftWristForward) || (rightArmHolding && rightWristForward)) {
+      // Detect carrying when arms are extended and wrists are positioned away from body
+      if ((leftArmExtended && leftWristAway) || (rightArmExtended && rightWristAway)) {
         isCarrying = true;
         armPosition = 'extended';
       }
       
-      // Check for lifting posture (both arms engaged, specific angle patterns)
-      const bothArmsEngaged = leftArmHolding && rightArmHolding;
-      const symmetricPosture = Math.abs(leftElbowAngle - rightElbowAngle) < 30;
-      
-      if (bothArmsEngaged && symmetricPosture && (leftWristForward || rightWristForward)) {
+      // Check for lifting posture (both arms engaged)
+      if (leftArmExtended && rightArmExtended && (leftWristAway || rightWristAway)) {
         isLifting = true;
         armPosition = 'extended';
       }

@@ -19,13 +19,6 @@ const KEYPOINT_CONNECTIONS = [
   [0, 1], [0, 2], [1, 3], [2, 4] // Head
 ];
 
-const KEYPOINT_NAMES = [
-  'nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear',
-  'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
-  'left_wrist', 'right_wrist', 'left_hip', 'right_hip',
-  'left_knee', 'right_knee', 'left_ankle', 'right_ankle'
-];
-
 export default function SkeletonOverlay({
   poseData,
   rulaScore,
@@ -88,9 +81,26 @@ export default function SkeletonOverlay({
     } else {
       // For skeleton-only mode or no image, just draw skeleton with proper scaling
       drawSkeleton(0, 0, width, height);
+
+    // Always draw background image if provided, otherwise use dark background
+    if (imageData) {
+      const img = new Image();
+      img.onload = () => {
+        // Draw image to fill the entire canvas
+        ctx.drawImage(img, 0, 0, width, height);
+        drawSkeleton();
+        drawRulaOverlay();
+      };
+      img.src = imageData;
+    } else {
+      // Draw dark background for skeleton view
+      ctx.fillStyle = '#1a1a1a';
+      ctx.fillRect(0, 0, width, height);
+      drawSkeleton();
+      drawRulaOverlay();8aec0b5ba0bad59b164834ccf0998d125ee1ffbe
     }
 
-    function drawSkeleton(offsetX = 0, offsetY = 0, drawWidth = width, drawHeight = height) {
+    function drawSkeleton() {
       if (!ctx || !poseData?.keypoints) return;
 
       const keypoints = poseData.keypoints;
@@ -153,14 +163,13 @@ export default function SkeletonOverlay({
 
       const keypoints = poseData.keypoints;
 
-      // Get color based on RULA score and weight - use weight-adjusted scores when available
+ 8aec0b5ba0bad59b164834ccf0998d125ee1ffbe
       const getJointColor = (jointIndex: number) => {
-        if (!showColorCoding) return '#00FF00'; // Default green
+        if (!showColorCoding || !rulaScore) return '#00FF00'; // Default green
 
-        // Color coding based on RULA components and weight
+        // Color coding based on RULA components
         let riskLevel = 1;
-
-        if (rulaScore) {
+ if (rulaScore) {
           // Use the actual RULA score passed in (which should be weight-adjusted in manual mode)
           // Map joint to RULA component
           if ([5, 6, 7, 8].includes(jointIndex)) { // Arms
@@ -186,6 +195,32 @@ export default function SkeletonOverlay({
         if (riskLevel <= 5) return '#FF8000'; // Orange - High risk
         if (riskLevel <= 6) return '#FF4000'; // Red-orange - Very high risk
         return '#FF0000'; // Red - Critical
+
+        
+        // Map joint to RULA component
+        if ([5, 6, 7, 8].includes(jointIndex)) { // Arms (shoulders, elbows)
+          riskLevel = Math.max(rulaScore.upperArm || 1, rulaScore.lowerArm || 1);
+        } else if ([9, 10].includes(jointIndex)) { // Wrists
+          riskLevel = rulaScore.wrist || 1;
+        } else if ([0, 1, 2, 3, 4].includes(jointIndex)) { // Neck/Head
+          riskLevel = rulaScore.neck || 1;
+        } else if ([11, 12].includes(jointIndex)) { // Trunk
+          riskLevel = rulaScore.trunk || 1;
+        } else { // Legs (default to trunk score)
+          riskLevel = rulaScore.trunk || 1;
+        }
+
+        // Adjust for weight bearing
+        if (weightEstimation?.estimatedWeight > 5) {
+          riskLevel = Math.min(riskLevel + 1, 7);
+        }
+
+        // Return color based on risk level
+        if (riskLevel <= 2) return '#10B981'; // Green - low risk
+        if (riskLevel <= 4) return '#F59E0B'; // Orange - medium risk
+        if (riskLevel <= 6) return '#EF4444'; // Red - high risk
+        return '#DC2626'; // Dark red - very high risk
+8aec0b5ba0bad59b164834ccf0998d125ee1ffbe
       };
 
       // Transform coordinates to match camera view exactly - replicate camera-view.tsx logic
@@ -244,7 +279,6 @@ export default function SkeletonOverlay({
       KEYPOINT_CONNECTIONS.forEach(([startIdx, endIdx]) => {
         const startPoint = keypoints[startIdx];
         const endPoint = keypoints[endIdx];
-
         if (startPoint?.score > 0.3 && endPoint?.score > 0.3) {
           const start = transformCoordinate(startPoint);
           const end = transformCoordinate(endPoint);
@@ -262,13 +296,24 @@ export default function SkeletonOverlay({
           ctx.lineTo(end.x, end.y);
           ctx.strokeStyle = getJointColor(startIdx);
           ctx.lineWidth = 4;
+        
+        if (startPoint && endPoint && startPoint.score > 0.3 && endPoint.score > 0.3) {
+          const color = getJointColor(startIdx);
+          
+          ctx.strokeStyle = color;
+          ctx.lineWidth = 4;
+          ctx.lineCap = 'round';
+          ctx.beginPath();
+          ctx.moveTo(startPoint.x * width, startPoint.y * height);
+          ctx.lineTo(endPoint.x * width, endPoint.y * height);
+ 8aec0b5ba0bad59b164834ccf0998d125ee1ffbe
           ctx.stroke();
         }
       });
 
       // Draw keypoints with enhanced visibility
       keypoints.forEach((keypoint: any, index: number) => {
-        if (keypoint.score > 0.3) {
+ if (keypoint.score > 0.3) {
           const pos = transformCoordinate(keypoint);
 
           // Draw keypoint with black outline for better visibility
@@ -282,8 +327,18 @@ export default function SkeletonOverlay({
           ctx.fillStyle = getJointColor(index);
           ctx.fill();
 
+
+        if (keypoint && keypoint.score > 0.3) {
+          const color = getJointColor(index);
+          
+          ctx.fillStyle = color;
+8aec0b5ba0bad59b164834ccf0998d125ee1ffbe
           ctx.strokeStyle = '#FFFFFF';
           ctx.lineWidth = 2;
+          
+          ctx.beginPath();
+          ctx.arc(keypoint.x * width, keypoint.y * height, 6, 0, 2 * Math.PI);
+          ctx.fill();
           ctx.stroke();
 
           // Draw keypoint labels with background for better readability
@@ -300,55 +355,38 @@ export default function SkeletonOverlay({
             ctx.fillStyle = '#FFFFFF';
             ctx.fillText(label, pos.x + 10, pos.y - 6);
           }
+ 8aec0b5ba0bad59b164834ccf0998d125ee1ffbe
         }
       });
-
-      // Draw RULA score overlay
-      if (rulaScore && showColorCoding) {
-        drawRulaOverlay();
-      }
     }
 
     function drawRulaOverlay() {
-      if (!ctx || !rulaScore) return;
+      if (!ctx || !rulaScore || !showColorCoding) return;
 
-      // Draw RULA score box with enhanced information
-      const boxWidth = 220;
-      const boxHeight = weightEstimation ? 150 : 120;
-      const boxX = width - boxWidth - 10;
-      const boxY = 10;
-
-      // Background with transparency
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
-      ctx.fillRect(boxX, boxY, boxWidth, boxHeight);
-      ctx.strokeStyle = '#FFFFFF';
-      ctx.lineWidth = 2;
-      ctx.strokeRect(boxX, boxY, boxWidth, boxHeight);
+      // Draw RULA score information overlay
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+      ctx.fillRect(10, 10, 200, 120);
 
       // Title
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 14px Arial';
-      ctx.fillText('RULA Assessment', boxX + 10, boxY + 20);
+      ctx.font = '14px Arial';
+      ctx.fillText('RULA Assessment', 20, 30);
 
-      // Final score with color coding
+      // Final score with color
       const finalScore = rulaScore.finalScore || 0;
-      let scoreColor = '#00FF00';
-      if (finalScore > 4) scoreColor = '#FF0000';
-      else if (finalScore > 2) scoreColor = '#FFA500';
+      let scoreColor = '#10B981';
+      if (finalScore > 4) scoreColor = '#EF4444';
+      else if (finalScore > 2) scoreColor = '#F59E0B';
 
       ctx.fillStyle = scoreColor;
-      ctx.font = 'bold 24px Arial';
-      ctx.fillText(`Score: ${finalScore}`, boxX + 10, boxY + 50);
+      ctx.font = 'bold 16px Arial';
+      ctx.fillText(`Score: ${finalScore}`, 20, 55);
 
-      // Risk level (simplified without "changes needed" text)
+      // Risk level
       ctx.fillStyle = '#FFFFFF';
       ctx.font = '12px Arial';
-      const riskText = finalScore <= 2 ? 'Low Risk' : 
-                       finalScore <= 4 ? 'Medium Risk' : 
-                       finalScore <= 6 ? 'High Risk' : 'Critical Risk';
-      ctx.fillText(`Risk: ${riskText}`, boxX + 10, boxY + 70);
+      ctx.fillText(`Risk: ${rulaScore.riskLevel || 'Unknown'}`, 20, 75);
 
-      // Component scores
       let yOffset = 85;
       const components = [
         { label: 'Upper Arm', value: rulaScore.upperArm },
@@ -408,16 +446,33 @@ export default function SkeletonOverlay({
         ctx.font = '8px Arial';
         ctx.fillText(item.label, x, y + 20);
       });
+
+      // Body part scores
+      ctx.font = '10px Arial';
+      ctx.fillText(`Arms: ${rulaScore.upperArm || 0}/${rulaScore.lowerArm || 0}`, 20, 95);
+      ctx.fillText(`Wrist: ${rulaScore.wrist || 0} | Neck: ${rulaScore.neck || 0}`, 20, 110);
+      ctx.fillText(`Trunk: ${rulaScore.trunk || 0}`, 20, 125);
+
+      // Weight indication if present
+      if (weightEstimation?.estimatedWeight > 0) {
+        ctx.fillStyle = '#F59E0B';
+        ctx.font = '10px Arial';
+        ctx.fillText(`Weight: ${weightEstimation.estimatedWeight.toFixed(1)}kg`, 120, 95);
+      }
+ 8aec0b5ba0bad59b164834ccf0998d125ee1ffbe
     }
+
   }, [poseData, rulaScore, imageData, width, height, showColorCoding, weightEstimation]);
 
   return (
-    <canvas
-      ref={canvasRef}
-      width={width}
-      height={height}
-      className="absolute top-0 left-0 pointer-events-none"
-      style={{ width: '100%', height: '100%' }}
-    />
+    <div className="relative">
+      <canvas
+        ref={canvasRef}
+        width={width}
+        height={height}
+        className="absolute top-0 left-0"
+        style={{ width: '100%', height: '100%' }}
+      />
+    </div>
   );
 }

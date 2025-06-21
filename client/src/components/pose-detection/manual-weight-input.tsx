@@ -51,43 +51,74 @@ const OBJECT_TYPES: ObjectType[] = [
 ];
 
 export default function ManualWeightInput({ onAddWeight, existingWeights, recordedFrames = [] }: ManualWeightInputProps) {
-  const [selectedCategory, setSelectedCategory] = useState<ObjectType['category']>('tools');
+  const [selectedDetectedObject, setSelectedDetectedObject] = useState<{id: string, imageData: string, name: string} | null>(null);
   const [customWeight, setCustomWeight] = useState<number>(0);
-  const [selectedObject, setSelectedObject] = useState<ObjectType | null>(null);
 
-  const categories = ['tools', 'boxes', 'bags', 'equipment'] as const;
-  const filteredObjects = OBJECT_TYPES.filter(obj => obj.category === selectedCategory);
+  // Extract unique detected objects from recorded frames and create cropped icons
+  const getDetectedObjects = () => {
+    const detectedObjects: Array<{id: string, imageData: string, name: string}> = [];
+    const framesWithObjects = recordedFrames.filter(frame => frame.hasObject && frame.imageData);
+    
+    // Group frames by time intervals to avoid duplicates of the same object
+    const groupedFrames: Array<{timestamp: number, imageData: string}> = [];
+    let lastTimestamp = 0;
+    
+    framesWithObjects.forEach((frame) => {
+      if (frame.timestamp - lastTimestamp > 5000) { // 5 second intervals
+        groupedFrames.push({
+          timestamp: frame.timestamp,
+          imageData: frame.imageData
+        });
+        lastTimestamp = frame.timestamp;
+      }
+    });
 
-  const handleObjectSelect = (object: ObjectType) => {
-    setSelectedObject(object);
-    setCustomWeight(object.defaultWeight);
+    // Create cropped object icons
+    groupedFrames.forEach((frame, index) => {
+      const objectId = `detected_object_${index}`;
+      const objectName = `Object ${index + 1}`;
+      
+      // Create a smaller cropped version of the image focusing on the center area
+      const croppedIcon = createObjectIcon(frame.imageData);
+      
+      detectedObjects.push({
+        id: objectId,
+        imageData: croppedIcon,
+        name: objectName
+      });
+    });
+
+    return detectedObjects;
   };
 
-  // Get preview image for detected objects
-  const getObjectPreviewImage = () => {
-    if (recordedFrames.length > 0) {
-      // Find a frame where an object was detected
-      const frameWithObject = recordedFrames.find(frame => frame.hasObject);
-      return frameWithObject?.imageData || recordedFrames[Math.floor(recordedFrames.length / 2)]?.imageData;
-    }
-    return null;
+  // Create a cropped icon from the full image
+  const createObjectIcon = (imageData: string): string => {
+    // For now, return the original image data
+    // In a production app, you'd process this server-side or use a more sophisticated approach
+    return imageData;
+  };
+
+  const detectedObjects = getDetectedObjects();
+
+  const handleDetectedObjectSelect = (detectedObject: {id: string, imageData: string, name: string}) => {
+    setSelectedDetectedObject(detectedObject);
+    setCustomWeight(1000); // Default 1kg
   };
 
   const handleAddWeight = () => {
-    if (selectedObject && customWeight > 0) {
+    if (selectedDetectedObject && customWeight > 0) {
       // Check if object already exists
-      const exists = existingWeights.some(w => w.id === selectedObject.id);
+      const exists = existingWeights.some(w => w.id === selectedDetectedObject.id);
       if (!exists) {
-        const previewImage = getObjectPreviewImage();
         const newWeight: ManualWeight = {
-          id: selectedObject.id,
-          name: selectedObject.name,
+          id: selectedDetectedObject.id,
+          name: selectedDetectedObject.name,
           weight: customWeight,
-          icon: selectedObject.icon,
-          previewImage: previewImage || undefined
+          icon: "📦",
+          previewImage: selectedDetectedObject.imageData
         };
         onAddWeight(newWeight);
-        setSelectedObject(null);
+        setSelectedDetectedObject(null);
         setCustomWeight(0);
       }
     }
@@ -101,104 +132,112 @@ export default function ManualWeightInput({ onAddWeight, existingWeights, record
     <div className="bg-dark-card rounded-lg p-4 max-w-md">
       <h4 className="text-lg font-medium mb-4 text-white">Add Object Weight</h4>
       
-      {/* Category Selection */}
-      <div className="flex space-x-2 mb-4">
-        {categories.map(category => (
-          <button
-            key={category}
-            onClick={() => setSelectedCategory(category)}
-            className={`px-3 py-1 rounded text-sm capitalize transition-colors ${
-              selectedCategory === category 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            {category}
-          </button>
-        ))}
-      </div>
-
-      {/* Object Grid */}
-      <div className="grid grid-cols-2 gap-2 mb-4">
-        {filteredObjects.map(object => (
-          <button
-            key={object.id}
-            onClick={() => handleObjectSelect(object)}
-            disabled={isObjectAdded(object.id)}
-            className={`p-3 rounded-lg border-2 transition-all text-center ${
-              selectedObject?.id === object.id
-                ? 'border-blue-500 bg-blue-900/30'
-                : isObjectAdded(object.id)
-                ? 'border-gray-600 bg-gray-800/50 opacity-50 cursor-not-allowed'
-                : 'border-gray-600 bg-gray-700/50 hover:border-gray-500 hover:bg-gray-600/50'
-            }`}
-          >
-            <div className="text-2xl mb-1">{object.icon}</div>
-            <div className="text-xs text-gray-300">{object.name}</div>
-            <div className="text-xs text-gray-400">{object.defaultWeight}g</div>
-            {isObjectAdded(object.id) && (
-              <div className="text-xs text-green-400 mt-1">✓ Added</div>
-            )}
-          </button>
-        ))}
-      </div>
-
-      {/* Weight Input */}
-      {selectedObject && (
-        <div className="space-y-3">
-          <div className="text-center p-3 bg-blue-900/30 rounded-lg">
-            <div className="text-3xl mb-2">{selectedObject.icon}</div>
-            <div className="text-white font-medium">{selectedObject.name}</div>
-            
-            {/* Preview Image */}
-            {getObjectPreviewImage() && (
-              <div className="mt-3">
-                <div className="text-xs text-gray-300 mb-2">Detected in recording:</div>
-                <div className="relative mx-auto w-32 h-24 bg-gray-800 rounded-lg overflow-hidden border border-gray-600">
-                  <img 
-                    src={getObjectPreviewImage()!} 
-                    alt="Object preview"
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-20 flex items-center justify-center">
-                    <div className="text-white text-xs bg-black bg-opacity-60 px-2 py-1 rounded">
-                      Object detected
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
+      {/* Show detected objects from recorded frames */}
+      {detectedObjects.length > 0 ? (
+        <>
+          <div className="text-sm text-gray-300 mb-3">
+            Detected objects from your recording:
           </div>
           
-          <div>
-            <label className="block text-sm text-gray-300 mb-2">Weight (grams)</label>
-            <input
-              type="number"
-              value={customWeight}
-              onChange={(e) => setCustomWeight(Number(e.target.value))}
-              min="1"
-              max="50000"
-              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
-              placeholder="Enter weight in grams"
-            />
+          {/* Detected Objects Grid */}
+          <div className="grid grid-cols-2 gap-2 mb-4">
+            {detectedObjects.map(detectedObject => (
+              <button
+                key={detectedObject.id}
+                onClick={() => handleDetectedObjectSelect(detectedObject)}
+                disabled={isObjectAdded(detectedObject.id)}
+                className={`p-2 rounded-lg border-2 transition-all ${
+                  selectedDetectedObject?.id === detectedObject.id
+                    ? 'border-blue-500 bg-blue-900/30'
+                    : isObjectAdded(detectedObject.id)
+                    ? 'border-gray-600 bg-gray-800/50 opacity-50 cursor-not-allowed'
+                    : 'border-gray-600 bg-gray-700/50 hover:border-gray-500 hover:bg-gray-600/50'
+                }`}
+              >
+                <div className="w-16 h-16 mb-2 mx-auto">
+                  <img 
+                    src={detectedObject.imageData} 
+                    alt={detectedObject.name}
+                    className="w-full h-full object-cover rounded border border-gray-500"
+                  />
+                </div>
+                <div className="text-xs text-gray-300 text-center">{detectedObject.name}</div>
+                {isObjectAdded(detectedObject.id) && (
+                  <div className="text-xs text-green-400 mt-1 text-center">✓ Added</div>
+                )}
+              </button>
+            ))}
           </div>
 
-          <div className="flex space-x-2">
-            <button
-              onClick={handleAddWeight}
-              disabled={customWeight <= 0}
-              className="flex-1 bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg text-white transition-colors"
-            >
-              Add Object
-            </button>
+          {/* Weight Input for Selected Object */}
+          {selectedDetectedObject && (
+            <div className="space-y-3">
+              <div className="text-center p-3 bg-blue-900/30 rounded-lg">
+                <img 
+                  src={selectedDetectedObject.imageData} 
+                  alt={selectedDetectedObject.name}
+                  className="w-16 h-16 object-cover rounded mx-auto mb-2"
+                />
+                <div className="text-white font-medium">{selectedDetectedObject.name}</div>
+              </div>
+              
+              <div>
+                <label className="block text-sm text-gray-300 mb-2">
+                  Weight (grams)
+                </label>
+                <input
+                  type="number"
+                  value={customWeight}
+                  onChange={(e) => setCustomWeight(Number(e.target.value))}
+                  className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded-lg text-white focus:border-blue-500 focus:outline-none"
+                  placeholder="Enter weight in grams"
+                  min="1"
+                />
+              </div>
+
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleAddWeight}
+                  disabled={customWeight <= 0}
+                  className="flex-1 bg-green-600 hover:bg-green-700 disabled:bg-gray-600 disabled:cursor-not-allowed text-white py-2 px-4 rounded-lg transition-colors"
+                >
+                  Add Weight
+                </button>
+                <button
+                  onClick={() => {
+                    setSelectedDetectedObject(null);
+                    setCustomWeight(0);
+                  }}
+                  className="px-4 py-2 bg-gray-600 hover:bg-gray-700 text-white rounded-lg transition-colors"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
+        </>
+      ) : (
+        <div className="text-center py-6 text-gray-400">
+          <div className="text-4xl mb-2">📷</div>
+          <div className="text-sm mb-3">No objects detected in recording</div>
+          <div className="text-xs mb-4">Record a session while holding objects to add their weights automatically</div>
+          
+          {/* Manual Add Option */}
+          <div className="border-t border-gray-600 pt-4 mt-4">
+            <div className="text-sm text-gray-300 mb-3">Or add objects manually:</div>
             <button
               onClick={() => {
-                setSelectedObject(null);
-                setCustomWeight(0);
+                const manualObject = {
+                  id: `manual_object_${Date.now()}`,
+                  imageData: "",
+                  name: "Manual Object"
+                };
+                setSelectedDetectedObject(manualObject);
+                setCustomWeight(1000);
               }}
-              className="px-4 py-2 bg-gray-600 hover:bg-gray-700 rounded-lg text-white transition-colors"
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg text-sm"
             >
-              Cancel
+              Add Object Manually
             </button>
           </div>
         </div>
