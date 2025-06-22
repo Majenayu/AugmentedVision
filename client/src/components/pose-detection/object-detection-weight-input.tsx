@@ -35,8 +35,6 @@ export default function ObjectDetectionWeightInput({
   const [detectedObjects, setDetectedObjects] = useState<ObjectWithCrop[]>([]);
   const [weightInputs, setWeightInputs] = useState<{[key: string]: string}>({});
   const [isAnalyzing, setIsAnalyzing] = useState(false);
-  const [hasRunFirstScan, setHasRunFirstScan] = useState(false);
-  const [scanCount, setScanCount] = useState(0);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Initialize object detection model
@@ -59,64 +57,99 @@ export default function ObjectDetectionWeightInput({
     }
   }, [isVisible]);
 
-  // Crop object from base64 image data
-  const cropObjectFromImage = (imageData: string, bbox: [number, number, number, number]): Promise<string> => {
+  const cropObjectFromVideo = (bbox: [number, number, number, number]): Promise<string> => {
     return new Promise((resolve) => {
-      const canvas = document.createElement('canvas');
+      if (!videoRef?.current || !canvasRef.current) {
+        return resolve('');
+      }
+
+      const video = videoRef.current;
+      const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
+
       if (!ctx) return resolve('');
 
+      const [x, y, width, height] = bbox;
+
+      // Set canvas size to cropped area with padding
+      const padding = 20;
+      canvas.width = width + padding * 2;
+      canvas.height = height + padding * 2;
+
+      // Draw the cropped area from video
+      ctx.drawImage(
+        video,
+        x - padding, y - padding, width + padding * 2, height + padding * 2,
+        0, 0, canvas.width, canvas.height
+      );
+
+      resolve(canvas.toDataURL('image/jpeg', 0.8));
+    });
+  };
+
+  const cropObjectFromImage = (imageData: string, bbox: [number, number, number, number]): Promise<string> => {
+    return new Promise((resolve) => {
       const img = new Image();
       img.onload = () => {
+        const canvas = canvasRef.current;
+        if (!canvas) return resolve('');
+
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return resolve('');
+
         const [x, y, width, height] = bbox;
+
+        // Set canvas size to cropped area with padding
         const padding = 20;
-        
         canvas.width = width + padding * 2;
         canvas.height = height + padding * 2;
-        
-        ctx.drawImage(img, x, y, width, height, padding, padding, width, height);
+
+        // Draw the cropped area
+        ctx.drawImage(
+          img,
+          x - padding, y - padding, width + padding * 2, height + padding * 2,
+          0, 0, canvas.width, canvas.height
+        );
+
         resolve(canvas.toDataURL('image/jpeg', 0.8));
       };
       img.src = imageData;
     });
   };
 
-  const analyzeRecordedFrames = async () => {
-    if (!isModelLoaded || recordedFrames.length === 0) return;
+  const analyzeAllRecordedFrames = async () => {
+    if (!isModelLoaded || recordedFrames.length === 0) {
+      console.log('Model not ready or no recorded frames:', { 
+        isModelLoaded, 
+        recordedFramesCount: recordedFrames.length 
+      });
+      return;
+    }
 
     setIsAnalyzing(true);
-    console.log(`Starting analysis of ${recordedFrames.length} recorded frames...`);
-
     try {
+      console.log(`Analyzing ${recordedFrames.length} recorded frames for objects...`);
+
       const allObjectsWithCrops: ObjectWithCrop[] = [];
 
-      // Analyze every 5th frame to cover the entire recording
-      const framesToAnalyze = recordedFrames.filter((_, index) => index % 5 === 0);
-      console.log(`Analyzing ${framesToAnalyze.length} frames (every 5th frame)...`);
+      for (let i = 0; i < recordedFrames.length; i++) {
+        const frame = recordedFrames[i];
+        console.log(`Processing frame ${i + 1}/${recordedFrames.length} at time ${Math.round(frame.timestamp / 1000)}s`);
 
-      for (let i = 0; i < framesToAnalyze.length; i++) {
-        const frame = framesToAnalyze[i];
-        
         try {
-          console.log(`Analyzing frame ${i + 1}/${framesToAnalyze.length}`);
-          
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          
-          await new Promise((resolve) => {
-            img.onload = resolve;
-            img.src = frame.imageData;
-          });
+          // Detect objects in this frame's image data
+          const objects = await detectObjects(frame.imageData);
 
-          const objects = await detectObjects(img);
           console.log(`Frame ${i + 1}: Found ${objects.length} objects`);
 
+          // Create cropped images for each detected object
           for (const obj of objects) {
             const croppedImage = await cropObjectFromImage(frame.imageData, obj.bbox);
             if (croppedImage) {
               allObjectsWithCrops.push({
                 ...obj,
                 croppedImage,
+                // Add frame info to distinguish objects from different frames
                 frameIndex: i,
                 frameTimestamp: frame.timestamp
               } as ObjectWithCrop & { frameIndex: number; frameTimestamp: number });
@@ -130,14 +163,16 @@ export default function ObjectDetectionWeightInput({
 
       console.log(`Analysis complete: Found ${allObjectsWithCrops.length} total objects across all frames`);
 
-      // Remove duplicates - keep only one instance of each object type with highest confidence
+      // Remove duplicates - keep only one instance of each object type
       const uniqueObjects: ObjectWithCrop[] = [];
 
       allObjectsWithCrops.forEach(obj => {
         const existingObj = uniqueObjects.find(u => u.class === obj.class);
         if (!existingObj) {
+          // First occurrence of this object type
           uniqueObjects.push(obj);
         } else if (obj.confidence > existingObj.confidence) {
+          // Replace with higher confidence detection
           const index = uniqueObjects.indexOf(existingObj);
           uniqueObjects[index] = obj;
         }
@@ -145,80 +180,8 @@ export default function ObjectDetectionWeightInput({
 
       console.log(`After deduplication: ${uniqueObjects.length} unique objects`);
       setDetectedObjects(uniqueObjects);
-      setHasRunFirstScan(true);
-      setScanCount(1);
     } catch (error) {
       console.error('Recorded frames analysis error:', error);
-    } finally {
-      setIsAnalyzing(false);
-    }
-  };
-
-  // Enhanced second scan with different detection parameters
-  const runSecondScan = async () => {
-    if (!isModelLoaded || recordedFrames.length === 0) return;
-
-    setIsAnalyzing(true);
-    console.log('Starting second scan with enhanced parameters...');
-
-    try {
-      const allObjectsWithCrops: ObjectWithCrop[] = [];
-
-      // Use different frame sampling for second scan - analyze frames we didn't check before
-      const framesToAnalyze = recordedFrames.filter((_, index) => 
-        index % 3 === 0 || index % 7 === 0 // Different sampling pattern
-      );
-
-      console.log(`Second scan: analyzing ${framesToAnalyze.length} frames with different sampling...`);
-
-      for (let i = 0; i < framesToAnalyze.length; i++) {
-        const frame = framesToAnalyze[i];
-        
-        try {
-          console.log(`Second scan - analyzing frame ${i + 1}/${framesToAnalyze.length}`);
-          
-          const img = new Image();
-          img.crossOrigin = 'anonymous';
-          
-          await new Promise((resolve) => {
-            img.onload = resolve;
-            img.src = frame.imageData;
-          });
-
-          const objects = await detectObjects(img);
-          console.log(`Second scan frame ${i + 1}: Found ${objects.length} objects`);
-
-          for (const obj of objects) {
-            // Skip if we already have this object type
-            const alreadyExists = detectedObjects.some(existing => existing.class === obj.class);
-            if (alreadyExists) continue;
-
-            const croppedImage = await cropObjectFromImage(frame.imageData, obj.bbox);
-            if (croppedImage) {
-              allObjectsWithCrops.push({
-                ...obj,
-                croppedImage,
-                frameIndex: i,
-                frameTimestamp: frame.timestamp
-              } as ObjectWithCrop & { frameIndex: number; frameTimestamp: number });
-              console.log(`Second scan frame ${i + 1}: Found new object ${obj.class}`);
-            }
-          }
-        } catch (frameError) {
-          console.error(`Error in second scan frame ${i + 1}:`, frameError);
-        }
-      }
-
-      // Add only new objects that weren't found in first scan
-      const newObjects = allObjectsWithCrops.filter(newObj => 
-        !detectedObjects.some(existing => existing.class === newObj.class)
-      );
-
-      console.log(`Second scan complete: Found ${newObjects.length} additional objects`);
-      setDetectedObjects(prev => [...prev, ...newObjects]);
-      setScanCount(2);
-    } catch (error) {
-      console.error('Second scan error:', error);
     } finally {
       setIsAnalyzing(false);
     }
@@ -234,22 +197,22 @@ export default function ObjectDetectionWeightInput({
   const addObjectWithWeight = (obj: ObjectWithCrop, index: number) => {
     const objectId = `${obj.class}-${index}`;
     const weightValue = weightInputs[objectId];
-    
-    if (!weightValue || isNaN(Number(weightValue))) {
+
+    if (!weightValue || isNaN(Number(weightValue)) || Number(weightValue) <= 0) {
       alert('Please enter a valid weight in grams');
       return;
     }
 
     const weight: ManualWeight = {
-      id: `obj-${Date.now()}-${Math.random()}`,
-      name: obj.class,
+      id: `${Date.now()}-object-${index}`,
+      name: `Object ${index + 1}`,
       weight: Number(weightValue),
       icon: '📦',
       previewImage: obj.croppedImage
     };
 
     onAddWeight(weight);
-    
+
     // Clear the input after adding
     setWeightInputs(prev => ({
       ...prev,
@@ -260,125 +223,132 @@ export default function ObjectDetectionWeightInput({
   if (!isVisible) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-gray-800 rounded-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-xl font-bold">Object Detection Analysis</h3>
-          <div className="flex space-x-2">
-            {hasRunFirstScan && scanCount < 2 && (
-              <Button 
-                onClick={runSecondScan}
-                disabled={isAnalyzing}
-                className="bg-orange-600 hover:bg-orange-700"
-              >
-                {isAnalyzing ? 'Scanning...' : 'Second Scan'}
-              </Button>
+    <div className="space-y-4">
+      {/* Hidden canvas for image cropping */}
+      <canvas ref={canvasRef} style={{ display: 'none' }} />
+
+      {/* Detection Controls */}
+      <Card>
+        <CardHeader>
+          <CardTitle className="flex items-center space-x-2">
+            <span>📷</span>
+            <span>Detect Objects</span>
+            {isModelLoaded && (
+              <span className="ml-2 px-2 py-1 bg-blue-900/20 border border-blue-700 rounded text-xs">
+                {isAnalyzing ? 'Analyzing...' : 'Ready'}
+              </span>
             )}
-            <Button 
-              onClick={() => window.location.reload()} 
-              variant="outline"
-            >
-              Close
-            </Button>
-          </div>
-        </div>
-
-        {!isModelLoaded && (
-          <div className="text-center py-8">
-            <p>Loading object detection model...</p>
-          </div>
-        )}
-
-        {isModelLoaded && recordedFrames.length === 0 && (
-          <div className="text-center py-8">
-            <p>No recorded frames available for analysis.</p>
-          </div>
-        )}
-
-        {isModelLoaded && recordedFrames.length > 0 && detectedObjects.length === 0 && !isAnalyzing && !hasRunFirstScan && (
-          <div className="text-center py-8">
-            <Button onClick={analyzeRecordedFrames} className="bg-blue-600 hover:bg-blue-700">
-              Start Object Detection Analysis
-            </Button>
-            <p className="text-sm text-gray-400 mt-2">
-              This will analyze {recordedFrames.length} recorded frames to detect objects
-            </p>
-          </div>
-        )}
-
-        {isAnalyzing && (
-          <div className="text-center py-8">
-            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto mb-4"></div>
-            <p>Analyzing frames for objects...</p>
-          </div>
-        )}
-
-        {detectedObjects.length > 0 && (
-          <div>
-            <div className="mb-4 flex justify-between items-center">
-              <h4 className="text-lg font-medium">
-                Detected Objects ({detectedObjects.length})
-                {scanCount > 1 && <span className="text-sm text-gray-400 ml-2">(After {scanCount} scans)</span>}
-              </h4>
-              {hasRunFirstScan && scanCount < 2 && (
-                <p className="text-sm text-gray-400">
-                  Run a second scan to find more objects
-                </p>
-              )}
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          {!isModelLoaded ? (
+            <div className="text-center py-4">
+              <div className="animate-spin w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full mx-auto mb-2"></div>
+              <p className="text-sm text-gray-400">Loading detection model...</p>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          ) : (
+            <div className="space-y-2">
+              <Button
+                onClick={analyzeAllRecordedFrames}
+                disabled={isAnalyzing || recordedFrames.length === 0}
+                className="w-full"
+              >
+                {isAnalyzing ? 'Analyzing Recorded Frames...' : `Detect Objects in All Recorded Frames (${recordedFrames.length})`}
+              </Button>
+              <div className="text-xs text-gray-500 text-center">
+                Model loaded: {isModelLoaded ? 'Yes' : 'No'} | 
+                Recorded frames: {recordedFrames.length} |
+                Objects found: {detectedObjects.length}
+              </div>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Detected Objects with Photos */}
+      {detectedObjects.length > 0 && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Detected Objects ({detectedObjects.length})</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="grid grid-cols-1 gap-4">
               {detectedObjects.map((obj, index) => {
                 const objectId = `${obj.class}-${index}`;
+
                 return (
-                  <Card key={objectId} className="bg-gray-700">
-                    <CardHeader className="pb-2">
-                      <CardTitle className="text-sm capitalize">{obj.class}</CardTitle>
-                      <p className="text-xs text-gray-400">
-                        Confidence: {(obj.confidence * 100).toFixed(1)}%
-                      </p>
-                    </CardHeader>
-                    <CardContent>
-                      <div className="space-y-3">
-                        <div className="w-full h-32 bg-gray-600 rounded flex items-center justify-center overflow-hidden">
-                          {obj.croppedImage ? (
-                            <img 
-                              src={obj.croppedImage} 
-                              alt={obj.class}
-                              className="max-w-full max-h-full object-contain"
-                            />
-                          ) : (
-                            <span className="text-gray-400">No preview</span>
-                          )}
+                  <div
+                    key={objectId}
+                    className="bg-gray-800 border border-gray-600 rounded-lg p-4"
+                  >
+                    <div className="flex items-start space-x-4">
+                      {/* Object Photo */}
+                      <div className="flex-shrink-0">
+                        <img
+                          src={obj.croppedImage}
+                          alt={`Detected Object ${index + 1}`}
+                          className="w-24 h-24 object-cover rounded-lg border border-gray-500"
+                        />
+                      </div>
+
+                      {/* Object Details and Weight Input */}
+                      <div className="flex-1 space-y-3">
+                        <div>
+                          <div className="font-medium text-white flex items-center space-x-2">
+                            <span className="text-xl">📦</span>
+                            <span>Object {index + 1}</span>
+                          </div>
+                          <div className="text-sm text-gray-400">
+                            Confidence: {Math.round(obj.confidence * 100)}%
+                            {(obj as any).frameTimestamp && (
+                              <span> • Frame: {Math.round((obj as any).frameTimestamp / 1000)}s</span>
+                            )}
+                          </div>
                         </div>
-                        
-                        <div className="flex space-x-2">
+
+                        {/* Weight Input */}
+                        <div className="flex items-center space-x-2">
                           <Input
                             type="number"
-                            placeholder="Weight (grams)"
+                            placeholder="Weight in grams"
                             value={weightInputs[objectId] || ''}
                             onChange={(e) => handleWeightChange(objectId, e.target.value)}
-                            className="flex-1"
+                            className="w-32"
+                            min="1"
                           />
-                          <Button 
+                          <span className="text-sm text-gray-400">grams</span>
+                          <Button
                             onClick={() => addObjectWithWeight(obj, index)}
-                            className="bg-green-600 hover:bg-green-700"
                             size="sm"
+                            disabled={!weightInputs[objectId] || isNaN(Number(weightInputs[objectId])) || Number(weightInputs[objectId]) <= 0}
                           >
-                            Add
+                            Add Object
                           </Button>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
+                    </div>
+                  </div>
                 );
               })}
             </div>
-          </div>
-        )}
+          </CardContent>
+        </Card>
+      )}
 
-        <canvas ref={canvasRef} style={{ display: 'none' }} />
-      </div>
+      {/* No Objects Found */}
+      {isModelLoaded && !isAnalyzing && detectedObjects.length === 0 && (
+        <Card>
+          <CardContent className="text-center py-6">
+            <div className="text-gray-400 mb-2">No objects detected</div>
+            <div className="text-sm text-gray-500">
+              {recordedFrames.length > 0 
+                ? "Click the button above to analyze all recorded frames for objects"
+                : "No recorded frames available to analyze"
+              }
+            </div>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 }
