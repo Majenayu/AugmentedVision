@@ -1,77 +1,95 @@
 
 export function generatePostureAnalysis(rulaScore: any): string {
-  const issues = [];
-  const good = [];
+  const leftSideIssues = [];
+  const rightSideIssues = [];
+  const generalIssues = [];
+  const goodPositions = [];
   
-  // Analyze upper arm
+  // Analyze upper arm (left/right arm position)
   if (rulaScore.upperArm >= 4) {
-    issues.push("upper arm position is problematic (raised >90°)");
+    leftSideIssues.push("left arm is raised too high (>90° from body)");
   } else if (rulaScore.upperArm >= 3) {
-    issues.push("upper arm angle needs attention (45-90°)");
+    leftSideIssues.push("left arm angle needs adjustment (45-90° elevation)");
+  } else if (rulaScore.upperArm >= 2) {
+    leftSideIssues.push("left arm position could be improved");
   } else {
-    good.push("upper arm position");
+    goodPositions.push("left arm position is correct");
   }
   
-  // Analyze lower arm
+  // Analyze lower arm (elbow/forearm)
   if (rulaScore.lowerArm >= 2) {
-    issues.push("elbow angle is suboptimal (outside 60-100°)");
+    rightSideIssues.push("right elbow angle is problematic (forearm not 60-100°)");
   } else {
-    good.push("elbow angle");
+    goodPositions.push("right elbow angle is proper");
   }
   
   // Analyze wrist
   if (rulaScore.wrist >= 3) {
-    issues.push("wrist is severely bent or twisted");
+    rightSideIssues.push("right wrist is severely bent or twisted");
   } else if (rulaScore.wrist >= 2) {
-    issues.push("wrist deviation detected");
+    rightSideIssues.push("right wrist has deviation from neutral");
   } else {
-    good.push("wrist alignment");
+    goodPositions.push("right wrist alignment is good");
   }
   
-  // Analyze neck
+  // Analyze neck (head position)
   if (rulaScore.neck >= 4) {
-    issues.push("neck is severely forward or tilted (>45°)");
+    generalIssues.push("head position is severely forward or tilted (>45°)");
   } else if (rulaScore.neck >= 3) {
-    issues.push("neck posture needs correction (20-45° forward)");
+    generalIssues.push("head position needs correction (20-45° forward lean)");
   } else if (rulaScore.neck >= 2) {
-    issues.push("slight forward head posture detected");
+    generalIssues.push("slight forward head posture detected");
   } else {
-    good.push("neck position");
+    goodPositions.push("head position is aligned properly");
   }
   
-  // Analyze trunk
+  // Analyze trunk (back/spine)
   if (rulaScore.trunk >= 4) {
-    issues.push("trunk is severely leaning or twisted (>60°)");
+    generalIssues.push("back is severely leaning or twisted (>60° from upright)");
   } else if (rulaScore.trunk >= 3) {
-    issues.push("trunk posture needs attention (20-60° lean)");
+    generalIssues.push("back posture needs attention (20-60° lean detected)");
   } else if (rulaScore.trunk >= 2) {
-    issues.push("slight trunk deviation from upright");
+    generalIssues.push("slight back deviation from upright position");
   } else {
-    good.push("trunk alignment");
+    goodPositions.push("back alignment is excellent");
   }
   
-  // Build analysis text
+  // Build comprehensive analysis
   let analysis = "";
   
-  if (issues.length > 0) {
-    analysis += "Issues detected: " + issues.slice(0, 2).join(", ");
-    if (issues.length > 2) analysis += `, and ${issues.length - 2} more`;
+  // Report left side issues
+  if (leftSideIssues.length > 0) {
+    analysis += leftSideIssues.join(", ") + ". ";
+  }
+  
+  // Report right side issues  
+  if (rightSideIssues.length > 0) {
+    analysis += rightSideIssues.join(", ") + ". ";
+  }
+  
+  // Report general posture issues
+  if (generalIssues.length > 0) {
+    analysis += generalIssues.join(", ") + ". ";
+  }
+  
+  // Report good positions
+  if (goodPositions.length > 0) {
+    analysis += "✓ " + goodPositions.slice(0, 2).join(", ");
+    if (goodPositions.length > 2) {
+      analysis += `, and ${goodPositions.length - 2} other aspects are correct`;
+    }
     analysis += ". ";
   }
   
-  if (good.length > 0) {
-    analysis += "Good: " + good.slice(0, 2).join(", ");
-    if (good.length > 2) analysis += `, +${good.length - 2} more`;
-    analysis += ". ";
-  }
-  
-  // Add recommendation
-  if (rulaScore.finalScore >= 5) {
-    analysis += "Immediate posture correction recommended.";
+  // Add specific recommendation based on score
+  if (rulaScore.finalScore >= 6) {
+    analysis += "🚨 Immediate posture correction required to prevent injury.";
+  } else if (rulaScore.finalScore >= 4) {
+    analysis += "⚠️ Adjust posture soon to reduce ergonomic risk.";
   } else if (rulaScore.finalScore >= 3) {
-    analysis += "Consider adjusting posture soon.";
+    analysis += "💡 Minor adjustments recommended for optimal comfort.";
   } else {
-    analysis += "Overall posture is acceptable.";
+    analysis += "✅ Overall posture is within acceptable ergonomic limits.";
   }
   
   return analysis;
