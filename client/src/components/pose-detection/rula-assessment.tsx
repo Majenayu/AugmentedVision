@@ -160,24 +160,7 @@ export default function RulaAssessment({ rulaScore, poseData, isProcessing }: Ru
         </div>
       </div>
 
-      {/* Status Analysis Section - Now more prominent */}
-      {rulaScore && (
-        <div className="mt-6 p-6 rounded-lg bg-blue-600 bg-opacity-20 border-2 border-blue-400">
-          <div className="flex items-start space-x-4">
-            <div className="bg-blue-500 rounded-full p-2 flex-shrink-0">
-              <span className="material-icon text-white text-xl">psychology</span>
-            </div>
-            <div className="flex-1">
-              <h4 className="font-semibold text-blue-300 mb-3 text-lg">Posture Analysis Status</h4>
-              <div className="bg-dark-secondary rounded-lg p-4">
-                <p className="text-white text-base leading-relaxed">
-                  {generatePostureAnalysis(rulaScore)}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+      
 
       {/* Risk Level Indicator */}
       {rulaScore && (
