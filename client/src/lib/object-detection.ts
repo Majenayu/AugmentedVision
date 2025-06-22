@@ -97,7 +97,22 @@ export async function detectObjects(
     const predictions = await objectDetector.detect(element);
     
     const detectedObjects: DetectedObject[] = predictions
-      .filter(prediction => prediction.score > 0.4) // Lower threshold for recorded frames
+      .filter(prediction => {
+        // Higher confidence threshold for better accuracy
+        if (prediction.score < 0.5) return false;
+        
+        // Filter out objects that are typically not handheld
+        const className = prediction.class.toLowerCase();
+        const excludedObjects = [
+          'person', 'chair', 'couch', 'bed', 'table', 'toilet', 'tv', 'microwave',
+          'oven', 'toaster', 'sink', 'refrigerator', 'car', 'bus', 'truck', 'boat',
+          'airplane', 'motorcycle', 'bicycle', 'stop sign', 'parking meter',
+          'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant',
+          'bear', 'zebra', 'giraffe', 'frisbee', 'skis', 'snowboard', 'kite'
+        ];
+        
+        return !excludedObjects.includes(className);
+      })
       .map(prediction => {
         const className = prediction.class.toLowerCase();
         const objectInfo = DETECTABLE_OBJECTS[className as keyof typeof DETECTABLE_OBJECTS];
@@ -112,10 +127,28 @@ export async function detectObjects(
         };
       })
       .filter(obj => {
-        // Filter for objects that are typically held or carried
+        // Size filtering - objects that are too large relative to frame are likely not handheld
+        const [x, y, width, height] = obj.bbox;
+        const frameWidth = element.width || (element as HTMLImageElement).naturalWidth || 640;
+        const frameHeight = element.height || (element as HTMLImageElement).naturalHeight || 480;
+        
+        const objectArea = width * height;
+        const frameArea = frameWidth * frameHeight;
+        const sizeRatio = objectArea / frameArea;
+        
+        // Filter out objects that take up more than 30% of the frame
+        if (sizeRatio > 0.3) return false;
+        
+        // Filter out objects that are too thin/wide (likely background elements)
+        const aspectRatio = width / height;
+        if (aspectRatio > 5 || aspectRatio < 0.2) return false;
+        
+        // Prioritize known handheld categories
         const handHeldCategories = ['tools', 'containers', 'electronics', 'office', 'fitness', 'sports', 'accessories'];
         return handHeldCategories.includes(obj.category) || obj.category === 'unknown';
-      });
+      })
+      .sort((a, b) => b.confidence - a.confidence) // Sort by confidence
+      .slice(0, 10); // Limit to top 10 most confident detections
 
     return detectedObjects;
   } catch (error) {
@@ -140,11 +173,13 @@ export function analyzeObjectInteraction(
     return { isHoldingObject: false, heldObjects: [], totalEstimatedWeight: 0 };
   }
 
-  // Get hand and wrist positions (keypoints 9, 10 are left/right wrists)
+  // Get key body points
   const leftWrist = poseKeypoints[9];
   const rightWrist = poseKeypoints[10];
   const leftElbow = poseKeypoints[7];
   const rightElbow = poseKeypoints[8];
+  const leftShoulder = poseKeypoints[5];
+  const rightShoulder = poseKeypoints[6];
 
   const heldObjects: DetectedObject[] = [];
 
@@ -153,49 +188,132 @@ export function analyzeObjectInteraction(
     const objCenterX = objX + objWidth / 2;
     const objCenterY = objY + objHeight / 2;
 
-    // Check if object is near hands/wrists
-    const proximityThreshold = 80; // pixels
-    
-    let isNearHand = false;
+    // Enhanced proximity analysis with multiple criteria
+    let isHeldObject = false;
+    let confidenceScore = 0;
 
-    // Check left hand
-    if (leftWrist?.score > 0.3) {
+    // Check proximity to hands/wrists with tighter thresholds
+    const handProximityThreshold = 60; // Reduced for tighter detection
+    
+    // Left hand analysis
+    if (leftWrist?.score > 0.4 && leftElbow?.score > 0.4) {
       const leftWristX = leftWrist.x * frameWidth;
       const leftWristY = leftWrist.y * frameHeight;
-      const distanceToLeftHand = Math.sqrt(
+      const leftElbowX = leftElbow.x * frameWidth;
+      const leftElbowY = leftElbow.y * frameHeight;
+      
+      const distanceToLeftWrist = Math.sqrt(
         Math.pow(objCenterX - leftWristX, 2) + Math.pow(objCenterY - leftWristY, 2)
       );
-      if (distanceToLeftHand < proximityThreshold) {
-        isNearHand = true;
+      
+      // Check if object is in the forearm area (between wrist and elbow)
+      const distanceToLeftElbow = Math.sqrt(
+        Math.pow(objCenterX - leftElbowX, 2) + Math.pow(objCenterY - leftElbowY, 2)
+      );
+      
+      if (distanceToLeftWrist < handProximityThreshold) {
+        confidenceScore += 0.4;
+      }
+      
+      // Object between wrist and elbow indicates holding
+      if (distanceToLeftWrist < handProximityThreshold * 1.5 && 
+          distanceToLeftElbow < handProximityThreshold * 2) {
+        confidenceScore += 0.3;
       }
     }
 
-    // Check right hand
-    if (rightWrist?.score > 0.3) {
+    // Right hand analysis
+    if (rightWrist?.score > 0.4 && rightElbow?.score > 0.4) {
       const rightWristX = rightWrist.x * frameWidth;
       const rightWristY = rightWrist.y * frameHeight;
-      const distanceToRightHand = Math.sqrt(
+      const rightElbowX = rightElbow.x * frameWidth;
+      const rightElbowY = rightElbow.y * frameHeight;
+      
+      const distanceToRightWrist = Math.sqrt(
         Math.pow(objCenterX - rightWristX, 2) + Math.pow(objCenterY - rightWristY, 2)
       );
-      if (distanceToRightHand < proximityThreshold) {
-        isNearHand = true;
+      
+      const distanceToRightElbow = Math.sqrt(
+        Math.pow(objCenterX - rightElbowX, 2) + Math.pow(objCenterY - rightElbowY, 2)
+      );
+      
+      if (distanceToRightWrist < handProximityThreshold) {
+        confidenceScore += 0.4;
+      }
+      
+      if (distanceToRightWrist < handProximityThreshold * 1.5 && 
+          distanceToRightElbow < handProximityThreshold * 2) {
+        confidenceScore += 0.3;
       }
     }
 
-    // Also check if object is between hands and torso (carrying)
-    if (leftElbow?.score > 0.3 && rightElbow?.score > 0.3) {
-      const torsoX = (leftElbow.x + rightElbow.x) * frameWidth / 2;
-      const torsoY = (leftElbow.y + rightElbow.y) * frameHeight / 2;
-      const distanceToTorso = Math.sqrt(
+    // Check for two-handed objects (between both hands)
+    if (leftWrist?.score > 0.4 && rightWrist?.score > 0.4) {
+      const leftWristX = leftWrist.x * frameWidth;
+      const leftWristY = leftWrist.y * frameHeight;
+      const rightWristX = rightWrist.x * frameWidth;
+      const rightWristY = rightWrist.y * frameHeight;
+      
+      const midpointX = (leftWristX + rightWristX) / 2;
+      const midpointY = (leftWristY + rightWristY) / 2;
+      
+      const distanceToMidpoint = Math.sqrt(
+        Math.pow(objCenterX - midpointX, 2) + Math.pow(objCenterY - midpointY, 2)
+      );
+      
+      if (distanceToMidpoint < handProximityThreshold * 1.2) {
+        confidenceScore += 0.5;
+      }
+    }
+
+    // Filter out objects that are too large to be handheld
+    const objectArea = objWidth * objHeight;
+    const frameArea = frameWidth * frameHeight;
+    const objectSizeRatio = objectArea / frameArea;
+    
+    // If object takes up more than 25% of frame, it's likely not handheld
+    if (objectSizeRatio > 0.25) {
+      confidenceScore *= 0.3;
+    }
+
+    // Filter out objects that are too far from torso (background objects)
+    if (leftShoulder?.score > 0.4 && rightShoulder?.score > 0.4) {
+      const torsoX = (leftShoulder.x + rightShoulder.x) * frameWidth / 2;
+      const torsoY = (leftShoulder.y + rightShoulder.y) * frameHeight / 2;
+      
+      const distanceFromTorso = Math.sqrt(
         Math.pow(objCenterX - torsoX, 2) + Math.pow(objCenterY - torsoY, 2)
       );
-      if (distanceToTorso < proximityThreshold * 1.5) {
-        isNearHand = true;
+      
+      // Objects too far from torso are likely background objects
+      if (distanceFromTorso > frameWidth * 0.4) {
+        confidenceScore *= 0.2;
       }
     }
 
-    if (isNearHand) {
-      heldObjects.push(obj);
+    // Object position validation (should be in front of person, not behind)
+    if (leftWrist?.score > 0.4 && rightWrist?.score > 0.4 && 
+        leftShoulder?.score > 0.4 && rightShoulder?.score > 0.4) {
+      
+      const avgWristY = (leftWrist.y + rightWrist.y) * frameHeight / 2;
+      const avgShoulderY = (leftShoulder.y + rightShoulder.y) * frameHeight / 2;
+      
+      // Object should generally be below shoulders and near wrist level
+      if (objCenterY > avgShoulderY && Math.abs(objCenterY - avgWristY) < frameHeight * 0.3) {
+        confidenceScore += 0.2;
+      }
+    }
+
+    // Final decision based on confidence score
+    if (confidenceScore > 0.5) {
+      isHeldObject = true;
+    }
+
+    if (isHeldObject) {
+      heldObjects.push({
+        ...obj,
+        confidence: Math.min(obj.confidence * confidenceScore, 1.0) // Adjust confidence
+      });
     }
   });
 

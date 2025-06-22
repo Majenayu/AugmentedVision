@@ -66,23 +66,23 @@ export default function ObjectDetectionWeightInput({
       const video = videoRef.current;
       const canvas = canvasRef.current;
       const ctx = canvas.getContext('2d');
-      
+
       if (!ctx) return resolve('');
 
       const [x, y, width, height] = bbox;
-      
+
       // Set canvas size to cropped area with padding
       const padding = 20;
       canvas.width = width + padding * 2;
       canvas.height = height + padding * 2;
-      
+
       // Draw the cropped area from video
       ctx.drawImage(
         video,
         x - padding, y - padding, width + padding * 2, height + padding * 2,
         0, 0, canvas.width, canvas.height
       );
-      
+
       resolve(canvas.toDataURL('image/jpeg', 0.8));
     });
   };
@@ -93,24 +93,24 @@ export default function ObjectDetectionWeightInput({
       img.onload = () => {
         const canvas = canvasRef.current;
         if (!canvas) return resolve('');
-        
+
         const ctx = canvas.getContext('2d');
         if (!ctx) return resolve('');
 
         const [x, y, width, height] = bbox;
-        
+
         // Set canvas size to cropped area with padding
         const padding = 20;
         canvas.width = width + padding * 2;
         canvas.height = height + padding * 2;
-        
+
         // Draw the cropped area
         ctx.drawImage(
           img,
           x - padding, y - padding, width + padding * 2, height + padding * 2,
           0, 0, canvas.width, canvas.height
         );
-        
+
         resolve(canvas.toDataURL('image/jpeg', 0.8));
       };
       img.src = imageData;
@@ -129,17 +129,17 @@ export default function ObjectDetectionWeightInput({
     setIsAnalyzing(true);
     try {
       console.log(`Analyzing ${recordedFrames.length} recorded frames for objects...`);
-      
+
       const allObjectsWithCrops: ObjectWithCrop[] = [];
-      
+
       for (let i = 0; i < recordedFrames.length; i++) {
         const frame = recordedFrames[i];
         console.log(`Processing frame ${i + 1}/${recordedFrames.length} at time ${Math.round(frame.timestamp / 1000)}s`);
-        
+
         try {
           // Detect objects in this frame's image data
           const objects = await detectObjects(frame.imageData);
-          
+
           console.log(`Frame ${i + 1}: Found ${objects.length} objects`);
 
           // Create cropped images for each detected object
@@ -160,12 +160,12 @@ export default function ObjectDetectionWeightInput({
           console.error(`Error processing frame ${i + 1}:`, frameError);
         }
       }
-      
+
       console.log(`Analysis complete: Found ${allObjectsWithCrops.length} total objects across all frames`);
-      
+
       // Remove duplicates - keep only one instance of each object type
       const uniqueObjects: ObjectWithCrop[] = [];
-      
+
       allObjectsWithCrops.forEach(obj => {
         const existingObj = uniqueObjects.find(u => u.class === obj.class);
         if (!existingObj) {
@@ -177,7 +177,7 @@ export default function ObjectDetectionWeightInput({
           uniqueObjects[index] = obj;
         }
       });
-      
+
       console.log(`After deduplication: ${uniqueObjects.length} unique objects`);
       setDetectedObjects(uniqueObjects);
     } catch (error) {
@@ -197,7 +197,7 @@ export default function ObjectDetectionWeightInput({
   const addObjectWithWeight = (obj: ObjectWithCrop, index: number) => {
     const objectId = `${obj.class}-${index}`;
     const weightValue = weightInputs[objectId];
-    
+
     if (!weightValue || isNaN(Number(weightValue)) || Number(weightValue) <= 0) {
       alert('Please enter a valid weight in grams');
       return;
@@ -210,9 +210,9 @@ export default function ObjectDetectionWeightInput({
       icon: obj.icon,
       previewImage: obj.croppedImage
     };
-    
+
     onAddWeight(weight);
-    
+
     // Clear the input after adding
     setWeightInputs(prev => ({
       ...prev,
@@ -275,7 +275,7 @@ export default function ObjectDetectionWeightInput({
             <div className="grid grid-cols-1 gap-4">
               {detectedObjects.map((obj, index) => {
                 const objectId = `${obj.class}-${index}`;
-                
+
                 return (
                   <div
                     key={objectId}
@@ -290,7 +290,7 @@ export default function ObjectDetectionWeightInput({
                           className="w-24 h-24 object-cover rounded-lg border border-gray-500"
                         />
                       </div>
-                      
+
                       {/* Object Details and Weight Input */}
                       <div className="flex-1 space-y-3">
                         <div>
@@ -305,7 +305,7 @@ export default function ObjectDetectionWeightInput({
                             )}
                           </div>
                         </div>
-                        
+
                         {/* Weight Input */}
                         <div className="flex items-center space-x-2">
                           <Input
