@@ -7,6 +7,7 @@ import ObjectDetectionWeightInput from './object-detection-weight-input';
 import * as XLSX from 'xlsx';
 
 import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
+import { generatePostureAnalysis } from '@/lib/posture-analysis';
 
 interface RecordingFrame {
   timestamp: number;
@@ -918,7 +919,7 @@ export default function RecordingPanel({
                         </div>
                       </div>
                       <div className="bg-dark-secondary rounded p-3">
-                        <div className="text-sm text-text-secondary">Lower Arm                        </div>
+                        <div className="text-sm text-text-secondary">Lower Arm</div>
                         <div className="text-lg font-bold">
                           {getCurrentRulaScore(selectedFrame)?.lowerArm}
                         </div>
@@ -936,6 +937,35 @@ export default function RecordingPanel({
                         </div>
                       </div>
                     </div>
+
+                    {/* Posture Analysis Status for Recorded Frame */}
+                    {getCurrentRulaScore(selectedFrame) && (
+                      <div className="mt-4 p-4 rounded-lg bg-blue-600 bg-opacity-20 border-2 border-blue-400">
+                        <div className="flex items-start space-x-3">
+                          <div className="bg-blue-500 rounded-full p-2 flex-shrink-0">
+                            <span className="material-icon text-white text-lg">psychology</span>
+                          </div>
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-blue-300 mb-2 text-sm">
+                              Posture Analysis Status 
+                              {analysisMode === 'manual' && manualWeights.length > 0 && (
+                                <span className="ml-2 px-2 py-1 bg-yellow-900/20 border border-yellow-700 rounded text-xs">
+                                  Weight Adjusted ({manualWeights.reduce((total, weight) => total + weight.weight, 0)}g)
+                                </span>
+                              )}
+                            </h4>
+                            <div className="bg-dark-secondary rounded-lg p-3">
+                              <p className="text-white text-sm leading-relaxed">
+                                {generatePostureAnalysis(
+                                  getCurrentRulaScore(selectedFrame),
+                                  analysisMode === 'manual' && manualWeights.length > 0 ? 'manual' : 'recorded'
+                                )}
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 ) : (
                   <p className="text-text-secondary">No RULA data available for this frame</p>

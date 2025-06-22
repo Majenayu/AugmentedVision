@@ -1,5 +1,7 @@
 
-export function generatePostureAnalysis(rulaScore: any): string {
+export function generatePostureAnalysis(rulaScore: any, context?: 'live' | 'recorded' | 'manual' | 'estimated'): string {
+  if (!rulaScore) return "No posture data available for analysis.";
+  
   const leftArmIssues = [];
   const rightArmIssues = [];
   const headIssues = [];
@@ -55,8 +57,13 @@ export function generatePostureAnalysis(rulaScore: any): string {
     goodAspects.push("✅ Back alignment is excellent");
   }
   
-  // Build detailed analysis
-  let analysis = "📊 POSTURAL ANALYSIS: ";
+  // Build detailed analysis with context awareness
+  const contextPrefix = context === 'recorded' ? "📸 RECORDED FRAME ANALYSIS: " : 
+                       context === 'manual' ? "⚖️ WEIGHT-ADJUSTED ANALYSIS: " :
+                       context === 'estimated' ? "🤖 ESTIMATED WEIGHT ANALYSIS: " :
+                       "📊 POSTURAL ANALYSIS: ";
+  
+  let analysis = contextPrefix;
   
   // Report issues by body part
   const allIssues = [...leftArmIssues, ...rightArmIssues, ...headIssues, ...backIssues];
@@ -69,16 +76,30 @@ export function generatePostureAnalysis(rulaScore: any): string {
     analysis += "\n\n" + goodAspects.join(". ") + ". ";
   }
   
-  // Add priority recommendation
+  // Add context-specific recommendations
   analysis += "\n\n📋 PRIORITY ACTION: ";
   if (rulaScore.finalScore >= 6) {
     analysis += "🚨 IMMEDIATE correction required! High injury risk detected.";
+    if (context === 'recorded') {
+      analysis += " Review this posture and avoid repeating it.";
+    }
   } else if (rulaScore.finalScore >= 4) {
     analysis += "⚠️ Adjust posture SOON to reduce ergonomic risk.";
+    if (context === 'manual' || context === 'estimated') {
+      analysis += " Consider reducing load or improving technique.";
+    }
   } else if (rulaScore.finalScore >= 3) {
     analysis += "💡 Minor adjustments recommended for optimal comfort.";
   } else {
     analysis += "✅ Overall posture is GOOD - maintain current position.";
+    if (context === 'recorded') {
+      analysis += " This is a good reference posture.";
+    }
+  }
+  
+  // Add weight-specific advice for manual/estimated modes
+  if ((context === 'manual' || context === 'estimated') && rulaScore.effectiveWeight) {
+    analysis += `\n\n⚖️ LOAD CONSIDERATION: Handling ${rulaScore.effectiveWeight}kg affects your posture risk significantly. Consider breaking down the load or using mechanical aids.`;
   }
   
   return analysis;
