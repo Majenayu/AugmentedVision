@@ -32,7 +32,7 @@ interface RecordingPanelProps {
 
 
 
-type AnalysisMode = 'normal' | 'estimated' | 'manual';
+type AnalysisMode = 'normal' | 'manual';
 type ViewMode = 'original' | 'skeleton';
 type GraphType = 'live' | 'estimated' | 'manual';
 
@@ -312,9 +312,7 @@ export default function RecordingPanel({
       return calculateWeightAdjustedRula(frame.rulaScore, frame.weightEstimation || defaultWeightEstimation, totalManualWeight);
     }
 
-    if (analysisMode === 'estimated' && frame.weightEstimation?.estimatedWeight > 0) {
-      return calculateWeightAdjustedRula(frame.rulaScore, frame.weightEstimation);
-    }
+
 
     return frame.rulaScore;
   };
@@ -539,16 +537,6 @@ export default function RecordingPanel({
                   }`}
                 >
                   Normal View
-                </button>
-                <button
-                  onClick={() => setAnalysisMode('estimated')}
-                  className={`px-3 py-1 rounded text-sm ${
-                    analysisMode === 'estimated' 
-                      ? 'bg-orange-600 text-white' 
-                      : 'bg-gray-700 text-gray-300'
-                  }`}
-                >
-                  Weight Estimated
                 </button>
                 <button
                   onClick={() => setAnalysisMode('manual')}
