@@ -314,7 +314,7 @@ export default function SkeletonOverlay({
 
       // Draw RULA score box with enhanced information
       const boxWidth = 220;
-      const boxHeight = weightEstimation ? 150 : 120;
+      const boxHeight = weightEstimation ? 160 : 130;
       const boxX = width - boxWidth - 10;
       const boxY = 10;
 
@@ -359,7 +359,7 @@ export default function SkeletonOverlay({
       ];
 
       components.forEach(comp => {
-        if (comp.value) {
+        if (comp.value !== undefined && comp.value !== null) {
           ctx.fillStyle = '#CCCCCC';
           ctx.font = '10px Arial';
           ctx.fillText(`${comp.label}: ${comp.value}`, boxX + 10, boxY + yOffset);
@@ -388,7 +388,7 @@ export default function SkeletonOverlay({
       // Color legend
       const legendY = boxY + boxHeight + 10;
       ctx.fillStyle = '#FFFFFF';
-      ctx.font = '10px Arial';
+      ctx.font = 'bold 10px Arial';
       ctx.fillText('Color Legend:', boxX, legendY);
 
       const legendItems = [
@@ -399,14 +399,20 @@ export default function SkeletonOverlay({
       ];
 
       legendItems.forEach((item, index) => {
-        const x = boxX + (index * 50);
+        const x = boxX + (index * 52);
         const y = legendY + 15;
 
+        // Draw legend color box with border
         ctx.fillStyle = item.color;
-        ctx.fillRect(x, y, 10, 10);
+        ctx.fillRect(x, y, 12, 12);
+        ctx.strokeStyle = '#FFFFFF';
+        ctx.lineWidth = 1;
+        ctx.strokeRect(x, y, 12, 12);
+        
+        // Draw legend text
         ctx.fillStyle = '#FFFFFF';
         ctx.font = '8px Arial';
-        ctx.fillText(item.label, x, y + 20);
+        ctx.fillText(item.label, x, y + 25);
       });
     }
   }, [poseData, rulaScore, imageData, width, height, showColorCoding, weightEstimation]);
