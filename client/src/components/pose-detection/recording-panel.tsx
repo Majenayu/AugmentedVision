@@ -54,6 +54,7 @@ export default function RecordingPanel({
   const [activeGraph, setActiveGraph] = useState<GraphType>('live');
   const [manualWeights, setManualWeights] = useState<ManualWeight[]>([]);
   const [showWeightDialog, setShowWeightDialog] = useState(false);
+  const [showSecondObjectDetection, setShowSecondObjectDetection] = useState(false);
 
   // Separate graph data that only records during recording session
   const [recordingGraphData, setRecordingGraphData] = useState<any[]>([]);
@@ -560,6 +561,12 @@ export default function RecordingPanel({
                   >
                     Manage Objects
                   </button>
+                  <button
+                    onClick={() => setShowSecondObjectDetection(true)}
+                    className="px-2 py-1 bg-orange-600 hover:bg-orange-700 rounded text-sm"
+                  >
+                    Second Scan
+                  </button>
                 </div>
               )}
             </div>
@@ -1054,6 +1061,38 @@ export default function RecordingPanel({
         </div>
       )}
 
+      {/* Second Object Detection Dialog */}
+      {showSecondObjectDetection && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-dark-card rounded-lg shadow-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-medium">Second Object Detection Scan</h3>
+              <button
+                onClick={() => setShowSecondObjectDetection(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <span className="material-icon">close</span>
+              </button>
+            </div>
+
+            <div className="mb-4 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
+              <p className="text-sm text-blue-300">
+                Running a second object detection scan to find any objects that might have been missed in the first scan. 
+                This will analyze all recorded frames again with different detection parameters.
+              </p>
+            </div>
+
+            <ObjectDetectionWeightInput
+              onAddWeight={addManualWeightFromInput}
+              existingWeights={manualWeights}
+              videoRef={videoRef}
+              currentPoseData={currentPoseData}
+              isVisible={showSecondObjectDetection}
+              recordedFrames={recordingData}
+            />
+          </div>
+        </div>
+      )}
 
     </div>
   );

@@ -113,6 +113,7 @@ Changelog:
 - June 18, 2025. Enhanced Excel export with detailed breakdown of body part scores, risk level changes, and comprehensive object data
 - June 19, 2025. Removed enhanced view mode from recording panel, keeping only original and skeleton views
 - June 19, 2025. Removed "Weight Estimated" analysis mode, keeping only Normal View and Manual Weight options
+- June 19, 2025. Added second object detection scan feature to catch objects missed in the first detection
 
 # User Preferences
 
