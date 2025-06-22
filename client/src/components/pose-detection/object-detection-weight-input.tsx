@@ -204,10 +204,10 @@ export default function ObjectDetectionWeightInput({
     }
 
     const weight: ManualWeight = {
-      id: `${Date.now()}-${obj.class}`,
-      name: obj.class,
+      id: `${Date.now()}-object-${index}`,
+      name: `Object ${index + 1}`,
       weight: Number(weightValue),
-      icon: obj.icon,
+      icon: '📦',
       previewImage: obj.croppedImage
     };
 
@@ -286,7 +286,7 @@ export default function ObjectDetectionWeightInput({
                       <div className="flex-shrink-0">
                         <img
                           src={obj.croppedImage}
-                          alt={`Detected ${obj.class}`}
+                          alt={`Detected Object ${index + 1}`}
                           className="w-24 h-24 object-cover rounded-lg border border-gray-500"
                         />
                       </div>
@@ -295,8 +295,8 @@ export default function ObjectDetectionWeightInput({
                       <div className="flex-1 space-y-3">
                         <div>
                           <div className="font-medium text-white flex items-center space-x-2">
-                            <span className="text-xl">{obj.icon}</span>
-                            <span>{obj.class}</span>
+                            <span className="text-xl">📦</span>
+                            <span>Object {index + 1}</span>
                           </div>
                           <div className="text-sm text-gray-400">
                             Confidence: {Math.round(obj.confidence * 100)}%

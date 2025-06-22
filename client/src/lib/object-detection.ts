@@ -333,10 +333,10 @@ export function getWeightSuggestions(detectedObjects: DetectedObject[]): Array<{
   icon: string;
   confidence: number;
 }> {
-  return detectedObjects.map(obj => ({
-    name: obj.class,
+  return detectedObjects.map((obj, index) => ({
+    name: `Object ${index + 1}`,
     weight: obj.estimatedWeight,
-    icon: obj.icon,
+    icon: '📦',
     confidence: Math.round(obj.confidence * 100)
   }));
 }
