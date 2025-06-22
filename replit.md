@@ -111,6 +111,7 @@ Changelog:
 - June 18, 2025. Added Excel export functionality for graph data with separate sheets for each analysis type (Live, Recording, Estimated Weight, Manual Weight)
 - June 18, 2025. Fixed skeleton color coding to properly reflect weight-adjusted RULA scores in manual mode
 - June 18, 2025. Enhanced Excel export with detailed breakdown of body part scores, risk level changes, and comprehensive object data
+- June 19, 2025. Removed enhanced view mode from recording panel, keeping only original and skeleton views
 
 # User Preferences
 
