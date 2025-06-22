@@ -1,3 +1,6 @@
+import React from 'react';
+import { generatePostureAnalysis, getRiskBorderColor } from '@/lib/posture-analysis';
+
 interface RulaAssessmentProps {
   rulaScore: any;
   poseData: any;
@@ -58,7 +61,7 @@ export default function RulaAssessment({ rulaScore, poseData, isProcessing }: Ru
           <h4 className="text-lg font-medium mb-1">RULA Score</h4>
           <p className="text-text-secondary text-sm">Current assessment level</p>
         </div>
-        
+
         <div className="text-center">
           <div className="bg-material-blue w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-3">
             <span className="material-icon text-3xl text-white">trending_up</span>
@@ -70,7 +73,7 @@ export default function RulaAssessment({ rulaScore, poseData, isProcessing }: Ru
           </h4>
           <p className="text-text-secondary text-sm">Risk assessment</p>
         </div>
-        
+
 
       </div>
 

@@ -303,52 +303,12 @@ export default function SkeletonOverlay({
         }
       });
 
-      // Draw detailed status analysis overlay
-      if (rulaScore && showColorCoding) {
-        drawStatusAnalysis();
-      }
+      // Posture analysis moved to RULA Assessment component
     }
 
-    function drawStatusAnalysis() {
-      if (!ctx || !rulaScore) return;
+    
 
-      // Generate detailed analysis text
-      const analysis = generatePostureAnalysis(rulaScore);
-      
-      // Position for status box (bottom right)
-      const boxWidth = Math.min(350, width * 0.4);
-      const boxHeight = 140;
-      const boxX = width - boxWidth - 10;
-      const boxY = height - boxHeight - 10;
-      
-      // Draw background with rounded corners
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.85)';
-      ctx.beginPath();
-      ctx.roundRect(boxX, boxY, boxWidth, boxHeight, 8);
-      ctx.fill();
-      
-      // Draw border
-      ctx.strokeStyle = getRiskBorderColor(rulaScore.finalScore);
-      ctx.lineWidth = 2;
-      ctx.stroke();
-      
-      // Title
-      ctx.fillStyle = '#FFFFFF';
-      ctx.font = 'bold 14px Arial';
-      ctx.fillText('Posture Analysis', boxX + 12, boxY + 20);
-      
-      // Status text
-      ctx.fillStyle = '#E5E5E5';
-      ctx.font = '11px Arial';
-      
-      const lines = wrapText(analysis, boxWidth - 24);
-      lines.forEach((line, index) => {
-        if (index < 8) { // Limit to 8 lines
-          ctx.fillText(line, boxX + 12, boxY + 42 + (index * 14));
-        }
-      });
-    }
-
+    // Export this function for use in other components
     function generatePostureAnalysis(rulaScore: any): string {
       const issues = [];
       const good = [];
@@ -427,40 +387,7 @@ export default function SkeletonOverlay({
       return analysis;
     }
 
-    function getRiskBorderColor(score: number): string {
-      if (score <= 2) return '#00FF00'; // Green
-      if (score <= 4) return '#FFFF00'; // Yellow
-      if (score <= 6) return '#FF8000'; // Orange
-      return '#FF0000'; // Red
-    }
-
-    function wrapText(text: string, maxWidth: number): string[] {
-      const words = text.split(' ');
-      const lines = [];
-      let currentLine = '';
-      
-      // Measure text function
-      const measureText = (text: string) => {
-        ctx!.font = '11px Arial';
-        return ctx!.measureText(text).width;
-      };
-      
-      for (const word of words) {
-        const testLine = currentLine + (currentLine ? ' ' : '') + word;
-        if (measureText(testLine) > maxWidth && currentLine) {
-          lines.push(currentLine);
-          currentLine = word;
-        } else {
-          currentLine = testLine;
-        }
-      }
-      
-      if (currentLine) {
-        lines.push(currentLine);
-      }
-      
-      return lines;
-    }
+    
   }, [poseData, rulaScore, imageData, width, height, showColorCoding, weightEstimation]);
 
   return (
