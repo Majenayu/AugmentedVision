@@ -114,10 +114,6 @@ Changelog:
 - June 19, 2025. Removed enhanced view mode from recording panel, keeping only original and skeleton views
 - June 19, 2025. Removed "Weight Estimated" analysis mode, keeping only Normal View and Manual Weight options
 - June 19, 2025. Added second object detection scan feature to catch objects missed in the first detection
-- June 22, 2025. Improved skeleton accuracy by capturing frames every 3 seconds (instead of 500ms) for better pose detection
-- June 22, 2025. Enhanced image quality with 2x scaling and 95% JPEG compression for clearer skeletal visualization
-- June 22, 2025. Upgraded pose detection model to SINGLEPOSE_THUNDER for higher accuracy and better skeleton formation
-- June 22, 2025. Enhanced skeleton overlay with improved line rendering, shadows, and keypoint labels for better visibility
 
 # User Preferences
 
