@@ -44,9 +44,9 @@ export async function initializePoseDetection() {
     
     const model = window.poseDetection.SupportedModels.MoveNet;
     const detectorConfig = {
-      modelType: window.poseDetection.movenet.modelType.SINGLEPOSE_LIGHTNING,
+      modelType: window.poseDetection.movenet.modelType.SINGLEPOSE_THUNDER,
       enableSmoothing: true,
-      multiPoseMaxDimension: 256,
+      multiPoseMaxDimension: 512,
       enableTracking: true,
       trackerType: window.poseDetection.TrackerType.BoundingBox
     };

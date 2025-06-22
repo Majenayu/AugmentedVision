@@ -59,7 +59,7 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
         [12, 14], [14, 16] // Right leg
       ];
 
-      const confidenceThreshold = 0.3;
+      const confidenceThreshold = 0.5;
       
       // Calculate scaling factors
       const videoAspect = video.videoWidth / video.videoHeight;
@@ -79,30 +79,35 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
         offsetY = (canvas.height - scaleY) / 2;
       }
       
-      // Helper function to transform coordinates
+      // Helper function to transform coordinates with improved accuracy
       const transformCoordinates = (x: number, y: number) => {
         let transformedX, transformedY;
         
-        // Handle different coordinate systems
+        // Handle different coordinate systems with better precision
         if (x > 1 || y > 1) {
-          // Absolute coordinates - normalize first
+          // Absolute coordinates - normalize first with proper scaling
           transformedX = (x / video.videoWidth) * scaleX + offsetX;
           transformedY = (y / video.videoHeight) * scaleY + offsetY;
         } else {
-          // Normalized coordinates (0-1)
+          // Normalized coordinates (0-1) with precise scaling
           transformedX = x * scaleX + offsetX;
           transformedY = y * scaleY + offsetY;
         }
         
-        // Since canvas is mirrored, flip X coordinate
+        // Apply horizontal flip for mirrored display
         transformedX = canvas.width - transformedX;
+        
+        // Ensure coordinates are within canvas bounds
+        transformedX = Math.max(0, Math.min(canvas.width, transformedX));
+        transformedY = Math.max(0, Math.min(canvas.height, transformedY));
         
         return { x: transformedX, y: transformedY };
       };
 
-      // Draw connections
-      ctx.strokeStyle = '#3B82F6';
-      ctx.lineWidth = 3;
+      // Draw connections with improved quality
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 4;
 
       let connectionsDrawn = 0;
       
@@ -114,15 +119,38 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
           const pos1 = transformCoordinates(kp1.x, kp1.y);
           const pos2 = transformCoordinates(kp2.x, kp2.y);
           
+          // Different colors for different body parts
+          let strokeColor;
+          if (i <= 4 || j <= 4) {
+            strokeColor = '#EF4444'; // Red for head connections
+          } else if ((i <= 10 && j <= 10) || (i >= 5 && i <= 10) || (j >= 5 && j <= 10)) {
+            strokeColor = '#3B82F6'; // Blue for arm connections
+          } else {
+            strokeColor = '#10B981'; // Green for leg/torso connections
+          }
+          
+          // Draw connection with shadow for better visibility
+          ctx.shadowColor = '#000000';
+          ctx.shadowBlur = 3;
+          ctx.shadowOffsetX = 1;
+          ctx.shadowOffsetY = 1;
+          
+          ctx.strokeStyle = strokeColor;
           ctx.beginPath();
           ctx.moveTo(pos1.x, pos1.y);
           ctx.lineTo(pos2.x, pos2.y);
           ctx.stroke();
+          
+          // Reset shadow
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
+          
           connectionsDrawn++;
         }
       });
 
-      // Draw keypoints
+      // Draw keypoints with enhanced visibility
       let keypointsDrawn = 0;
       keypoints.forEach((keypoint: any, index: number) => {
         if (keypoint && keypoint.score > confidenceThreshold) {
@@ -138,23 +166,44 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
             color = '#10B981'; // Green for legs/torso
           }
           
+          // Draw keypoint with shadow for better visibility
+          ctx.shadowColor = '#000000';
+          ctx.shadowBlur = 4;
+          ctx.shadowOffsetX = 2;
+          ctx.shadowOffsetY = 2;
+          
           ctx.fillStyle = color;
           ctx.beginPath();
-          ctx.arc(pos.x, pos.y, 6, 0, 2 * Math.PI);
+          ctx.arc(pos.x, pos.y, 8, 0, 2 * Math.PI);
           ctx.fill();
+          
+          // Reset shadow for border
+          ctx.shadowBlur = 0;
+          ctx.shadowOffsetX = 0;
+          ctx.shadowOffsetY = 0;
           
           // Add white border for better visibility
           ctx.strokeStyle = '#FFFFFF';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(pos.x, pos.y, 8, 0, 2 * Math.PI);
           ctx.stroke();
           
-          // Add confidence score (optional - comment out if too cluttered)
+          // Add keypoint labels for better identification
+          const keypointNames = [
+            'nose', 'left_eye', 'right_eye', 'left_ear', 'right_ear',
+            'left_shoulder', 'right_shoulder', 'left_elbow', 'right_elbow',
+            'left_wrist', 'right_wrist', 'left_hip', 'right_hip',
+            'left_knee', 'right_knee', 'left_ankle', 'right_ankle'
+          ];
+          
+          // Add text label with shadow
           ctx.fillStyle = '#FFFFFF';
-          ctx.font = '10px Arial';
-          ctx.shadowColor = '#000000';
-          ctx.shadowBlur = 2;
-          ctx.fillText(`${Math.round(keypoint.score * 100)}%`, pos.x + 8, pos.y - 8);
-          ctx.shadowBlur = 0;
+          ctx.font = 'bold 12px Arial';
+          ctx.strokeStyle = '#000000';
+          ctx.lineWidth = 3;
+          ctx.strokeText(keypointNames[index] || `kp${index}`, pos.x + 12, pos.y + 4);
+          ctx.fillText(keypointNames[index] || `kp${index}`, pos.x + 12, pos.y + 4);
           
           keypointsDrawn++;
         }

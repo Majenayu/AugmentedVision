@@ -22,7 +22,7 @@ export function useRecording() {
     setRecordingProgress(0);
     recordingStartTime.current = Date.now();
 
-    // Record frame every 500ms for 60 seconds
+    // Record frame every 3 seconds for 60 seconds (20 frames total)
     recordingInterval.current = setInterval(() => {
       const elapsed = Date.now() - recordingStartTime.current;
       const progress = Math.min((elapsed / 60000) * 100, 100);
@@ -33,19 +33,28 @@ export function useRecording() {
         return;
       }
 
-      // Capture frame
+      // Capture frame with higher quality
       if (videoRef.current) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
+        
+        // Use higher resolution for better image quality
+        const scaleFactor = 2;
+        canvas.width = videoRef.current.videoWidth * scaleFactor;
+        canvas.height = videoRef.current.videoHeight * scaleFactor;
         
         if (ctx) {
-          // Mirror the image horizontally to match the display
-          ctx.scale(-1, 1);
-          ctx.translate(-canvas.width, 0);
+          // Enable image smoothing for better quality
+          ctx.imageSmoothingEnabled = true;
+          ctx.imageSmoothingQuality = 'high';
+          
+          // Scale and mirror the image horizontally to match the display
+          ctx.scale(-scaleFactor, scaleFactor);
+          ctx.translate(-canvas.width / scaleFactor, 0);
           ctx.drawImage(videoRef.current, 0, 0);
-          const imageData = canvas.toDataURL('image/jpeg', 0.8);
+          
+          // Use higher quality JPEG compression
+          const imageData = canvas.toDataURL('image/jpeg', 0.95);
           
           // This will be updated with actual pose and RULA data from parent component
           const frame: RecordingFrame = {
@@ -58,7 +67,7 @@ export function useRecording() {
           setRecordingData(prev => [...prev, frame]);
         }
       }
-    }, 500);
+    }, 3000);
   }, []);
 
   const stopRecording = useCallback(() => {
