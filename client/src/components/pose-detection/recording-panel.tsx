@@ -4,7 +4,7 @@ import SkeletonOverlay from './skeleton-overlay';
 import ThreeDView from './three-d-view';
 import ManualWeightInput, { type ManualWeight } from './manual-weight-input';
 import ObjectDetectionWeightInput from './object-detection-weight-input';
-import AssessmentReport from './assessment-report';
+
 import * as XLSX from 'xlsx';
 
 import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
@@ -56,7 +56,7 @@ export default function RecordingPanel({
   const [manualWeights, setManualWeights] = useState<ManualWeight[]>([]);
   const [showWeightDialog, setShowWeightDialog] = useState(false);
   const [showSecondObjectDetection, setShowSecondObjectDetection] = useState(false);
-  const [showAssessmentReport, setShowAssessmentReport] = useState(false);
+
 
   // Separate graph data that only records during recording session
   const [recordingGraphData, setRecordingGraphData] = useState<any[]>([]);
@@ -496,14 +496,7 @@ export default function RecordingPanel({
 
           {recordingData.length > 0 && !isRecording && (
             <>
-              <button
-                onClick={() => setShowAssessmentReport(true)}
-                className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
-                title="Generate Assessment Report"
-              >
-                <span className="material-icon">description</span>
-                <span>Generate Report</span>
-              </button>
+
               <button
                 onClick={exportGraphDataToExcel}
                 className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
@@ -1112,15 +1105,7 @@ export default function RecordingPanel({
         </div>
       )}
 
-      {/* Assessment Report */}
-      <AssessmentReport
-        recordingData={recordingData}
-        manualWeights={manualWeights}
-        sessionDuration={getSessionDuration()}
-        analysisMode={analysisMode}
-        isVisible={showAssessmentReport}
-        onClose={() => setShowAssessmentReport(false)}
-      />
+
 
     </div>
   );
