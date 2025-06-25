@@ -46,10 +46,10 @@ function calculateVerticalAngle(point1: Keypoint, point2: Keypoint): number {
 // Dynamic RULA Scoring Functions
 function getUpperArmScore(angle: number): number {
   // More sensitive to postural changes
-  if (angle <= 10) return 1;      // Very good posture
-  if (angle <= 25) return 2;      // Good posture
-  if (angle <= 50) return 3;      // Moderate risk
-  if (angle <= 80) return 4;      // High risk
+  if (angle <= 15) return 1;      // Very good posture
+  if (angle <= 30) return 2;      // Good posture
+  if (angle <= 60) return 3;      // Moderate risk
+  if (angle <= 90) return 4;      // High risk
   return 5;                       // Very high risk
 }
 
@@ -86,59 +86,34 @@ function getTrunkScore(angle: number): number {
   return 5;                          // Severe lean
 }
 
-// RULA Tables
+// Simplified RULA Tables for more dynamic scoring
 function getScoreA(upperArm: number, lowerArm: number, wrist: number): number {
-  const tableA = [
-    [[1,2,2], [2,2,3], [2,3,3]], // Upper Arm 1
-    [[2,2,3], [2,3,4], [3,4,4]], // Upper Arm 2
-    [[2,3,3], [3,4,4], [4,4,5]], // Upper Arm 3
-    [[3,4,4], [4,4,5], [5,5,5]], // Upper Arm 4
-    [[4,4,5], [5,5,5], [5,6,6]], // Upper Arm 5
-    [[5,5,5], [5,6,6], [6,6,7]]  // Upper Arm 6
-  ];
-  
-  const row = Math.min(Math.max(upperArm - 1, 0), 5);
-  const col = Math.min(Math.max(lowerArm - 1, 0), 2);
-  const depth = Math.min(Math.max(wrist - 1, 0), 2);
-  
-  return tableA[row][col][depth];
+  // Simplified scoring that responds better to posture changes
+  let score = upperArm + Math.floor(lowerArm / 2) + Math.floor(wrist / 2);
+  return Math.min(Math.max(score, 1), 9);
 }
 
 function getScoreB(neck: number, trunk: number): number {
-  const tableB = [
-    [1,2,3,5,6,7], // Neck 1
-    [2,2,4,5,6,8], // Neck 2
-    [3,3,4,5,6,8], // Neck 3
-    [5,5,4,6,7,8], // Neck 4
-    [6,6,6,7,7,8], // Neck 5
-    [7,7,7,7,7,8]  // Neck 6
-  ];
-  
-  const row = Math.min(Math.max(neck - 1, 0), 5);
-  const col = Math.min(Math.max(trunk - 1, 0), 5);
-  
-  return tableB[row][col];
+  // Simplified scoring for Group B
+  let score = neck + trunk;
+  return Math.min(Math.max(score, 1), 12);
 }
 
 function getFinalScore(scoreA: number, scoreB: number): number {
-  const finalTable = [
-    [1,1,2,3,5,6,7,8], // Score A 1
-    [1,2,2,3,5,6,7,8], // Score A 2
-    [2,2,3,4,5,6,7,8], // Score A 3
-    [3,3,3,4,5,6,7,8], // Score A 4
-    [5,5,5,5,6,7,7,8], // Score A 5
-    [6,6,6,6,6,7,7,8], // Score A 6
-    [7,7,7,7,7,7,7,8], // Score A 7
-    [8,8,8,8,8,8,8,8]  // Score A 8
-  ];
-  
-  const row = Math.min(Math.max(scoreA - 1, 0), 7);
-  const col = Math.min(Math.max(scoreB - 1, 0), 7);
-  
-  return finalTable[row][col];
+  // More responsive final scoring
+  if (scoreA <= 2 && scoreB <= 2) return 1;
+  if (scoreA <= 2 && scoreB <= 4) return 2;
+  if (scoreA <= 3 && scoreB <= 3) return 2;
+  if (scoreA <= 3 && scoreB <= 6) return 3;
+  if (scoreA <= 4 && scoreB <= 4) return 3;
+  if (scoreA <= 4 && scoreB <= 8) return 4;
+  if (scoreA <= 6 && scoreB <= 6) return 5;
+  if (scoreA <= 7 && scoreB <= 8) return 6;
+  return 7;
 }
 
 function getRiskLevel(score: number): string {
+  if (score === 1) return "Negligible";
   if (score <= 2) return "Low";
   if (score <= 4) return "Medium";
   if (score <= 6) return "High";
@@ -250,10 +225,17 @@ export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
       trunkAngle: Math.round(trunkAngle * 10) / 10
     };
 
-    console.log('RULA calculation successful:', {
-      angles: { upperArmAngle, lowerArmAngle, wristFlexionAngle, neckAngle, trunkAngle },
+    console.log('RULA calculation:', {
+      angles: { 
+        upperArm: Math.round(upperArmAngle), 
+        lowerArm: Math.round(lowerArmAngle), 
+        wrist: Math.round(wristFlexionAngle), 
+        neck: Math.round(neckAngle), 
+        trunk: Math.round(trunkAngle) 
+      },
       scores: { upperArmScore, lowerArmScore, wristScore, neckScore, trunkScore },
-      final: { scoreA, scoreB, finalScore, riskLevel }
+      intermediate: { scoreA, scoreB },
+      final: { finalScore, riskLevel }
     });
     return result;
     
