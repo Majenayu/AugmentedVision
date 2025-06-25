@@ -7,12 +7,13 @@ import RecordingPanel from "@/components/pose-detection/recording-panel";
 import { usePoseDetection } from "@/hooks/use-pose-detection";
 import { useCamera, type CameraDevice } from "@/hooks/use-camera";
 import { useRecording } from "@/hooks/use-recording";
+import { DownloadButton } from "../components/download-button";
 
 export default function Home() {
   const [modelLoaded, setModelLoaded] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
-  
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   const { 
