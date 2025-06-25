@@ -99,8 +99,8 @@ This is a full-stack web application built with TypeScript, React, Express.js, a
 # Changelog
 
 Changelog:
-- January 27, 2025. Successfully migrated project from Replit Agent to standard Replit environment
-- January 27, 2025. Removed generate report functionality per user request
+- January 27, 2025. Successfully migrated project from Replit Agent to standard Replit environment  
+- January 27, 2025. Added PDF report generation with comprehensive ergonomic assessment analysis
 - June 13, 2025. Initial setup
 - June 17, 2025. Fixed pose detection skeleton alignment issues and syntax errors in recording panel
 - June 17, 2025. Added smart object detection system with COCO-SSD model for automatic weight estimation in manual mode

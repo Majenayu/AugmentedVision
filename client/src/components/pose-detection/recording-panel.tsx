@@ -6,6 +6,7 @@ import ManualWeightInput, { type ManualWeight } from './manual-weight-input';
 import ObjectDetectionWeightInput from './object-detection-weight-input';
 
 import * as XLSX from 'xlsx';
+import jsPDF from 'jspdf';
 
 import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
 import { generatePostureAnalysis } from '@/lib/posture-analysis';
@@ -466,6 +467,200 @@ export default function RecordingPanel({
     XLSX.writeFile(workbook, fileName);
   };
 
+  // PDF Report Generation Function
+  const generatePDFReport = () => {
+    const pdf = new jsPDF();
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 20;
+    const lineHeight = 6;
+    let yPosition = margin;
+
+    // Helper function to add text with automatic page breaks
+    const addText = (text: string, fontSize = 10, isBold = false, align: 'left' | 'center' | 'right' = 'left') => {
+      if (yPosition > pageHeight - margin) {
+        pdf.addPage();
+        yPosition = margin;
+      }
+      
+      pdf.setFontSize(fontSize);
+      if (isBold) {
+        pdf.setFont('helvetica', 'bold');
+      } else {
+        pdf.setFont('helvetica', 'normal');
+      }
+
+      if (align === 'center') {
+        pdf.text(text, pageWidth / 2, yPosition, { align: 'center' });
+      } else if (align === 'right') {
+        pdf.text(text, pageWidth - margin, yPosition, { align: 'right' });
+      } else {
+        pdf.text(text, margin, yPosition);
+      }
+      
+      yPosition += lineHeight;
+    };
+
+    const addSection = (title: string) => {
+      yPosition += 3;
+      addText(title, 12, true);
+      yPosition += 2;
+    };
+
+    // Calculate overall statistics
+    const totalFrames = recordingData.length;
+    const validFrames = recordingData.filter(frame => frame.poseData?.keypoints && frame.poseData.keypoints.length > 0);
+    const avgValidKeypoints = validFrames.length > 0 ? 
+      validFrames.reduce((sum, frame) => sum + (frame.poseData?.keypoints?.filter((kp: any) => kp.score > 0.3).length || 0), 0) / validFrames.length : 0;
+    const avgConfidence = validFrames.length > 0 ?
+      validFrames.reduce((sum, frame) => sum + (frame.poseData?.score || 0), 0) / validFrames.length * 100 : 0;
+    const avgRulaScore = validFrames.length > 0 ?
+      validFrames.reduce((sum, frame) => sum + (frame.rulaScore?.finalScore || 0), 0) / validFrames.length : 0;
+
+    // Get risk level
+    const getRiskLevel = (score: number) => {
+      if (score <= 2) return "Low Risk - Acceptable";
+      if (score <= 4) return "Medium Risk - Investigate";
+      if (score <= 6) return "High Risk - Change Soon";
+      return "Critical Risk - Change Immediately";
+    };
+
+    const generateRecommendations = (avgScore: number, hasManualWeights: boolean) => {
+      const recommendations = [];
+      
+      if (avgScore <= 2) {
+        recommendations.push("Low risk detected - posture is generally acceptable");
+        recommendations.push("Continue current practices");
+        recommendations.push("Monitor for any changes in work conditions");
+      } else if (avgScore <= 4) {
+        recommendations.push("Minor ergonomic concerns detected");
+        recommendations.push("Adjust chair height and monitor position");
+        recommendations.push("Check keyboard and mouse placement");
+        recommendations.push("Take micro-breaks every 20-30 minutes");
+        recommendations.push("Consider ergonomic accessories");
+      } else if (avgScore <= 6) {
+        recommendations.push("Significant ergonomic issues identified");
+        recommendations.push("Immediate workspace assessment recommended");
+        recommendations.push("Implement regular stretching routine");
+        recommendations.push("Consider ergonomic training");
+        recommendations.push("Review task frequency and duration");
+      } else {
+        recommendations.push("Critical ergonomic risks detected");
+        recommendations.push("Immediate intervention required");
+        recommendations.push("Professional ergonomic assessment needed");
+        recommendations.push("Consider job task modification");
+        recommendations.push("Implement mandatory rest breaks");
+      }
+
+      if (hasManualWeights) {
+        const totalWeight = manualWeights.reduce((total, w) => total + w.weight, 0) / 1000;
+        recommendations.push(`Weight handling detected: ${totalWeight.toFixed(1)}kg`);
+        if (totalWeight > 10) {
+          recommendations.push("Consider mechanical lifting aids");
+          recommendations.push("Use proper lifting techniques");
+        }
+      }
+
+      return recommendations;
+    };
+
+    // Header
+    addText("ErgoTrack Assessment Report", 16, true, 'center');
+    yPosition += 5;
+
+    // Session Information
+    addSection("Session Information");
+    addText(`Date: ${new Date().toLocaleString()}`);
+    addText(`Duration: ${getSessionDuration()}`);
+    addText(`Assessment Type: ${analysisMode.toUpperCase()}`);
+    addText(`Total Frames: ${totalFrames}`);
+
+    // Pose Detection Quality
+    addSection("Pose Detection Quality");
+    addText(`Total Keypoints: 17`);
+    addText(`Valid Keypoints: ${Math.round(avgValidKeypoints)}`);
+    addText(`Detection Confidence: ${avgConfidence.toFixed(0)}%`);
+
+    // RULA Assessment Results
+    addSection("RULA Assessment Results");
+    addText(`Score: ${avgRulaScore.toFixed(1)}                Risk Level: ${getRiskLevel(avgRulaScore)}`);
+    yPosition += 3;
+
+    // Get average body part scores
+    const avgBodyParts = validFrames.reduce((acc, frame) => {
+      if (frame.rulaScore) {
+        acc.upperArm += frame.rulaScore.upperArm || 0;
+        acc.lowerArm += frame.rulaScore.lowerArm || 0;
+        acc.wrist += frame.rulaScore.wrist || 0;
+        acc.neck += frame.rulaScore.neck || 0;
+        acc.trunk += frame.rulaScore.trunk || 0;
+        acc.scoreA += frame.rulaScore.scoreA || 0;
+        acc.scoreB += frame.rulaScore.scoreB || 0;
+      }
+      return acc;
+    }, { upperArm: 0, lowerArm: 0, wrist: 0, neck: 0, trunk: 0, scoreA: 0, scoreB: 0 });
+
+    if (validFrames.length > 0) {
+      Object.keys(avgBodyParts).forEach(key => {
+        avgBodyParts[key] = avgBodyParts[key] / validFrames.length;
+      });
+    }
+
+    addText("Individual Body Part Scores:");
+    addText(`  Upper Arm: ${avgBodyParts.upperArm.toFixed(1)} Lower Arm: ${avgBodyParts.lowerArm.toFixed(1)} Wrist: ${avgBodyParts.wrist.toFixed(1)}`);
+    addText(`  Neck: ${avgBodyParts.neck.toFixed(1)} Trunk: ${avgBodyParts.trunk.toFixed(1)}`);
+    addText(`  Group A Score: ${avgBodyParts.scoreA.toFixed(1)} Group B Score: ${avgBodyParts.scoreB.toFixed(1)}`);
+
+    // Manual Weights (if any)
+    if (manualWeights.length > 0) {
+      yPosition += 3;
+      addText("Manual Weight Objects:");
+      manualWeights.forEach(weight => {
+        addText(`  - ${weight.name}: ${weight.weight}g`);
+      });
+      const totalWeight = manualWeights.reduce((total, w) => total + w.weight, 0) / 1000;
+      addText(`Total Weight: ${totalWeight.toFixed(1)}kg`);
+    }
+
+    // Recommendations
+    addSection("Recommendations");
+    const recommendations = generateRecommendations(avgRulaScore, manualWeights.length > 0);
+    recommendations.forEach((rec, index) => {
+      addText(`${index + 1}. ${rec}`);
+    });
+
+    // Frame-by-Frame Analysis
+    if (validFrames.length > 0) {
+      yPosition += 5;
+      addSection("Frame-by-Frame Analysis");
+      
+      validFrames.forEach((frame, index) => {
+        if (index % 10 === 0) { // Show every 10th frame to avoid too much detail
+          const timeSeconds = recordingStartTimeRef.current ? 
+            (frame.timestamp - recordingStartTimeRef.current) / 1000 : 
+            frame.timestamp;
+          
+          addText(`Frame ${index + 1} (${formatTime(timeSeconds)}):`);
+          addText(`  RULA Score: ${frame.rulaScore?.finalScore || 0} - ${getRiskLevel(frame.rulaScore?.finalScore || 0)}`);
+          addText(`  Body Parts: UA:${frame.rulaScore?.upperArm || 0} LA:${frame.rulaScore?.lowerArm || 0} W:${frame.rulaScore?.wrist || 0} N:${frame.rulaScore?.neck || 0} T:${frame.rulaScore?.trunk || 0}`);
+          
+          if (frame.hasObject) {
+            addText(`  Object detected in this frame`);
+          }
+          yPosition += 2;
+        }
+      });
+    }
+
+    // Footer
+    yPosition = pageHeight - margin;
+    addText(`Generated by ErgoTrack on ${new Date().toLocaleString()}`, 8, false, 'center');
+
+    // Download the PDF
+    const fileName = `ErgoTrack_Assessment_${new Date().toISOString().split('T')[0]}.pdf`;
+    pdf.save(fileName);
+  };
+
   return (
     <div className="bg-dark-card rounded-lg shadow-lg p-6">
       <div className="flex items-center justify-between mb-6">
@@ -497,6 +692,14 @@ export default function RecordingPanel({
           {recordingData.length > 0 && !isRecording && (
             <>
 
+              <button
+                onClick={generatePDFReport}
+                className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
+                title="Generate Assessment Report PDF"
+              >
+                <span className="material-icon">description</span>
+                <span>Generate PDF Report</span>
+              </button>
               <button
                 onClick={exportGraphDataToExcel}
                 className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
