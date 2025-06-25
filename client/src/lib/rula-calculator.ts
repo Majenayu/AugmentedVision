@@ -43,37 +43,47 @@ function calculateVerticalAngle(point1: Keypoint, point2: Keypoint): number {
   return Math.atan2(Math.abs(deltaX), Math.abs(deltaY)) * (180 / Math.PI);
 }
 
-// RULA Scoring Functions
+// Dynamic RULA Scoring Functions
 function getUpperArmScore(angle: number): number {
-  if (angle <= 20) return 1;
-  if (angle <= 45) return 2;
-  if (angle <= 90) return 3;
-  return 4;
+  // More sensitive to postural changes
+  if (angle <= 10) return 1;      // Very good posture
+  if (angle <= 25) return 2;      // Good posture
+  if (angle <= 50) return 3;      // Moderate risk
+  if (angle <= 80) return 4;      // High risk
+  return 5;                       // Very high risk
 }
 
 function getLowerArmScore(angle: number): number {
-  if (angle >= 60 && angle <= 100) return 1;
-  return 2;
+  // Dynamic forearm scoring based on elbow angle
+  if (angle >= 80 && angle <= 120) return 1;  // Optimal range
+  if (angle >= 60 && angle <= 140) return 2;  // Acceptable range
+  return 3;                                    // Poor positioning
 }
 
 function getWristScore(flexion: number): number {
-  if (Math.abs(flexion) <= 15) return 1;
-  if (Math.abs(flexion) <= 30) return 2;
-  return 3;
+  const absFlexion = Math.abs(flexion);
+  if (absFlexion <= 8) return 1;    // Neutral wrist
+  if (absFlexion <= 20) return 2;   // Slight deviation
+  if (absFlexion <= 35) return 3;   // Moderate deviation
+  return 4;                          // Severe deviation
 }
 
 function getNeckScore(angle: number): number {
-  if (angle <= 10) return 1;
-  if (angle <= 20) return 2;
-  if (angle <= 30) return 3;
-  return 4;
+  // More responsive neck scoring
+  if (angle <= 8) return 1;         // Neutral neck
+  if (angle <= 18) return 2;        // Slight forward head
+  if (angle <= 30) return 3;        // Moderate forward head
+  if (angle <= 45) return 4;        // Significant forward head
+  return 5;                          // Severe neck deviation
 }
 
 function getTrunkScore(angle: number): number {
-  if (angle <= 5) return 1;
-  if (angle <= 20) return 2;
-  if (angle <= 60) return 3;
-  return 4;
+  // Dynamic trunk scoring
+  if (angle <= 3) return 1;         // Very upright
+  if (angle <= 12) return 2;        // Slight lean
+  if (angle <= 25) return 3;        // Moderate lean
+  if (angle <= 45) return 4;        // Significant lean
+  return 5;                          // Severe lean
 }
 
 // RULA Tables
@@ -182,12 +192,31 @@ export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
     const wrist = useLeft ? leftWrist : rightWrist;
     const hip = useLeft ? leftHip : rightHip;
 
-    // Calculate angles
+    // Calculate angles with proper body mechanics
     const upperArmAngle = calculateVerticalAngle(shoulder, elbow);
     const lowerArmAngle = calculateAngle(shoulder, elbow, wrist);
     const wristFlexionAngle = calculateVerticalAngle(elbow, wrist) - 90;
-    const neckAngle = calculateVerticalAngle(shoulder, nose);
-    const trunkAngle = calculateVerticalAngle(hip, shoulder);
+    
+    // Better neck angle calculation (from shoulder to head center)
+    const headCenter = {
+      x: nose.x,
+      y: nose.y - 10, // Adjust for head center
+      score: nose.score
+    };
+    const neckAngle = calculateVerticalAngle(shoulder, headCenter);
+    
+    // More accurate trunk angle calculation
+    const midShoulder = {
+      x: (leftShoulder.x + rightShoulder.x) / 2,
+      y: (leftShoulder.y + rightShoulder.y) / 2,
+      score: Math.min(leftShoulder.score, rightShoulder.score)
+    };
+    const midHip = {
+      x: (leftHip.x + rightHip.x) / 2,
+      y: (leftHip.y + rightHip.y) / 2,
+      score: Math.min(leftHip.score, rightHip.score)
+    };
+    const trunkAngle = calculateVerticalAngle(midHip, midShoulder);
 
     // Get RULA scores
     const upperArmScore = getUpperArmScore(upperArmAngle);
@@ -221,7 +250,11 @@ export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
       trunkAngle: Math.round(trunkAngle * 10) / 10
     };
 
-    console.log('RULA calculation successful:', result);
+    console.log('RULA calculation successful:', {
+      angles: { upperArmAngle, lowerArmAngle, wristFlexionAngle, neckAngle, trunkAngle },
+      scores: { upperArmScore, lowerArmScore, wristScore, neckScore, trunkScore },
+      final: { scoreA, scoreB, finalScore, riskLevel }
+    });
     return result;
     
   } catch (error) {

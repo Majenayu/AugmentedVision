@@ -25,95 +25,108 @@ function calculateVerticalAngle(point1: Keypoint, point2: Keypoint): number {
   return Math.atan2(Math.abs(deltaX), Math.abs(deltaY)) * (180 / Math.PI);
 }
 
-// Conservative REBA Scoring Functions
+// Dynamic REBA Scoring Functions - More responsive to posture changes
 function getTrunkScore(angle: number): number {
-  if (angle <= 10) return 1;  // Very upright
-  if (angle <= 25) return 2;  // Slight lean
-  if (angle <= 45) return 3;  // Moderate lean
-  if (angle <= 65) return 4;  // Significant lean
-  return 5;                   // Extreme lean
+  // More sensitive trunk scoring
+  if (angle <= 5) return 1;         // Perfect upright posture
+  if (angle <= 15) return 2;        // Good posture with slight lean
+  if (angle <= 30) return 3;        // Moderate lean - caution needed
+  if (angle <= 50) return 4;        // Significant lean - action needed
+  return 5;                         // Severe lean - immediate action
 }
 
 function getNeckScore(angle: number): number {
-  if (angle <= 12) return 1;  // Neutral neck
-  if (angle <= 25) return 2;  // Moderate flexion
-  return 3;                   // Significant deviation
+  // Dynamic neck scoring
+  if (angle <= 8) return 1;         // Neutral neck position
+  if (angle <= 20) return 2;        // Slight forward head posture
+  if (angle <= 35) return 3;        // Moderate neck deviation
+  return 4;                         // Severe neck problems
 }
 
 function getLegScore(thighAngle: number, kneeAngle: number): number {
-  // Conservative leg scoring - only penalize clearly problematic positions
-  if (thighAngle <= 30 && kneeAngle <= 60) return 1;  // Good support
-  if (thighAngle <= 50 && kneeAngle <= 90) return 2;  // Moderate flexion
-  return 3;  // Significant flexion or instability
+  // More dynamic leg scoring
+  const avgFlexion = (thighAngle + kneeAngle) / 2;
+  
+  if (avgFlexion <= 20) return 1;   // Well supported, minimal flexion
+  if (avgFlexion <= 40) return 2;   // Some flexion, stable support
+  if (avgFlexion <= 65) return 3;   // Moderate flexion, some instability
+  return 4;                         // High flexion, unstable
 }
 
 function getUpperArmScore(angle: number): number {
-  if (angle <= 15) return 1;  // Neutral position
-  if (angle <= 35) return 2;  // Slight elevation
-  if (angle <= 70) return 3;  // Moderate elevation
-  if (angle <= 110) return 4; // High elevation
-  return 5;                   // Extreme elevation
+  // More responsive upper arm scoring
+  if (angle <= 12) return 1;        // Arms at sides, excellent
+  if (angle <= 25) return 2;        // Slight elevation, good
+  if (angle <= 45) return 3;        // Moderate elevation, caution
+  if (angle <= 75) return 4;        // High elevation, action needed
+  if (angle <= 105) return 5;       // Very high elevation, problem
+  return 6;                         // Extreme elevation, immediate action
 }
 
 function getLowerArmScore(angle: number): number {
-  if (angle >= 70 && angle <= 110) return 1;  // Good forearm position
-  return 2;  // Outside optimal range
+  // Dynamic forearm scoring
+  if (angle >= 90 && angle <= 120) return 1;  // Optimal elbow angle
+  if (angle >= 70 && angle <= 140) return 2;  // Good range
+  if (angle >= 50 && angle <= 160) return 3;  // Acceptable range
+  return 4;                                    // Poor elbow positioning
 }
 
 function getWristScore(angle: number): number {
-  if (Math.abs(angle) <= 12) return 1;  // Neutral wrist
-  if (Math.abs(angle) <= 25) return 2;  // Moderate deviation
-  return 3;  // Significant deviation
+  const absAngle = Math.abs(angle);
+  if (absAngle <= 6) return 1;      // Perfect neutral wrist
+  if (absAngle <= 15) return 2;     // Slight deviation
+  if (absAngle <= 30) return 3;     // Moderate deviation
+  return 4;                         // Severe wrist deviation
 }
 
-// Conservative REBA Tables
+// Dynamic REBA Tables - More responsive scoring
 function getScoreA(trunk: number, neck: number, legs: number): number {
-  // Very conservative Group A scoring
+  // Dynamic Group A scoring with better differentiation
   const tableA = [
-    [1, 1, 1, 2], // Trunk 1
-    [1, 2, 2, 3], // Trunk 2
-    [2, 2, 3, 3], // Trunk 3
-    [2, 3, 3, 4], // Trunk 4
-    [3, 3, 4, 4]  // Trunk 5
+    [1, 2, 3, 4, 5], // Trunk 1
+    [2, 3, 4, 5, 6], // Trunk 2
+    [2, 4, 5, 6, 7], // Trunk 3
+    [3, 5, 6, 7, 7], // Trunk 4
+    [4, 6, 7, 7, 7]  // Trunk 5
   ];
   
   const row = Math.min(trunk - 1, 4);
-  const col = Math.min(neck + legs - 2, 3);
+  const col = Math.min(Math.max(neck + legs - 2, 0), 4);
   
-  return Math.min(tableA[row][Math.max(col, 0)], 7);
+  return Math.min(tableA[row][col], 7);
 }
 
 function getScoreB(upperArm: number, lowerArm: number, wrist: number): number {
-  // Conservative Group B scoring
+  // Dynamic Group B scoring
   const tableB = [
-    [1, 1, 2], // Upper Arm 1
-    [1, 2, 2], // Upper Arm 2
-    [2, 2, 3], // Upper Arm 3
-    [2, 3, 3], // Upper Arm 4
-    [3, 3, 4], // Upper Arm 5
-    [3, 4, 4]  // Upper Arm 6
+    [1, 2, 3, 4], // Upper Arm 1
+    [2, 3, 4, 5], // Upper Arm 2
+    [3, 4, 5, 5], // Upper Arm 3
+    [4, 5, 5, 6], // Upper Arm 4
+    [5, 6, 6, 7], // Upper Arm 5
+    [6, 7, 7, 7]  // Upper Arm 6
   ];
   
   const row = Math.min(upperArm - 1, 5);
-  const col = Math.min(lowerArm + wrist - 2, 2);
+  const col = Math.min(Math.max(lowerArm + wrist - 2, 0), 3);
   
-  return Math.min(tableB[row][Math.max(col, 0)], 7);
+  return Math.min(tableB[row][col], 7);
 }
 
 function getFinalScore(scoreA: number, scoreB: number): number {
-  // Ultra-conservative final scoring table
+  // More dynamic final scoring table
   const finalTable = [
-    [1, 1, 1, 2, 2, 3, 3], // Score A 1
-    [1, 1, 2, 2, 3, 3, 4], // Score A 2
-    [1, 2, 2, 3, 3, 4, 4], // Score A 3
-    [2, 2, 3, 3, 4, 4, 5], // Score A 4
-    [2, 3, 3, 4, 4, 5, 5], // Score A 5
-    [3, 3, 4, 4, 5, 5, 6], // Score A 6
-    [3, 4, 4, 5, 5, 6, 6]  // Score A 7
+    [1, 1, 2, 3, 4, 5, 6, 7], // Score A 1
+    [1, 2, 3, 4, 5, 6, 7, 7], // Score A 2
+    [2, 3, 4, 5, 6, 7, 7, 7], // Score A 3
+    [3, 4, 5, 6, 7, 7, 7, 7], // Score A 4
+    [4, 5, 6, 7, 7, 7, 7, 7], // Score A 5
+    [5, 6, 7, 7, 7, 7, 7, 7], // Score A 6
+    [6, 7, 7, 7, 7, 7, 7, 7]  // Score A 7
   ];
   
   const row = Math.min(Math.max(scoreA - 1, 0), 6);
-  const col = Math.min(Math.max(scoreB - 1, 0), 6);
+  const col = Math.min(Math.max(scoreB - 1, 0), 7);
   
   return Math.min(finalTable[row][col], 7);
 }
@@ -168,9 +181,29 @@ export function calculateREBA(keypoints: Keypoint[], useLeft: boolean = true, ma
       return null;
     }
 
-    // Calculate angles
-    const trunkAngle = calculateVerticalAngle(hip, shoulder);
-    const neckAngle = calculateVerticalAngle(shoulder, nose);
+    // Calculate angles with improved accuracy
+    const midShoulder = {
+      x: (leftShoulder.x + rightShoulder.x) / 2,
+      y: (leftShoulder.y + rightShoulder.y) / 2,
+      score: Math.min(leftShoulder.score, rightShoulder.score)
+    };
+    const midHip = {
+      x: (leftHip.x + rightHip.x) / 2,
+      y: (leftHip.y + rightHip.y) / 2,
+      score: Math.min(leftHip.score, rightHip.score)
+    };
+    
+    const trunkAngle = calculateVerticalAngle(midHip, midShoulder);
+    
+    // Better neck calculation
+    const headCenter = {
+      x: nose.x,
+      y: nose.y - 8,
+      score: nose.score
+    };
+    const neckAngle = calculateVerticalAngle(midShoulder, headCenter);
+    
+    // Leg angles
     const thighAngle = calculateVerticalAngle(hip, knee);
     const kneeAngle = calculateAngle(hip, knee, ankle);
     const upperArmAngle = calculateVerticalAngle(shoulder, elbow);
@@ -213,7 +246,11 @@ export function calculateREBA(keypoints: Keypoint[], useLeft: boolean = true, ma
       wristAngle: Math.round(wristAngle * 10) / 10
     };
 
-    console.log('REBA calculation successful:', result);
+    console.log('REBA calculation successful:', {
+      angles: { trunkAngle, neckAngle, upperArmAngle, lowerArmAngle, wristAngle },
+      scores: { trunkScore, neckScore, legScore, upperArmScore, lowerArmScore, wristScore },
+      final: { scoreA, scoreB, finalScore, riskLevel }
+    });
     return result;
 
   } catch (error) {
