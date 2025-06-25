@@ -4,19 +4,28 @@ import * as THREE from 'three';
 interface ThreeDViewProps {
   poseData: any;
   rulaScore: any;
+  assessmentMode?: 'RULA' | 'REBA';
 }
 
-// COCO pose model connections (17 keypoints) - matching your CameraView
-const POSE_CONNECTIONS = [
-  [0, 1], [0, 2], [1, 3], [2, 4], // Head
-  [5, 6], // Shoulders
-  [5, 7], [7, 9], // Left arm
-  [6, 8], [8, 10], // Right arm
-  [5, 11], [6, 12], // Torso
-  [11, 12], // Hips
-  [11, 13], [13, 15], // Left leg
-  [12, 14], [14, 16] // Right leg
-];
+// COCO pose model connections (17 keypoints) - filtered by assessment mode
+const getConnections = (assessmentMode: 'RULA' | 'REBA') => {
+  const upperBodyConnections = [
+    [0, 1], [0, 2], [1, 3], [2, 4], // Head
+    [5, 6], // Shoulders
+    [5, 7], [7, 9], // Left arm
+    [6, 8], [8, 10], // Right arm
+    [5, 11], [6, 12], // Torso
+    [11, 12], // Hips
+  ];
+  
+  const fullBodyConnections = [
+    ...upperBodyConnections,
+    [11, 13], [13, 15], // Left leg
+    [12, 14], [14, 16] // Right leg
+  ];
+  
+  return assessmentMode === 'RULA' ? upperBodyConnections : fullBodyConnections;
+};
 
 // Updated body part mappings to match RULA calculation structure
 const BODY_PART_MAPPING = {
@@ -65,7 +74,7 @@ const RULA_SCORE_MAPPING = {
   legs: 'trunk' // Legs use trunk score as fallback since RULA doesn't score legs
 };
 
-export default function ThreeDView({ poseData, rulaScore }: ThreeDViewProps) {
+export default function ThreeDView({ poseData, rulaScore, assessmentMode = 'RULA' }: ThreeDViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -214,10 +223,13 @@ export default function ThreeDView({ poseData, rulaScore }: ThreeDViewProps) {
 
     console.log('RULA Score for coloring:', rulaScore);
 
-    // Draw joints (keypoints) first
+    // Draw joints (keypoints) first - filter for assessment mode
     let jointsDrawn = 0;
     transformedPositions.forEach((position, index) => {
-      if (position) {
+      // For RULA mode, only show upper body keypoints (0-12: nose to hips)
+      const shouldShow = assessmentMode === 'REBA' || index <= 12;
+      
+      if (position && shouldShow) {
         const bodyPart = getBodyPartForLandmark(index);
         const color = getRulaColor(bodyPart, rulaScore);
         
@@ -237,11 +249,16 @@ export default function ThreeDView({ poseData, rulaScore }: ThreeDViewProps) {
 
     // Draw bones (connections) after joints
     let bonesDrawn = 0;
-    POSE_CONNECTIONS.forEach(([startIdx, endIdx]) => {
+    const connections = getConnections(assessmentMode);
+    connections.forEach(([startIdx, endIdx]) => {
       const startPos = transformedPositions[startIdx];
       const endPos = transformedPositions[endIdx];
       
-      if (startPos && endPos) {
+      // For RULA mode, ensure both endpoints are upper body (<=12)
+      const bothUpperBody = startIdx <= 12 && endIdx <= 12;
+      const shouldShowConnection = assessmentMode === 'REBA' || bothUpperBody;
+      
+      if (startPos && endPos && shouldShowConnection) {
         // Get body part for this connection
         const connectionKey = `${Math.min(startIdx, endIdx)}-${Math.max(startIdx, endIdx)}`;
         const bodyPart = CONNECTION_BODY_PARTS[connectionKey] || 'trunk';

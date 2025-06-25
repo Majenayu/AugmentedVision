@@ -255,40 +255,41 @@ function getScoreBREBA(upperArm: number, lowerArm: number, wrist: number): numbe
 }
 
 function getFinalScoreREBA(scoreA: number, scoreB: number): number {
-  // REBA Table C (Final Score)
+  // REBA Table C (Final Score) - Limited to 1-7 range
   const tableC = [
     [1, 1, 1, 2, 3, 3, 4, 5, 6, 7, 7, 7], // Score A 1
-    [1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 7, 8], // Score A 2
-    [2, 3, 3, 3, 4, 5, 6, 7, 7, 8, 8, 8], // Score A 3
-    [3, 4, 4, 4, 5, 6, 7, 8, 8, 9, 9, 9], // Score A 4
-    [4, 4, 4, 5, 6, 7, 8, 8, 9, 9, 9, 9], // Score A 5
-    [6, 6, 6, 7, 8, 8, 9, 9, 10, 10, 10, 10], // Score A 6
-    [7, 7, 7, 8, 9, 9, 9, 10, 10, 11, 11, 11], // Score A 7
-    [8, 8, 8, 9, 10, 10, 10, 10, 10, 11, 11, 11], // Score A 8
-    [9, 9, 9, 10, 10, 10, 11, 11, 11, 12, 12, 12], // Score A 9
-    [10, 10, 10, 11, 11, 11, 11, 12, 12, 12, 12, 12], // Score A 10
-    [11, 11, 11, 11, 12, 12, 12, 12, 12, 12, 12, 12], // Score A 11
-    [12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12, 12] // Score A 12
+    [1, 2, 2, 3, 4, 4, 5, 6, 6, 7, 7, 7], // Score A 2  
+    [2, 3, 3, 3, 4, 5, 6, 7, 7, 7, 7, 7], // Score A 3
+    [3, 4, 4, 4, 5, 6, 7, 7, 7, 7, 7, 7], // Score A 4
+    [4, 4, 4, 5, 6, 7, 7, 7, 7, 7, 7, 7], // Score A 5
+    [6, 6, 6, 7, 7, 7, 7, 7, 7, 7, 7, 7], // Score A 6
+    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7], // Score A 7
+    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7], // Score A 8
+    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7], // Score A 9
+    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7], // Score A 10
+    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7], // Score A 11
+    [7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7, 7] // Score A 12
   ];
   
   const scoreAIndex = Math.min(scoreA - 1, 11);
   const scoreBIndex = Math.min(scoreB - 1, 11);
   
-  return tableC[scoreAIndex][scoreBIndex];
+  // Ensure final score never exceeds 7
+  return Math.min(tableC[scoreAIndex][scoreBIndex], 7);
 }
 
 function getRiskLevelREBA(score: number): string {
   if (score === 1) return "Negligible";
   else if (score >= 2 && score <= 3) return "Low";
-  else if (score >= 4 && score <= 7) return "Medium";
-  else if (score >= 8 && score <= 10) return "High";
-  else return "Very High";
+  else if (score >= 4 && score <= 5) return "Medium";
+  else if (score >= 6 && score <= 7) return "High";
+  else return "High"; // Fallback for any score above 7 (should not occur)
 }
 
 function getActionLevelREBA(score: number): string {
   if (score === 1) return "Not necessary";
   else if (score >= 2 && score <= 3) return "May be necessary";
-  else if (score >= 4 && score <= 7) return "Necessary";
-  else if (score >= 8 && score <= 10) return "Necessary soon";
-  else return "Necessary now";
+  else if (score >= 4 && score <= 5) return "Necessary";
+  else if (score >= 6 && score <= 7) return "Necessary soon";
+  else return "Necessary soon"; // Fallback for any score above 7 (should not occur)
 }

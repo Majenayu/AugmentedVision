@@ -56,7 +56,9 @@ export function usePoseDetection(
         if (assessmentMode === 'REBA') {
           assessmentData = calculateREBA(pose.keypoints);
         } else {
-          assessmentData = calculateRulaScore(pose.keypoints);
+          // For RULA, only use upper body keypoints (0-12)
+          const upperBodyKeypoints = pose.keypoints.slice(0, 13); // Include indices 0-12
+          assessmentData = calculateRulaScore(upperBodyKeypoints);
         }
         setRulaScore(assessmentData);
       } else {

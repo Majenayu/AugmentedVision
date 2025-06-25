@@ -131,10 +131,13 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
         }
       });
 
-      // Draw keypoints
+      // Draw keypoints - filter for assessment mode
       let keypointsDrawn = 0;
       keypoints.forEach((keypoint: any, index: number) => {
-        if (keypoint && keypoint.score > confidenceThreshold) {
+        // For RULA mode, only show upper body keypoints (0-12: nose to hips)
+        const shouldShow = assessmentMode === 'REBA' || index <= 12;
+        
+        if (keypoint && keypoint.score > confidenceThreshold && shouldShow) {
           const pos = transformCoordinates(keypoint.x, keypoint.y);
           
           // Different colors for different body parts
