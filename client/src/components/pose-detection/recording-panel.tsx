@@ -629,27 +629,59 @@ export default function RecordingPanel({
       addText(`${index + 1}. ${rec}`);
     });
 
-    // Frame-by-Frame Analysis
+    // Frame-by-Frame Analysis (One Second Intervals)
     if (validFrames.length > 0) {
       yPosition += 5;
-      addSection("Frame-by-Frame Analysis");
+      addSection("Frame-by-Frame Analysis (Per Second)");
       
-      validFrames.forEach((frame, index) => {
-        if (index % 10 === 0) { // Show every 10th frame to avoid too much detail
-          const timeSeconds = recordingStartTimeRef.current ? 
-            (frame.timestamp - recordingStartTimeRef.current) / 1000 : 
-            frame.timestamp;
+      // Group frames by second intervals
+      const framesBySecond = new Map<number, any[]>();
+      
+      validFrames.forEach(frame => {
+        const timeSeconds = recordingStartTimeRef.current ? 
+          Math.floor((frame.timestamp - recordingStartTimeRef.current) / 1000) : 
+          Math.floor(frame.timestamp / 1000);
+        
+        if (!framesBySecond.has(timeSeconds)) {
+          framesBySecond.set(timeSeconds, []);
+        }
+        framesBySecond.get(timeSeconds)?.push(frame);
+      });
+      
+      // Analyze each second
+      Array.from(framesBySecond.entries())
+        .sort(([a], [b]) => a - b)
+        .forEach(([secondIndex, framesInSecond]) => {
+          // Calculate average scores for this second
+          const avgRulaScore = framesInSecond.reduce((sum, frame) => sum + (frame.rulaScore?.finalScore || 0), 0) / framesInSecond.length;
+          const avgBodyParts = framesInSecond.reduce((acc, frame) => {
+            if (frame.rulaScore) {
+              acc.upperArm += frame.rulaScore.upperArm || 0;
+              acc.lowerArm += frame.rulaScore.lowerArm || 0;
+              acc.wrist += frame.rulaScore.wrist || 0;
+              acc.neck += frame.rulaScore.neck || 0;
+              acc.trunk += frame.rulaScore.trunk || 0;
+            }
+            return acc;
+          }, { upperArm: 0, lowerArm: 0, wrist: 0, neck: 0, trunk: 0 });
           
-          addText(`Frame ${index + 1} (${formatTime(timeSeconds)}):`);
-          addText(`  RULA Score: ${frame.rulaScore?.finalScore || 0} - ${getRiskLevel(frame.rulaScore?.finalScore || 0)}`);
-          addText(`  Body Parts: UA:${frame.rulaScore?.upperArm || 0} LA:${frame.rulaScore?.lowerArm || 0} W:${frame.rulaScore?.wrist || 0} N:${frame.rulaScore?.neck || 0} T:${frame.rulaScore?.trunk || 0}`);
+          // Average the body parts
+          Object.keys(avgBodyParts).forEach(key => {
+            avgBodyParts[key] = avgBodyParts[key] / framesInSecond.length;
+          });
           
-          if (frame.hasObject) {
-            addText(`  Object detected in this frame`);
+          const hasObjectInSecond = framesInSecond.some(frame => frame.hasObject);
+          
+          addText(`Second ${secondIndex + 1} (${formatTime(secondIndex)}):`);
+          addText(`  Avg RULA Score: ${avgRulaScore.toFixed(1)} - ${getRiskLevel(avgRulaScore)}`);
+          addText(`  Body Parts: UA:${avgBodyParts.upperArm.toFixed(1)} LA:${avgBodyParts.lowerArm.toFixed(1)} W:${avgBodyParts.wrist.toFixed(1)} N:${avgBodyParts.neck.toFixed(1)} T:${avgBodyParts.trunk.toFixed(1)}`);
+          addText(`  Frames analyzed: ${framesInSecond.length}`);
+          
+          if (hasObjectInSecond) {
+            addText(`  Object detected in this second`);
           }
           yPosition += 2;
-        }
-      });
+        });
     }
 
     // Footer
