@@ -12,6 +12,7 @@ export default function Home() {
   const [modelLoaded, setModelLoaded] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
+  const [assessmentMode, setAssessmentMode] = useState<'RULA' | 'REBA'>('RULA');
   
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -35,7 +36,7 @@ export default function Home() {
     fps,
     isProcessing,
     initializeModel
-  } = usePoseDetection(videoRef, canvasRef, cameraActive);
+  } = usePoseDetection(videoRef, canvasRef, cameraActive, assessmentMode);
 
   const {
     isRecording,
@@ -191,6 +192,36 @@ export default function Home() {
                   <span className="material-icon">stop</span>
                   <span>Stop</span>
                 </button>
+              </div>
+            </div>
+
+            {/* Assessment Mode Toggle */}
+            <div className="flex items-center space-x-4 mb-4">
+              <span className="text-sm text-text-secondary">Assessment Mode:</span>
+              <div className="flex bg-dark-secondary rounded-lg p-1">
+                <button
+                  onClick={() => setAssessmentMode('RULA')}
+                  className={`px-3 py-1 rounded text-sm transition-colors ${
+                    assessmentMode === 'RULA' 
+                      ? 'bg-blue-600 text-white' 
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  RULA (Upper Body)
+                </button>
+                <button
+                  onClick={() => setAssessmentMode('REBA')}
+                  className={`px-3 py-1 rounded text-sm transition-colors ${
+                    assessmentMode === 'REBA' 
+                      ? 'bg-green-600 text-white' 
+                      : 'text-gray-400 hover:text-white'
+                  }`}
+                >
+                  REBA (Full Body)
+                </button>
+              </div>
+              <div className="text-xs text-text-secondary">
+                RULA focuses on upper body posture, REBA analyzes full body ergonomics
               </div>
             </div>
 

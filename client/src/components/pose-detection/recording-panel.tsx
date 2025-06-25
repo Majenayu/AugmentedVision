@@ -573,6 +573,7 @@ export default function RecordingPanel({
     addText(`Date: ${new Date().toLocaleString()}`);
     addText(`Duration: ${getSessionDuration()}`);
     addText(`Assessment Type: ${analysisMode.toUpperCase()}`);
+    addText(`Analysis Method: RULA`); // Will be dynamic when we pass the mode
     addText(`Total Frames: ${totalFrames}`);
 
     // Pose Detection Quality
