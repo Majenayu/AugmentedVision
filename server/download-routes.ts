@@ -11,7 +11,11 @@ router.get('/download-project', async (req, res) => {
       zlib: { level: 9 }
     });
 
-    res.attachment('ErgoTrack-Project.zip');
+    // Set proper headers for download
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', 'attachment; filename="ErgoTrack-Project.zip"');
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    
     archive.pipe(res);
 
     // Exclude unnecessary directories
