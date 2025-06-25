@@ -651,7 +651,7 @@ export default function RecordingPanel({
       // Sort seconds and generate report for each second
       const sortedSeconds = Array.from(framesBySecond.keys()).sort((a, b) => a - b);
       
-      sortedSeconds.forEach(second => {
+      sortedSeconds.forEach((second, index) => {
         const framesInSecond = framesBySecond.get(second)!;
         
         // Calculate average scores for this second
@@ -676,7 +676,8 @@ export default function RecordingPanel({
 
         const hasObjectInSecond = framesInSecond.some(frame => frame.hasObject);
         
-        addText(`Frame ${second + 1} (${formatTime(second)}):`);
+        // Use index + 1 for sequential frame numbering (1, 2, 3, 4...)
+        addText(`Frame ${index + 1} (${formatTime(second)}):`);
         addText(`  RULA Score: ${avgScoreForSecond.toFixed(0)} - ${getRiskLevel(avgScoreForSecond)}`);
         addText(`  Body Parts: UA:${avgBodyPartsForSecond.upperArm} LA:${avgBodyPartsForSecond.lowerArm} W:${avgBodyPartsForSecond.wrist} N:${avgBodyPartsForSecond.neck} T:${avgBodyPartsForSecond.trunk}`);
         
