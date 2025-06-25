@@ -9,6 +9,8 @@ import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 
 import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
+import { calculateRulaScore } from '@/lib/rula-calculator';
+import { calculateREBA } from '@/lib/reba-calculator';
 import { generatePostureAnalysis } from '@/lib/posture-analysis';
 
 interface RecordingFrame {

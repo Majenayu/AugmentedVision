@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { initializePoseDetection, detectPose } from "@/lib/pose-detection";
-import { calculateRulaScore } from "@/lib/rula-calculator-simple";
+import { calculateRulaScore } from "@/lib/rula-calculator";
 import { calculateREBA } from "@/lib/reba-calculator";
 
 export type AssessmentMode = 'RULA' | 'REBA';
