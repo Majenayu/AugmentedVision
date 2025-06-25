@@ -4,7 +4,6 @@ import SkeletonOverlay from './skeleton-overlay';
 import ThreeDView from './three-d-view';
 import ManualWeightInput, { type ManualWeight } from './manual-weight-input';
 import ObjectDetectionWeightInput from './object-detection-weight-input';
-
 import * as XLSX from 'xlsx';
 
 import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
@@ -32,8 +31,6 @@ interface RecordingPanelProps {
   videoRef?: React.RefObject<HTMLVideoElement>;
 }
 
-
-
 type AnalysisMode = 'normal' | 'manual';
 type ViewMode = 'original' | 'skeleton';
 type GraphType = 'live' | 'estimated' | 'manual';
@@ -57,7 +54,6 @@ export default function RecordingPanel({
   const [showWeightDialog, setShowWeightDialog] = useState(false);
   const [showSecondObjectDetection, setShowSecondObjectDetection] = useState(false);
 
-
   // Separate graph data that only records during recording session
   const [recordingGraphData, setRecordingGraphData] = useState<any[]>([]);
   const [estimatedGraphData, setEstimatedGraphData] = useState<any[]>([]);
@@ -75,133 +71,115 @@ export default function RecordingPanel({
 
   const recordingStartTime = useRef<number | null>(null);
 
-
-
   // Clear graph data when recording starts
   useEffect(() => {
-    if (isRecording) {
-      recordingStartTime.current = Date.now();
-      recordingStartTimeRef.current = Date.now();
+    if (isRecording && recordingData.length === 0) {
       setRecordingGraphData([]);
       setEstimatedGraphData([]);
       setManualGraphData([]);
-    } else {
-      recordingStartTime.current = null;
-      recordingStartTimeRef.current = null;
+      recordingStartTimeRef.current = Date.now();
     }
-  }, [isRecording]);
+  }, [isRecording, recordingData.length]);
 
-  // Update graph data only during recording
+  // Process recording data into graph data (only during recording)
   useEffect(() => {
-    if (isRecording && currentPoseData && currentRulaScore && recordingStartTimeRef.current) {
-      const elapsedSeconds = (Date.now() - recordingStartTimeRef.current) / 1000;
-
-      // Stop adding data after 60 seconds
-      if (elapsedSeconds <= 60) {
-        // Detect objects in the current frame
-        const hasObject = currentPoseData.keypoints && estimateWeightFromPosture(currentPoseData.keypoints).estimatedWeight > 0;
-
-        const newDataPoint = {
-          time: elapsedSeconds,
-          rulaScore: currentRulaScore.finalScore || 0,
-          stressLevel: currentRulaScore.stressLevel || 0,
-          riskLevel: currentRulaScore.riskLevel || 'Unknown',
-          hasObject
+    if (recordingData.length > 0 && recordingStartTimeRef.current) {
+      const processedRecordingData = recordingData.map((frame, index) => {
+        const timeInSeconds = (frame.timestamp - recordingStartTimeRef.current!) / 1000;
+        return {
+          time: timeInSeconds,
+          rulaScore: frame.rulaScore?.finalScore || 0,
+          upperArm: frame.rulaScore?.upperArm || 1,
+          lowerArm: frame.rulaScore?.lowerArm || 1,
+          wrist: frame.rulaScore?.wrist || 1,
+          neck: frame.rulaScore?.neck || 1,
+          trunk: frame.rulaScore?.trunk || 1
         };
+      });
 
-        setRecordingGraphData(prev => [...prev, newDataPoint]);
+      setRecordingGraphData(processedRecordingData);
 
-        // Estimated weight data
-        if (currentPoseData.keypoints) {
-          const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints);
-          const adjustedRulaScore = calculateWeightAdjustedRula(
-            currentRulaScore,
-            weightEstimation
-          );
+      // Process estimated weight data
+      const processedEstimatedData = recordingData.map((frame) => {
+        const weightEstimation = estimateWeightFromPosture(frame.poseData?.keypoints || []);
+        const timeInSeconds = (frame.timestamp - recordingStartTimeRef.current!) / 1000;
+        return {
+          time: timeInSeconds,
+          estimatedWeight: weightEstimation.estimatedWeight,
+          confidence: weightEstimation.confidence,
+          rulaScore: frame.rulaScore?.finalScore || 0
+        };
+      });
 
-          const estimatedDataPoint = {
-            time: elapsedSeconds,
-            estimatedWeight: weightEstimation.estimatedWeight || 0,
-            confidence: weightEstimation.confidence || 0,
-            rulaScore: adjustedRulaScore.finalScore || 0,
-            hasObject: weightEstimation.estimatedWeight > 0
-          };
-
-          setEstimatedGraphData(prev => [...prev, estimatedDataPoint]);
-        }
-      }
+      setEstimatedGraphData(processedEstimatedData);
     }
-  }, [isRecording, currentPoseData, currentRulaScore]);
+  }, [recordingData]);
 
-  const addManualWeightFromInput = (weight: ManualWeight) => {
-    setManualWeights(prev => [...prev, {
-      id: weight.id,
-      name: weight.name,
-      weight: weight.weight / 1000, // Convert grams to kg for internal storage
-      icon: weight.icon,
-      previewImage: weight.previewImage
-    }]);
-  };
-
-  const addManualWeight = () => {
-    const newWeight: ManualWeight = {
-      id: Date.now().toString(),
-      name: `Object ${manualWeights.length + 1}`,
-      weight: 0,
-      icon: '📦'
-    };
-    setManualWeights([...manualWeights, newWeight]);
-  };
-
-  const updateManualWeight = (id: string, field: keyof ManualWeight, value: string | number) => {
-    setManualWeights(prev => 
-      prev.map(weight => 
-        weight.id === id ? { ...weight, [field]: value } : weight
-      )
-    );
-  };
-
-  const removeManualWeight = (id: string) => {
-    setManualWeights(prev => prev.filter(weight => weight.id !== id));
-  };
-
-  const getTotalManualWeight = () => {
-    return manualWeights.reduce((total, weight) => total + weight.weight, 0);
-  };
-
-  // Show weight dialog when switching to manual mode after recording
-  useEffect(() => {
-    if (analysisMode === 'manual' && recordingData.length > 0 && manualWeights.length === 0 && !isRecording) {
-      setShowWeightDialog(true);
-    }
-  }, [analysisMode, recordingData.length, manualWeights.length, isRecording]);
-
-  // Process manual weight analysis from recorded data
+  // Process manual weight analysis
   useEffect(() => {
     if (recordingData.length > 0 && manualWeights.length > 0) {
-      const processedManualData = recordingData.map(frame => {
-        if (frame.poseData?.keypoints) {
-          const weightEstimation = estimateWeightFromPosture(frame.poseData.keypoints);
-          const adjustedRulaScore = calculateWeightAdjustedRula(
-            frame.rulaScore,
-            weightEstimation,
-            getTotalManualWeight()
-          );
+      const totalManualWeight = getTotalManualWeight();
+      
+      const processedManualData = recordingData.map((frame) => {
+        const timeInSeconds = recordingStartTimeRef.current ? 
+          (frame.timestamp - recordingStartTimeRef.current) / 1000 : 
+          frame.timestamp;
+        
+        const adjustedRulaScore = calculateWeightAdjustedRula(
+          frame.rulaScore,
+          undefined,
+          totalManualWeight
+        );
 
-          return {
-            time: frame.timestamp,
-            normalScore: frame.rulaScore?.finalScore || 0,
-            adjustedScore: adjustedRulaScore?.finalScore || 0,
-            weight: getTotalManualWeight(),
-            hasObject: weightEstimation.estimatedWeight > 0
-          };
-        }
         return {
-          time: frame.timestamp,
-          normalScore: frame.rulaScore?.finalScore || 0,
-          adjustedScore: frame.rulaScore?.finalScore || 0,
-          weight: 0,
-          hasObject: false
+          time: timeInSeconds,
+          originalRulaScore: frame.rulaScore?.finalScore || 0,
+          adjustedRulaScore: adjustedRulaScore?.finalScore || frame.rulaScore?.finalScore || 0,
+          manualWeight: totalManualWeight,
+          weightMultiplier: totalManualWeight > 0 ? Math.min(1 + (totalManualWeight / 10), 2) : 1,
+          originalUpperArm: frame.rulaScore?.upperArm || 1,
+          adjustedUpperArm: adjustedRulaScore?.upperArm || frame.rulaScore?.upperArm || 1,
+          originalLowerArm: frame.rulaScore?.lowerArm || 1,
+          adjustedLowerArm: adjustedRulaScore?.lowerArm || frame.rulaScore?.lowerArm || 1,
+          originalWrist: frame.rulaScore?.wrist || 1,
+          adjustedWrist: adjustedRulaScore?.wrist || frame.rulaScore?.wrist || 1,
+          originalNeck: frame.rulaScore?.neck || 1,
+          adjustedNeck: adjustedRulaScore?.neck || frame.rulaScore?.neck || 1,
+          originalTrunk: frame.rulaScore?.trunk || 1,
+          adjustedTrunk: adjustedRulaScore?.trunk || frame.rulaScore?.trunk || 1,
+          riskLevelChange: getRiskLevelChange(frame.rulaScore?.finalScore || 0, adjustedRulaScore?.finalScore || frame.rulaScore?.finalScore || 0),
+          objectNames: manualWeights.map(w => w.name).join(', '),
+          objectWeights: manualWeights.map(w => `${w.weight}g`).join(', ')
+        };
+      });
+
+      setManualGraphData(processedManualData);
+    } else {
+      // Reset to original scores when no manual weights
+      const processedManualData = recordingData.map(frame => {
+        const timeInSeconds = recordingStartTimeRef.current ? 
+          (frame.timestamp - recordingStartTimeRef.current) / 1000 : 
+          frame.timestamp;
+        
+        return {
+          time: timeInSeconds,
+          originalRulaScore: frame.rulaScore?.finalScore || 0,
+          adjustedRulaScore: frame.rulaScore?.finalScore || 0,
+          manualWeight: 0,
+          weightMultiplier: 1,
+          originalUpperArm: frame.rulaScore?.upperArm || 1,
+          adjustedUpperArm: frame.rulaScore?.upperArm || 1,
+          originalLowerArm: frame.rulaScore?.lowerArm || 1,
+          adjustedLowerArm: frame.rulaScore?.lowerArm || 1,
+          originalWrist: frame.rulaScore?.wrist || 1,
+          adjustedWrist: frame.rulaScore?.wrist || 1,
+          originalNeck: frame.rulaScore?.neck || 1,
+          adjustedNeck: frame.rulaScore?.neck || 1,
+          originalTrunk: frame.rulaScore?.trunk || 1,
+          adjustedTrunk: frame.rulaScore?.trunk || 1,
+          riskLevelChange: 'No Change',
+          objectNames: '',
+          objectWeights: ''
         };
       });
 
@@ -299,104 +277,67 @@ export default function RecordingPanel({
     }
   }, [currentPoseData, currentRulaScore]);
 
-  const handleManualWeightAdd = (weight: ManualWeight) => {
-    setManualWeights(prev => [...prev, weight]);
-    setShowWeightDialog(false);
+  const getTotalManualWeight = () => {
+    return manualWeights.reduce((total, weight) => total + weight.weight, 0) / 1000; // Convert to kg
   };
 
+  const getRiskLevelChange = (originalScore: number, adjustedScore: number) => {
+    const getRiskLevel = (score: number) => {
+      if (score <= 2) return 'Low Risk';
+      if (score <= 4) return 'Medium Risk'; 
+      if (score <= 6) return 'High Risk';
+      return 'Critical Risk';
+    };
 
+    const originalRisk = getRiskLevel(originalScore);
+    const adjustedRisk = getRiskLevel(adjustedScore);
+    
+    if (originalRisk === adjustedRisk) return 'No Change';
+    return `${originalRisk} → ${adjustedRisk}`;
+  };
 
   const getCurrentRulaScore = (frame: RecordingFrame) => {
     if (analysisMode === 'manual' && manualWeights.length > 0) {
-      const totalManualWeight = manualWeights.reduce((total, weight) => total + weight.weight, 0);
-      const defaultWeightEstimation = { 
-        estimatedWeight: 0, 
-        confidence: 0, 
-        detectedObjects: [], 
-        bodyPosture: { 
-          isLifting: false, 
-          isCarrying: false, 
-          armPosition: 'close' as const, 
-          spineDeviation: 0, 
-          loadDirection: 'front' as const 
-        } 
-      };
-      return calculateWeightAdjustedRula(frame.rulaScore, frame.weightEstimation || defaultWeightEstimation, totalManualWeight);
+      return calculateWeightAdjustedRula(frame.rulaScore, undefined, getTotalManualWeight());
     }
-
-
-
     return frame.rulaScore;
   };
 
   const getCurrentWeightEstimation = (frame: RecordingFrame) => {
     if (analysisMode === 'manual' && manualWeights.length > 0) {
-      const totalManualWeight = manualWeights.reduce((total, weight) => total + weight.weight, 0);
-      const defaultWeightEstimation = { 
-        estimatedWeight: 0, 
-        confidence: 0, 
-        detectedObjects: [], 
-        bodyPosture: { 
-          isLifting: false, 
-          isCarrying: false, 
-          armPosition: 'close' as const, 
-          spineDeviation: 0, 
-          loadDirection: 'front' as const 
-        } 
-      };
-      
-      return {
-        ...(frame.weightEstimation || defaultWeightEstimation),
-        estimatedWeight: totalManualWeight / 1000, // Convert grams to kg
-        confidence: 1.0
-      };
+      return { estimatedWeight: getTotalManualWeight() * 1000, confidence: 1.0 }; // Convert back to grams for display
     }
-    return frame.weightEstimation;
+    return frame.weightEstimation || { estimatedWeight: 0, confidence: 0 };
   };
 
-  // Excel export functions
   const exportGraphDataToExcel = () => {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+    const timestamp = new Date().toISOString().split('T')[0];
     
     // Prepare Live Graph Data
     const liveData = liveGraphData.map((point, index) => ({
-      'Time (seconds)': index * 0.1, // Assuming 10fps recording
+      'Time (seconds)': index,
+      'Estimated Weight (kg)': (point.estimatedWeight / 1000).toFixed(3),
+      'Detection Confidence': (point.confidence * 100).toFixed(1) + '%',
       'RULA Score': point.rulaScore,
-      'Estimated Weight (kg)': point.estimatedWeight,
-      'Confidence': point.confidence,
       'Has Object': point.hasObject ? 'Yes' : 'No'
     }));
 
-    // Prepare Recording Graph Data (Normal)
-    const recordingData = recordingGraphData.map((point, index) => ({
-      'Time (seconds)': index * (60 / recordingGraphData.length), // 60 seconds total
+    // Prepare Recording Graph Data
+    const recordingData = recordingGraphData.map(point => ({
+      'Time (seconds)': point.time.toFixed(1),
       'RULA Score': point.rulaScore,
-      'Risk Level': point.riskLevel,
-      'Upper Arm Score': point.upperArm || 'N/A',
-      'Lower Arm Score': point.lowerArm || 'N/A',
-      'Wrist Score': point.wrist || 'N/A',
-      'Neck Score': point.neck || 'N/A',
-      'Trunk Score': point.trunk || 'N/A'
+      'Upper Arm Score': point.upperArm,
+      'Lower Arm Score': point.lowerArm,
+      'Wrist Score': point.wrist,
+      'Neck Score': point.neck,
+      'Trunk Score': point.trunk
     }));
 
-    // Prepare Estimated Graph Data with detailed breakdown
-    const estimatedData = estimatedGraphData.map((point, index) => ({
-      'Time (seconds)': index * (60 / estimatedGraphData.length),
-      'Original RULA Score': point.originalRulaScore,
-      'Adjusted RULA Score': point.adjustedRulaScore,
-      'Estimated Weight (kg)': point.estimatedWeight,
-      'Weight Multiplier': point.weightMultiplier,
-      'Original Upper Arm': point.originalUpperArm || 'N/A',
-      'Adjusted Upper Arm': point.adjustedUpperArm || 'N/A',
-      'Original Lower Arm': point.originalLowerArm || 'N/A',
-      'Adjusted Lower Arm': point.adjustedLowerArm || 'N/A',
-      'Original Wrist': point.originalWrist || 'N/A',
-      'Adjusted Wrist': point.adjustedWrist || 'N/A',
-      'Original Neck': point.originalNeck || 'N/A',
-      'Adjusted Neck': point.adjustedNeck || 'N/A',
-      'Original Trunk': point.originalTrunk || 'N/A',
-      'Adjusted Trunk': point.adjustedTrunk || 'N/A',
-      'Risk Level Change': point.riskLevelChange || 'N/A',
+    // Prepare Estimated Weight Data
+    const estimatedData = estimatedGraphData.map(point => ({
+      'Time (seconds)': point.time.toFixed(1),
+      'Estimated Weight (kg)': (point.estimatedWeight / 1000).toFixed(3),
+      'RULA Score': point.rulaScore,
       'Confidence': point.confidence || 'N/A'
     }));
 
@@ -496,7 +437,6 @@ export default function RecordingPanel({
 
           {recordingData.length > 0 && !isRecording && (
             <>
-
               <button
                 onClick={exportGraphDataToExcel}
                 className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
@@ -521,301 +461,230 @@ export default function RecordingPanel({
       {isRecording && (
         <div className="mb-6">
           <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-text-secondary">Recording Progress</span>
-            <span className="text-sm font-mono">{Math.round(recordingProgress)}%</span>
+            <span className="text-sm text-gray-400">Recording in progress...</span>
+            <span className="text-sm text-gray-400">{Math.round(recordingProgress * 100)}%</span>
           </div>
           <div className="w-full bg-gray-700 rounded-full h-2">
             <div 
-              className="bg-red-500 h-2 rounded-full transition-all duration-300 animate-pulse" 
-              style={{width: `${recordingProgress}%`}}
-            ></div>
+              className="bg-red-600 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${recordingProgress * 100}%` }}
+            />
           </div>
-          <p className="text-xs text-text-secondary mt-2">Recording for 60 seconds...</p>
         </div>
       )}
 
-      {/* Analysis Mode Controls */}
-      {recordingData.length > 0 && (
+      {/* Analysis Mode Selection */}
+      {recordingData.length > 0 && !isRecording && (
         <div className="mb-6">
-          <div className="flex flex-wrap items-center justify-between mb-4">
-            <h4 className="text-lg font-medium">Analysis Mode</h4>
-            <div className="flex items-center space-x-4">
-              <div className="flex space-x-2">
-                <button
-                  onClick={() => setAnalysisMode('normal')}
-                  className={`px-3 py-1 rounded text-sm ${
-                    analysisMode === 'normal' 
-                      ? 'bg-material-blue text-white' 
-                      : 'bg-gray-700 text-gray-300'
-                  }`}
-                >
-                  Normal View
-                </button>
-                <button
-                  onClick={() => setAnalysisMode('manual')}
-                  className={`px-3 py-1 rounded text-sm ${
-                    analysisMode === 'manual' 
-                      ? 'bg-green-600 text-white' 
-                      : 'bg-gray-700 text-gray-300'
-                  }`}
-                >
-                  Manual Weight
-                </button>
-              </div>
+          <div className="flex items-center space-x-4 mb-4">
+            <h4 className="text-lg font-medium">Analysis Mode:</h4>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setAnalysisMode('normal')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  analysisMode === 'normal' ? 'bg-blue-600 text-white' : 'bg-gray-700 text-gray-300'
+                }`}
+              >
+                Normal View
+              </button>
+              <button
+                onClick={() => setAnalysisMode('manual')}
+                className={`px-4 py-2 rounded-lg transition-colors ${
+                  analysisMode === 'manual' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'
+                }`}
+              >
+                Manual Weight
+              </button>
+            </div>
+          </div>
 
-              {analysisMode === 'manual' && (
-                <div className="flex items-center space-x-2">
-                  <span className="text-sm">Total Weight: {getTotalManualWeight()}kg</span>
+          {/* Manual Weight Input */}
+          {analysisMode === 'manual' && (
+            <div className="mb-4">
+              <ManualWeightInput 
+                weights={manualWeights} 
+                onWeightsChange={setManualWeights}
+                totalWeight={getTotalManualWeight()}
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Graph Controls */}
+      {(recordingData.length > 0 || liveGraphData.length > 0) && (
+        <div className="mb-6">
+          <div className="flex items-center space-x-4 mb-4">
+            <h4 className="text-lg font-medium">Graph Type:</h4>
+            <div className="flex space-x-2">
+              <button
+                onClick={() => setActiveGraph('live')}
+                className={`px-3 py-1 rounded text-sm ${
+                  activeGraph === 'live' ? 'bg-green-600 text-white' : 'bg-gray-700 text-gray-300'
+                }`}
+              >
+                Live Analysis
+              </button>
+              {recordingData.length > 0 && (
+                <>
                   <button
-                    onClick={() => setShowWeightDialog(true)}
-                    className="px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-sm"
+                    onClick={() => setActiveGraph('estimated')}
+                    className={`px-3 py-1 rounded text-sm ${
+                      activeGraph === 'estimated' ? 'bg-orange-600 text-white' : 'bg-gray-700 text-gray-300'
+                    }`}
                   >
-                    Manage Objects
+                    Recording Analysis
                   </button>
                   <button
-                    onClick={() => setShowSecondObjectDetection(true)}
-                    className="px-2 py-1 bg-orange-600 hover:bg-orange-700 rounded text-sm"
+                    onClick={() => setActiveGraph('manual')}
+                    className={`px-3 py-1 rounded text-sm ${
+                      activeGraph === 'manual' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'
+                    }`}
                   >
-                    Second Scan
+                    Manual Weight Analysis
                   </button>
-                </div>
+                </>
               )}
             </div>
           </div>
+
+          {/* Live Graph */}
+          {activeGraph === 'live' && liveGraphData.length > 0 && (
+            <div className="bg-dark-secondary rounded-lg p-4 mb-4">
+              <h5 className="text-lg font-medium mb-3">Live RULA Score Analysis</h5>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={liveGraphData.map((point, index) => ({ 
+                    ...point, 
+                    time: index,
+                    displayTime: `${index}s`
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis 
+                      dataKey="time" 
+                      stroke="#9CA3AF"
+                      tickFormatter={(value) => `${value}s`}
+                    />
+                    <YAxis stroke="#9CA3AF" domain={[0, 8]} />
+                    <Tooltip 
+                      labelFormatter={(value) => `Time: ${value}s`}
+                      contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
+                    />
+                    <ReferenceLine y={2} stroke="#10B981" strokeDasharray="2 2" label="Low Risk" />
+                    <ReferenceLine y={4} stroke="#F59E0B" strokeDasharray="2 2" label="Medium Risk" />
+                    <ReferenceLine y={6} stroke="#EF4444" strokeDasharray="2 2" label="High Risk" />
+                    <Line 
+                      type="monotone" 
+                      dataKey="rulaScore" 
+                      stroke="#3B82F6" 
+                      strokeWidth={2}
+                      dot={(props: any) => {
+                        if (props.payload.hasObject) {
+                          return <circle cx={props.cx} cy={props.cy} r={6} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
+                        }
+                        return <circle cx={props.cx} cy={props.cy} r={4} fill="#3B82F6" />;
+                      }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-sm text-gray-400 mt-2">
+                Blue line: Real-time RULA scores | Red dots indicate frames where objects were detected.
+              </p>
+            </div>
+          )}
+
+          {/* Recording Graph */}
+          {activeGraph === 'estimated' && recordingGraphData.length > 0 && (
+            <div className="bg-dark-secondary rounded-lg p-4 mb-4">
+              <h5 className="text-lg font-medium mb-3">Recording RULA Score Analysis</h5>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={recordingGraphData} onClick={handleChartClick}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis 
+                      dataKey="time" 
+                      stroke="#9CA3AF"
+                      tickFormatter={(value) => formatTime(value)}
+                    />
+                    <YAxis stroke="#9CA3AF" domain={[0, 8]} />
+                    <Tooltip 
+                      labelFormatter={(value) => `Time: ${formatTime(value)}`}
+                      contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
+                    />
+                    <ReferenceLine y={2} stroke="#10B981" strokeDasharray="2 2" label="Low Risk" />
+                    <ReferenceLine y={4} stroke="#F59E0B" strokeDasharray="2 2" label="Medium Risk" />
+                    <ReferenceLine y={6} stroke="#EF4444" strokeDasharray="2 2" label="High Risk" />
+                    <Line 
+                      type="monotone" 
+                      dataKey="rulaScore" 
+                      stroke="#F97316" 
+                      strokeWidth={2}
+                      dot={{ fill: '#F97316', r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-sm text-gray-400 mt-2">
+                Orange line: Recorded RULA scores over time. Click points to view frame details.
+              </p>
+            </div>
+          )}
+
+          {/* Manual Weight Analysis Graph */}
+          {activeGraph === 'manual' && manualGraphData.length > 0 && (
+            <div className="bg-dark-secondary rounded-lg p-4 mb-4">
+              <h5 className="text-lg font-medium mb-3">Manual Weight Impact Analysis</h5>
+              <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={manualGraphData} onClick={handleChartClick}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
+                    <XAxis 
+                      dataKey="time" 
+                      stroke="#9CA3AF"
+                      tickFormatter={(value) => formatTime(value)}
+                    />
+                    <YAxis stroke="#9CA3AF" domain={[0, 8]} />
+                    <Tooltip 
+                      labelFormatter={(value) => `Time: ${formatTime(value)}`}
+                      contentStyle={{ backgroundColor: '#1F2937', border: '1px solid #374151' }}
+                    />
+                    <ReferenceLine y={2} stroke="#10B981" strokeDasharray="2 2" label="Low Risk" />
+                    <ReferenceLine y={4} stroke="#F59E0B" strokeDasharray="2 2" label="Medium Risk" />
+                    <ReferenceLine y={6} stroke="#EF4444" strokeDasharray="2 2" label="High Risk" />
+                    <Line 
+                      type="monotone" 
+                      dataKey="originalRulaScore" 
+                      stroke="#6B7280" 
+                      strokeWidth={2}
+                      strokeDasharray="5 5"
+                      dot={false}
+                    />
+                    <Line 
+                      type="monotone" 
+                      dataKey="adjustedRulaScore" 
+                      stroke="#10B981" 
+                      strokeWidth={3}
+                      dot={(props: any) => {
+                        if (props.payload.hasObject) {
+                          return <circle cx={props.cx} cy={props.cy} r={6} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
+                        }
+                        return <circle cx={props.cx} cy={props.cy} r={4} fill="#10B981" />;
+                      }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              <p className="text-sm text-gray-400 mt-2">
+                Gray dashed: Normal RULA | Green solid: Manual weight-adjusted RULA (Total: {getTotalManualWeight()}kg) | Red dots indicate detected objects.
+              </p>
+            </div>
+          )}
         </div>
       )}
-
-      {/* Graph Selection Tabs */}
-      <div className="mb-6">
-        <div className="flex space-x-2 mb-4">
-          <button
-            onClick={() => setActiveGraph('live')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              activeGraph === 'live' 
-                ? 'bg-blue-600 text-white' 
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            Live RULA Graph
-          </button>
-          <button
-            onClick={() => setActiveGraph('estimated')}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              activeGraph === 'estimated' 
-                ? 'bg-orange-600 text-white' 
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            Estimated Weight Graph
-          </button>
-          <button
-            onClick={() => setActiveGraph('manual')}
-            disabled={recordingData.length === 0 || manualWeights.length === 0}
-            className={`px-4 py-2 rounded-lg transition-colors ${
-              activeGraph === 'manual' && recordingData.length > 0 && manualWeights.length > 0
-                ? 'bg-green-600 text-white' 
-                : recordingData.length === 0 || manualWeights.length === 0
-                ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            Manual Weight Analysis
-          </button>
-        </div>
-
-        {/* Normal RULA Graph - Only shows data from recording session */}
-        {activeGraph === 'live' && (
-          <div className="bg-gray-800 rounded-lg p-4">
-            <h4 className="text-lg font-medium mb-3 text-blue-400">Normal RULA Score (Recording Session)</h4>
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={recordingGraphData} onClick={handleChartClick}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="time" 
-                    stroke="#9CA3AF"
-                    tickFormatter={formatTime}
-                    domain={[0, 60]}
-                  />
-                  <YAxis 
-                    domain={[1, 7]}
-                    stroke="#9CA3AF"
-                  />
-                  <Tooltip 
-                    labelFormatter={formatTime}
-                    formatter={(value: any) => [value, 'RULA Score']}
-                    contentStyle={{
-                      backgroundColor: '#1F2937',
-                      border: '1px solid #374151',
-                      borderRadius: '0.5rem',
-                      color: '#F9FAFB'
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="rulaScore" 
-                    stroke="#3B82F6" 
-                    strokeWidth={2}
-                    dot={(props: any) => {
-                      if (props.payload.hasObject) {
-                        return <circle cx={props.cx} cy={props.cy} r={6} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
-                      }
-                      return <circle cx={props.cx} cy={props.cy} r={3} fill="#3B82F6" />;
-                    }}
-                    activeDot={{ r: 5 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="text-sm text-gray-400 mt-2">
-              Normal RULA scores from recording session. Red dots indicate detected objects. Click on points to view frame details.
-            </p>
-          </div>
-        )}
-
-        {/* Estimated Weight Graph - Shows both live and estimated data */}
-        {activeGraph === 'estimated' && (
-          <div className="bg-gray-800 rounded-lg p-4">
-            <h4 className="text-lg font-medium mb-3 text-orange-400">Weight-Adjusted RULA Analysis (Recording Session)</h4>
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart 
-                  data={recordingGraphData.map((liveData, index) => ({
-                    ...liveData,
-                    liveRulaScore: liveData.rulaScore,
-                    estimatedRulaScore: estimatedGraphData[index]?.rulaScore || liveData.rulaScore
-                  }))} 
-                  onClick={handleChartClick}
-                >
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="time" 
-                    stroke="#9CA3AF"
-                    tickFormatter={formatTime}
-                    domain={[0, 60]}
-                  />
-                  <YAxis 
-                    domain={[1, 7]}
-                    stroke="#9CA3AF"
-                  />
-                  <Tooltip 
-                    labelFormatter={formatTime}
-                    formatter={(value: any, name: string) => {
-                      if (name === 'liveRulaScore') return [value, 'Live RULA Score'];
-                      if (name === 'estimatedRulaScore') return [value, 'Weight-Adjusted RULA Score'];
-                      return [value, name];
-                    }}
-                    contentStyle={{
-                      backgroundColor: '#1F2937',
-                      border: '1px solid #374151',
-                      borderRadius: '0.5rem',
-                      color: '#F9FAFB'
-                    }}
-                  />
-                  {/* Blue line for live RULA scores */}
-                  <Line 
-                    type="monotone" 
-                    dataKey="liveRulaScore" 
-                    stroke="#3B82F6" 
-                    strokeWidth={2}
-                    dot={(props: any) => {
-                      if (props.payload.hasObject) {
-                        return <circle cx={props.cx} cy={props.cy} r={4} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
-                      }
-                      return <circle cx={props.cx} cy={props.cy} r={2} fill="#3B82F6" />;
-                    }}
-                  />
-                  {/* Orange line for estimated weight-adjusted RULA scores */}
-                  <Line 
-                    type="monotone" 
-                    dataKey="estimatedRulaScore" 
-                    stroke="#F59E0B" 
-                    strokeWidth={2}
-                    dot={(props: any) => {
-                      if (props.payload.hasObject) {
-                        return <circle cx={props.cx} cy={props.cy} r={6} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
-                      }
-                      return <circle cx={props.cx} cy={props.cy} r={3} fill="#F59E0B" />;
-                    }}
-                    activeDot={{ r: 5 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="text-sm text-gray-400 mt-2">
-              Blue line: Live RULA scores | Orange line: Weight-adjusted RULA scores | Red dots indicate detected objects. Click on points to view frame details.
-            </p>
-          </div>
-        )}
-
-        {/* Manual Weight Analysis Graph */}
-        {activeGraph === 'manual' && recordingData.length > 0 && manualWeights.length > 0 && (
-          <div className="bg-gray-800 rounded-lg p-4">
-            <h4 className="text-lg font-medium mb-3 text-green-400">Manual Weight Analysis (Post-Recording)</h4>
-            <div className="h-64 w-full">
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={manualGraphData} onClick={handleChartClick}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#374151" />
-                  <XAxis 
-                    dataKey="time" 
-                    stroke="#9CA3AF"
-                    tickFormatter={formatTime}
-                  />
-                  <YAxis 
-                    domain={[1, 7]}
-                    stroke="#9CA3AF"
-                  />
-                  <Tooltip 
-                    labelFormatter={formatTime}
-                    formatter={(value: any, name: string) => {
-                      if (name === 'normalScore') return [value, 'Normal RULA'];
-                      if (name === 'adjustedScore') return [value, 'Manual Weight-Adjusted RULA'];
-                      return [value, 'RULA Score'];
-                    }}
-                    contentStyle={{
-                      backgroundColor: '#1F2937',
-                      border: '1px solid #374151',
-                      borderRadius: '0.5rem',
-                      color: '#F9FAFB'
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="normalScore" 
-                    stroke="#9CA3AF" 
-                    strokeWidth={1}
-                    strokeDasharray="5 5"
-                    dot={(props: any) => {
-                      if (props.payload.hasObject) {
-                        return <circle cx={props.cx} cy={props.cy} r={4} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
-                      }
-                      return <circle cx={props.cx} cy={props.cy} r={2} fill="#9CA3AF" />;
-                    }}
-                  />
-                  <Line 
-                    type="monotone" 
-                    dataKey="adjustedScore" 
-                    stroke="#10B981" 
-                    strokeWidth={2}
-                    dot={(props: any) => {
-                      if (props.payload.hasObject) {
-                        return <circle cx={props.cx} cy={props.cy} r={6} fill="#EF4444" stroke="#DC2626" strokeWidth={2} />;
-                      }
-                      return <circle cx={props.cx} cy={props.cy} r={4} fill="#10B981" />;
-                    }}
-                    activeDot={{ r: 6 }}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-            <p className="text-sm text-gray-400 mt-2">
-              Gray dashed: Normal RULA | Green solid: Manual weight-adjusted RULA (Total: {getTotalManualWeight()}kg) | Red dots indicate detected objects.
-            </p>
-          </div>
-        )}
-      </div>
-
-
 
       {/* Frame Details */}
       {selectedFrame && (
@@ -898,215 +767,88 @@ export default function RecordingPanel({
               {true && (
                 <div>
                 <h5 className="text-lg font-medium mb-3">RULA Assessment</h5>
-                {selectedFrame.rulaScore ? (
-                  <div className="space-y-3">
-                    {analysisMode !== 'normal' && selectedFrame.adjustedRulaScore && (
-                      <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
-                        <h6 className="text-sm font-medium text-yellow-400 mb-2">Weight-Adjusted Analysis</h6>
-                        <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>Original Score: {selectedFrame.rulaScore.finalScore}</div>
-                          <div>Adjusted Score: {selectedFrame.adjustedRulaScore.finalScore}</div>
-                          <div>Weight: {selectedFrame.adjustedRulaScore.effectiveWeight}kg</div>
-                          <div>Multiplier: {selectedFrame.adjustedRulaScore.weightMultiplier}x</div>
-                        </div>
+                <div className="bg-dark-secondary rounded-lg p-4">
+                  <div className="grid grid-cols-2 gap-4 text-sm">
+                    <div>
+                      <div className="flex justify-between py-1">
+                        <span>Upper Arm:</span>
+                        <span className="font-mono">{getCurrentRulaScore(selectedFrame)?.upperArm || 1}</span>
                       </div>
-                    )}
-
-                    <div className="flex justify-between items-center">
-                      <span>Final Score:</span>
-                      <span className="font-bold text-xl">
-                        {getCurrentRulaScore(selectedFrame)?.finalScore}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span>Risk Level:</span>
-                      <span className={`font-medium ${
-                        getCurrentRulaScore(selectedFrame)?.finalScore <= 2 ? 'text-green-400' :
-                        getCurrentRulaScore(selectedFrame)?.finalScore <= 4 ? 'text-yellow-400' :
-                        getCurrentRulaScore(selectedFrame)?.finalScore <= 6 ? 'text-orange-400' : 'text-red-400'
-                      }`}>
-                        {getCurrentRulaScore(selectedFrame)?.riskLevel}
-                      </span>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-3 mt-4">
-                      <div className="bg-dark-secondary rounded p-3">
-                        <div className="text-sm text-text-secondary">Upper Arm</div>
-                        <div className="text-lg font-bold">
-                          {getCurrentRulaScore(selectedFrame)?.upperArm}
-                        </div>
+                      <div className="flex justify-between py-1">
+                        <span>Lower Arm:</span>
+                        <span className="font-mono">{getCurrentRulaScore(selectedFrame)?.lowerArm || 1}</span>
                       </div>
-                      <div className="bg-dark-secondary rounded p-3">
-                        <div className="text-sm text-text-secondary">Lower Arm</div>
-                        <div className="text-lg font-bold">
-                          {getCurrentRulaScore(selectedFrame)?.lowerArm}
-                        </div>
-                      </div>
-                      <div className="bg-dark-secondary rounded p-3">
-                        <div className="text-sm text-text-secondary">Wrist</div>
-                        <div className="text-lg font-bold">
-                          {getCurrentRulaScore(selectedFrame)?.wrist}
-                        </div>
-                      </div>
-                      <div className="bg-dark-secondary rounded p-3">
-                        <div className="text-sm text-text-secondary">Neck</div>
-                        <div className="text-lg font-bold">
-                          {getCurrentRulaScore(selectedFrame)?.neck}
-                        </div>
+                      <div className="flex justify-between py-1">
+                        <span>Wrist:</span>
+                        <span className="font-mono">{getCurrentRulaScore(selectedFrame)?.wrist || 1}</span>
                       </div>
                     </div>
-
-                    {/* Posture Analysis Status for Recorded Frame */}
-                    {getCurrentRulaScore(selectedFrame) && (
-                      <div className="mt-4 p-4 rounded-lg bg-blue-600 bg-opacity-20 border-2 border-blue-400">
-                        <div className="flex items-start space-x-3">
-                          <div className="bg-blue-500 rounded-full p-2 flex-shrink-0">
-                            <span className="material-icon text-white text-lg">psychology</span>
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-blue-300 mb-2 text-sm">
-                              Posture Analysis Status 
-                              {analysisMode === 'manual' && manualWeights.length > 0 && (
-                                <span className="ml-2 px-2 py-1 bg-yellow-900/20 border border-yellow-700 rounded text-xs">
-                                  Weight Adjusted ({manualWeights.reduce((total, weight) => total + weight.weight, 0)}g)
-                                </span>
-                              )}
-                            </h4>
-                            <div className="bg-dark-secondary rounded-lg p-3">
-                              <p className="text-white text-sm leading-relaxed">
-                                {generatePostureAnalysis(
-                                  getCurrentRulaScore(selectedFrame),
-                                  analysisMode === 'manual' && manualWeights.length > 0 ? 'manual' : 'recorded'
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
+                    <div>
+                      <div className="flex justify-between py-1">
+                        <span>Neck:</span>
+                        <span className="font-mono">{getCurrentRulaScore(selectedFrame)?.neck || 1}</span>
                       </div>
-                    )}
+                      <div className="flex justify-between py-1">
+                        <span>Trunk:</span>
+                        <span className="font-mono">{getCurrentRulaScore(selectedFrame)?.trunk || 1}</span>
+                      </div>
+                      <div className="flex justify-between py-1 font-bold border-t border-gray-600 mt-2 pt-2">
+                        <span>Final Score:</span>
+                        <span className="font-mono">{getCurrentRulaScore(selectedFrame)?.finalScore || 1}</span>
+                      </div>
+                    </div>
                   </div>
-                ) : (
-                  <p className="text-text-secondary">No RULA data available for this frame</p>
-                )}
-              </div>
-              )}
-
-              {selectedFrame.weightEstimation && (
-                <div>
-                  <h5 className="text-lg font-medium mb-3">Weight Analysis</h5>
-                  <div className="bg-dark-secondary rounded-lg p-4 space-y-2">
-                    <div className="flex justify-between">
-                      <span>Estimated Weight:</span>
-                      <span className="font-bold">{selectedFrame.weightEstimation.estimatedWeight}kg</span>
+                  
+                  {analysisMode === 'manual' && manualWeights.length > 0 && (
+                    <div className="mt-4 pt-4 border-t border-gray-600">
+                      <div className="text-sm text-gray-400 mb-2">Weight Analysis:</div>
+                      <div className="flex justify-between text-sm">
+                        <span>Total Manual Weight:</span>
+                        <span className="font-mono">{getTotalManualWeight().toFixed(1)}kg</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span>Weight Multiplier:</span>
+                        <span className="font-mono">{Math.min(1 + (getTotalManualWeight() / 10), 2).toFixed(2)}x</span>
+                      </div>
                     </div>
-                    <div className="flex justify-between">
-                      <span>Confidence:</span>
-                      <span>{Math.round(selectedFrame.weightEstimation.confidence * 100)}%</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Posture Type:</span>
-                      <span className="capitalize">
-                        {selectedFrame.weightEstimation.bodyPosture.isLifting ? 'Lifting' :
-                         selectedFrame.weightEstimation.bodyPosture.isCarrying ? 'Carrying' : 'Normal'}
+                  )}
+                  
+                  <div className="mt-4 pt-4 border-t border-gray-600">
+                    <div className="text-sm">
+                      <span className="text-gray-400">Risk Level: </span>
+                      <span className={`font-bold ${
+                        (getCurrentRulaScore(selectedFrame)?.finalScore || 1) <= 2 ? 'text-green-400' :
+                        (getCurrentRulaScore(selectedFrame)?.finalScore || 1) <= 4 ? 'text-yellow-400' :
+                        (getCurrentRulaScore(selectedFrame)?.finalScore || 1) <= 6 ? 'text-orange-400' : 'text-red-400'
+                      }`}>
+                        {(getCurrentRulaScore(selectedFrame)?.finalScore || 1) <= 2 ? 'Low Risk' :
+                         (getCurrentRulaScore(selectedFrame)?.finalScore || 1) <= 4 ? 'Medium Risk' :
+                         (getCurrentRulaScore(selectedFrame)?.finalScore || 1) <= 6 ? 'High Risk' : 'Critical Risk'}
                       </span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>Arm Position:</span>
-                      <span className="capitalize">{selectedFrame.weightEstimation.bodyPosture.armPosition}</span>
                     </div>
                   </div>
                 </div>
+              </div>
               )}
 
-
+              {/* Posture Analysis */}
+              <div>
+                <h5 className="text-lg font-medium mb-3">Posture Analysis</h5>
+                <div className="bg-dark-secondary rounded-lg p-4">
+                  <div className="text-sm space-y-2">
+                    {generatePostureAnalysis(selectedFrame.poseData, getCurrentRulaScore(selectedFrame)).map((analysis, index) => (
+                      <div key={index} className="flex items-start space-x-2">
+                        <span className="text-blue-400 mt-1">•</span>
+                        <span>{analysis}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
       )}
-
-      {/* Recording Stats */}
-      {recordingData.length > 0 && !isRecording && (
-        <div className="mt-6 grid grid-cols-3 gap-4">
-          <div className="bg-dark-secondary rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-material-blue">{recordingData.length}</div>
-            <div className="text-sm text-text-secondary">Frames Recorded</div>
-          </div>
-          <div className="bg-dark-secondary rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-green-400">
-              {recordingData.filter(f => f.rulaScore?.finalScore <= 2).length}
-            </div>
-            <div className="text-sm text-text-secondary">Safe Postures</div>
-          </div>
-          <div className="bg-dark-secondary rounded-lg p-4 text-center">
-            <div className="text-2xl font-bold text-red-400">
-              {recordingData.filter(f => f.rulaScore?.finalScore > 4).length}
-            </div>
-            <div className="text-sm text-text-secondary">Risk Postures</div>
-          </div>
-        </div>
-      )}
-
-      {/* Smart Object Detection Weight Management Dialog */}
-      {showWeightDialog && (
-        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
-          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-medium">Smart Object Detection & Weight Management</h3>
-              <button
-                onClick={() => setShowWeightDialog(false)}
-                className="text-gray-400 hover:text-white text-xl"
-              >
-                ×
-              </button>
-            </div>
-
-            <ObjectDetectionWeightInput
-              onAddWeight={addManualWeightFromInput}
-              existingWeights={manualWeights}
-              videoRef={videoRef}
-              currentPoseData={currentPoseData}
-              isVisible={showWeightDialog}
-              recordedFrames={recordingData}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* Second Object Detection Dialog */}
-      {showSecondObjectDetection && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-dark-card rounded-lg shadow-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-medium">Second Object Detection Scan</h3>
-              <button
-                onClick={() => setShowSecondObjectDetection(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <span className="material-icon">close</span>
-              </button>
-            </div>
-
-            <div className="mb-4 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
-              <p className="text-sm text-blue-300">
-                Running a second object detection scan to find any objects that might have been missed in the first scan. 
-                This will analyze all recorded frames again with different detection parameters.
-              </p>
-            </div>
-
-            <ObjectDetectionWeightInput
-              onAddWeight={addManualWeightFromInput}
-              existingWeights={manualWeights}
-              videoRef={videoRef}
-              currentPoseData={currentPoseData}
-              isVisible={showSecondObjectDetection}
-              recordedFrames={recordingData}
-            />
-          </div>
-        </div>
-      )}
-
-
-
     </div>
   );
 }

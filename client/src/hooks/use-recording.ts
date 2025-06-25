@@ -22,10 +22,10 @@ export function useRecording() {
     setRecordingProgress(0);
     recordingStartTime.current = Date.now();
 
-    // Record frame every 500ms for 60 seconds
+    // Record frame every 1000ms (1 second) for 60 seconds
     recordingInterval.current = setInterval(() => {
       const elapsed = Date.now() - recordingStartTime.current;
-      const progress = Math.min((elapsed / 60000) * 100, 100);
+      const progress = Math.min(elapsed / 60000, 1);
       setRecordingProgress(progress);
 
       if (elapsed >= 60000) {
@@ -49,7 +49,7 @@ export function useRecording() {
           
           // This will be updated with actual pose and RULA data from parent component
           const frame: RecordingFrame = {
-            timestamp: elapsed / 1000,
+            timestamp: Date.now(),
             rulaScore: null,
             imageData,
             poseData: null
@@ -58,7 +58,7 @@ export function useRecording() {
           setRecordingData(prev => [...prev, frame]);
         }
       }
-    }, 500);
+    }, 1000);
   }, []);
 
   const stopRecording = useCallback(() => {

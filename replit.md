@@ -116,6 +116,10 @@ Changelog:
 - June 19, 2025. Removed enhanced view mode from recording panel, keeping only original and skeleton views
 - June 19, 2025. Removed "Weight Estimated" analysis mode, keeping only Normal View and Manual Weight options
 - June 19, 2025. Added second object detection scan feature to catch objects missed in the first detection
+- January 27, 2025. Migrated from Replit Agent to standard Replit environment
+- January 27, 2025. Removed generate report functionality completely  
+- January 27, 2025. Fixed recording frequency from 500ms to 1000ms (1 second intervals)
+- January 27, 2025. Improved skeleton coordinate transformation for better pose alignment accuracy
 
 # User Preferences
 
