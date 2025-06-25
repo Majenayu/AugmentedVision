@@ -4,6 +4,7 @@ import ThreeDView from "@/components/pose-detection/three-d-view";
 import RulaAssessment from "@/components/pose-detection/rula-assessment";
 import MetricsDashboard from "@/components/pose-detection/metrics-dashboard";
 import RecordingPanel from "@/components/pose-detection/recording-panel";
+import AssessmentModeSelector, { type AssessmentMode } from "@/components/pose-detection/assessment-mode-selector";
 import { usePoseDetection } from "@/hooks/use-pose-detection";
 import { useCamera, type CameraDevice } from "@/hooks/use-camera";
 import { useRecording } from "@/hooks/use-recording";
@@ -13,6 +14,8 @@ export default function Home() {
   const [modelLoaded, setModelLoaded] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
+  const [assessmentMode, setAssessmentMode] = useState<AssessmentMode | null>(null);
+  const [isModeSelectionLocked, setIsModeSelectionLocked] = useState(false);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -36,7 +39,7 @@ export default function Home() {
     fps,
     isProcessing,
     initializeModel
-  } = usePoseDetection(videoRef, canvasRef, cameraActive);
+  } = usePoseDetection(videoRef, canvasRef, cameraActive, assessmentMode || 'RULA');
 
   const {
     isRecording,
@@ -85,17 +88,32 @@ export default function Home() {
   }, [cameraActive, startTime]);
 
   const handleStartCamera = async () => {
-    if (!modelLoaded) {
-      console.warn("Model not loaded yet");
+    if (!modelLoaded || !assessmentMode) {
+      console.warn("Model not loaded or assessment mode not selected");
       return;
     }
 
     try {
       await startCamera();
+      setIsModeSelectionLocked(true);
       setStartTime(Date.now());
       setSessionDuration(0);
     } catch (error) {
       console.error("Failed to start camera:", error);
+    }
+  };
+
+  const handleStopCamera = () => {
+    stopCamera();
+    setStartTime(null);
+    setSessionDuration(0);
+    setIsModeSelectionLocked(false);
+    setAssessmentMode(null);
+  };
+
+  const handleModeSelect = (mode: AssessmentMode) => {
+    if (!isModeSelectionLocked) {
+      setAssessmentMode(mode);
     }
   };
 
@@ -113,12 +131,6 @@ export default function Home() {
       updateLastFrame(rulaScore, poseData);
     }
   }, [isRecording, poseData, rulaScore, updateLastFrame]);
-
-  const handleStopCamera = () => {
-    stopCamera();
-    setStartTime(null);
-    setSessionDuration(0);
-  };
 
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -170,7 +182,7 @@ export default function Home() {
               <div className="flex items-center space-x-4">
                 <button 
                   onClick={handleStartCamera}
-                  disabled={!modelLoaded || cameraActive}
+                  disabled={!modelLoaded || cameraActive || !assessmentMode}
                   className="bg-material-blue hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
                 >
                   <span className="material-icon">videocam</span>
@@ -230,44 +242,73 @@ export default function Home() {
           </div>
         </div>
 
-        {/* Main Viewing Area */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <ThreeDView poseData={poseData} rulaScore={rulaScore} />
-          <CameraView 
-            videoRef={videoRef} 
-            canvasRef={canvasRef} 
-            cameraActive={cameraActive}
-            poseData={poseData}
-          />
-        </div>
+        {/* Assessment Mode Selection */}
+        {!isModeSelectionLocked && (
+          <div className="mb-8">
+            <AssessmentModeSelector 
+              onModeSelect={handleModeSelect}
+              isLocked={isModeSelectionLocked}
+            />
+          </div>
+        )}
 
-        {/* RULA Assessment Panel */}
-        <RulaAssessment 
-          rulaScore={rulaScore} 
-          poseData={poseData} 
-          isProcessing={isProcessing}
-        />
+        {/* Mode Selection Locked Indicator */}
+        {isModeSelectionLocked && assessmentMode && (
+          <div className="mb-6">
+            <AssessmentModeSelector 
+              onModeSelect={handleModeSelect}
+              isLocked={isModeSelectionLocked}
+            />
+          </div>
+        )}
 
-        {/* Real-time Metrics Dashboard */}
-        <MetricsDashboard 
-          fps={fps}
-          sessionDuration={formatDuration(sessionDuration)}
-          rulaScore={rulaScore}
-          poseData={poseData}
-        />
+        {/* Main Content - Only show when mode is selected */}
+        {assessmentMode && (
+          <>
+            {/* Main Viewing Area */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+              <ThreeDView poseData={poseData} rulaScore={rulaScore} assessmentMode={assessmentMode} />
+              <CameraView 
+                videoRef={videoRef} 
+                canvasRef={canvasRef} 
+                cameraActive={cameraActive}
+                poseData={poseData}
+                assessmentMode={assessmentMode}
+              />
+            </div>
 
-        {/* Recording Panel */}
-        <RecordingPanel
-            isRecording={isRecording}
-            recordingData={recordingData}
-            recordingProgress={recordingProgress}
-            onStartRecording={() => startRecording(videoRef)}
-            onStopRecording={stopRecording}
-            onClearRecording={clearRecording}
-            currentPoseData={poseData}
-            currentRulaScore={rulaScore}
-            videoRef={videoRef}
-          />
+            {/* Assessment Panel */}
+            <RulaAssessment 
+              rulaScore={rulaScore} 
+              poseData={poseData} 
+              isProcessing={isProcessing}
+              assessmentMode={assessmentMode}
+            />
+
+            {/* Real-time Metrics Dashboard */}
+            <MetricsDashboard 
+              fps={fps}
+              sessionDuration={formatDuration(sessionDuration)}
+              rulaScore={rulaScore}
+              poseData={poseData}
+              assessmentMode={assessmentMode}
+            />
+
+            {/* Recording Panel */}
+            <RecordingPanel
+                isRecording={isRecording}
+                recordingData={recordingData}
+                recordingProgress={recordingProgress}
+                onStartRecording={() => startRecording(videoRef)}
+                onStopRecording={stopRecording}
+                onClearRecording={clearRecording}
+                currentPoseData={poseData}
+                currentRulaScore={rulaScore}
+                videoRef={videoRef}
+                assessmentMode={assessmentMode}
+              />
+          </>
+        )}
       </main>
 
       {/* Footer */}

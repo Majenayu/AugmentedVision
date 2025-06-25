@@ -1,11 +1,15 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { initializePoseDetection, detectPose } from "@/lib/pose-detection";
 import { calculateRulaScore } from "@/lib/rula-calculator-simple";
+import { calculateREBA } from "@/lib/reba-calculator";
+
+export type AssessmentMode = 'RULA' | 'REBA';
 
 export function usePoseDetection(
   videoRef: React.RefObject<HTMLVideoElement>,
   canvasRef: React.RefObject<HTMLCanvasElement>,
-  cameraActive: boolean
+  cameraActive: boolean,
+  assessmentMode: AssessmentMode = 'RULA'
 ) {
   const [poseDetector, setPoseDetector] = useState<any>(null);
   const [poseData, setPoseData] = useState<any>(null);
@@ -47,9 +51,14 @@ export function usePoseDetection(
         const avgConfidence = pose.keypoints.reduce((sum: number, kp: any) => sum + kp.score, 0) / pose.keypoints.length;
         setConfidence(Math.round(avgConfidence * 100));
         
-        // Calculate RULA score
-        const rula = calculateRulaScore(pose.keypoints);
-        setRulaScore(rula);
+        // Calculate assessment score based on mode
+        let assessmentData;
+        if (assessmentMode === 'REBA') {
+          assessmentData = calculateREBA(pose.keypoints);
+        } else {
+          assessmentData = calculateRulaScore(pose.keypoints);
+        }
+        setRulaScore(assessmentData);
       } else {
         setPoseData(null);
         setRulaScore(null);

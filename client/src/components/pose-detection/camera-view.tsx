@@ -5,9 +5,10 @@ interface CameraViewProps {
   canvasRef: React.RefObject<HTMLCanvasElement>;
   cameraActive: boolean;
   poseData: any;
+  assessmentMode?: 'RULA' | 'REBA';
 }
 
-export default function CameraView({ videoRef, canvasRef, cameraActive, poseData }: CameraViewProps) {
+export default function CameraView({ videoRef, canvasRef, cameraActive, poseData, assessmentMode = 'RULA' }: CameraViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -48,7 +49,15 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
       const keypoints = poseData.keypoints;
       
       // COCO pose model connections (17 keypoints)
-      const connections = [
+      // For RULA mode, exclude leg connections
+      const connections = assessmentMode === 'RULA' ? [
+        [0, 1], [0, 2], [1, 3], [2, 4], // Head
+        [5, 6], // Shoulders
+        [5, 7], [7, 9], // Left arm
+        [6, 8], [8, 10], // Right arm
+        [5, 11], [6, 12], // Torso
+        [11, 12], // Hips
+      ] : [
         [0, 1], [0, 2], [1, 3], [2, 4], // Head
         [5, 6], // Shoulders
         [5, 7], [7, 9], // Left arm

@@ -5,9 +5,10 @@ interface RulaAssessmentProps {
   rulaScore: any;
   poseData: any;
   isProcessing: boolean;
+  assessmentMode?: 'RULA' | 'REBA';
 }
 
-export default function RulaAssessment({ rulaScore, poseData, isProcessing }: RulaAssessmentProps) {
+export default function RulaAssessment({ rulaScore, poseData, isProcessing, assessmentMode = 'RULA' }: RulaAssessmentProps) {
   const getRiskLevelColor = (score: number) => {
     if (score <= 2) return 'bg-rula-safe';
     if (score <= 4) return 'bg-rula-investigate';
@@ -38,7 +39,7 @@ export default function RulaAssessment({ rulaScore, poseData, isProcessing }: Ru
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-medium flex items-center space-x-2">
           <span className="material-icon text-orange-500">assessment</span>
-          <span>RULA Ergonomic Assessment</span>
+          <span>{assessmentMode} Ergonomic Assessment</span>
         </h3>
         <div className="flex items-center space-x-2">
           <div className={`w-3 h-3 rounded-full ${isProcessing ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
@@ -58,7 +59,7 @@ export default function RulaAssessment({ rulaScore, poseData, isProcessing }: Ru
               {rulaScore ? rulaScore.finalScore : '--'}
             </span>
           </div>
-          <h4 className="text-lg font-medium mb-1">RULA Score</h4>
+          <h4 className="text-lg font-medium mb-1">{assessmentMode} Score</h4>
           <p className="text-text-secondary text-sm">Current assessment level</p>
         </div>
 
