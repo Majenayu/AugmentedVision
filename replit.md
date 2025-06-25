@@ -120,6 +120,7 @@ Changelog:
 - June 19, 2025. Removed enhanced view mode from recording panel, keeping only original and skeleton views
 - June 19, 2025. Removed "Weight Estimated" analysis mode, keeping only Normal View and Manual Weight options
 - June 19, 2025. Added second object detection scan feature to catch objects missed in the first detection
+- June 25, 2025. Fixed dynamic posture analysis - RULA no longer defaults to score 5, both calculators now respond to actual posture changes with scores 1-7
 
 # User Preferences
 
