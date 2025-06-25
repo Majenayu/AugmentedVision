@@ -3,13 +3,15 @@ interface MetricsDashboardProps {
   sessionDuration: string;
   rulaScore: any;
   poseData: any;
+  assessmentMode?: 'RULA' | 'REBA';
 }
 
 export default function MetricsDashboard({ 
   fps, 
   sessionDuration, 
   rulaScore, 
-  poseData 
+  poseData,
+  assessmentMode = 'RULA'
 }: MetricsDashboardProps) {
   const inferenceTime = fps > 0 ? Math.round(1000 / fps) : 0;
   const keypointsDetected = poseData?.keypoints ? 

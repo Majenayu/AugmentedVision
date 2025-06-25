@@ -103,6 +103,7 @@ Changelog:
 - January 27, 2025. Added PDF report generation with comprehensive ergonomic assessment analysis
 - January 27, 2025. Implemented RULA/REBA mode selection system with locked mode after camera start
 - January 27, 2025. Fixed RULA to only analyze upper body keypoints (0-12) and limited REBA scoring to 1-7 range
+- January 27, 2025. Added automated build process for production deployment with comprehensive build scripts
 - June 13, 2025. Initial setup
 - June 17, 2025. Fixed pose detection skeleton alignment issues and syntax errors in recording panel
 - June 17, 2025. Added smart object detection system with COCO-SSD model for automatic weight estimation in manual mode

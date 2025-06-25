@@ -31,6 +31,7 @@ interface RecordingPanelProps {
   currentPoseData?: any;
   currentRulaScore?: any;
   videoRef?: React.RefObject<HTMLVideoElement>;
+  assessmentMode?: 'RULA' | 'REBA';
 }
 
 
@@ -48,7 +49,8 @@ export default function RecordingPanel({
   onClearRecording,
   currentPoseData,
   currentRulaScore,
-  videoRef
+  videoRef,
+  assessmentMode = 'RULA'
 }: RecordingPanelProps) {
   const [selectedFrame, setSelectedFrame] = useState<RecordingFrame | null>(null);
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('normal');
@@ -104,9 +106,15 @@ export default function RecordingPanel({
 
         const newDataPoint = {
           time: elapsedSeconds,
-          rulaScore: currentRulaScore.finalScore || 0,
-          stressLevel: currentRulaScore.stressLevel || 0,
-          riskLevel: currentRulaScore.riskLevel || 'Unknown',
+          rulaScore: currentRulaScore?.finalScore || 0,
+          stressLevel: currentRulaScore?.stressLevel || 0,
+          riskLevel: currentRulaScore?.riskLevel || 'Unknown',
+          upperArm: currentRulaScore?.upperArm || 0,
+          lowerArm: currentRulaScore?.lowerArm || 0,
+          wrist: currentRulaScore?.wrist || 0,
+          neck: currentRulaScore?.neck || 0,
+          trunk: currentRulaScore?.trunk || 0,
+          legs: currentRulaScore?.legs || 0,
           hasObject
         };
 
@@ -799,7 +807,7 @@ export default function RecordingPanel({
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
           >
-            Live RULA Graph
+            Live {assessmentMode} Graph
           </button>
           <button
             onClick={() => setActiveGraph('estimated')}
