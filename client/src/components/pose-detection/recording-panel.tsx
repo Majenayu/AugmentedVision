@@ -634,57 +634,21 @@ export default function RecordingPanel({
       yPosition += 5;
       addSection("Frame-by-Frame Analysis");
       
-      // Group frames by second
-      const framesBySecond = new Map<number, RecordingFrame[]>();
-      
-      validFrames.forEach(frame => {
-        const timeSeconds = recordingStartTimeRef.current ? 
-          Math.floor((frame.timestamp - recordingStartTimeRef.current) / 1000) : 
-          Math.floor(frame.timestamp / 1000);
-        
-        if (!framesBySecond.has(timeSeconds)) {
-          framesBySecond.set(timeSeconds, []);
-        }
-        framesBySecond.get(timeSeconds)!.push(frame);
-      });
-
-      // Sort seconds and generate report for each second
-      const sortedSeconds = Array.from(framesBySecond.keys()).sort((a, b) => a - b);
-      
-      sortedSeconds.forEach((second, index) => {
-        const framesInSecond = framesBySecond.get(second)!;
-        
-        // Calculate average scores for this second
-        const avgScoreForSecond = framesInSecond.reduce((sum, frame) => 
-          sum + (frame.rulaScore?.finalScore || 0), 0) / framesInSecond.length;
-        
-        const avgBodyPartsForSecond = framesInSecond.reduce((acc, frame) => {
-          if (frame.rulaScore) {
-            acc.upperArm += frame.rulaScore.upperArm || 0;
-            acc.lowerArm += frame.rulaScore.lowerArm || 0;
-            acc.wrist += frame.rulaScore.wrist || 0;
-            acc.neck += frame.rulaScore.neck || 0;
-            acc.trunk += frame.rulaScore.trunk || 0;
+      validFrames.forEach((frame, index) => {
+        if (index % 10 === 0) { // Show every 10th frame (Frame 1, 11, 21, 31...)
+          const timeSeconds = recordingStartTimeRef.current ? 
+            (frame.timestamp - recordingStartTimeRef.current) / 1000 : 
+            frame.timestamp;
+          
+          addText(`Frame ${index + 1} (${formatTime(timeSeconds)}):`);
+          addText(`  RULA Score: ${frame.rulaScore?.finalScore || 0} - ${getRiskLevel(frame.rulaScore?.finalScore || 0)}`);
+          addText(`  Body Parts: UA:${frame.rulaScore?.upperArm || 0} LA:${frame.rulaScore?.lowerArm || 0} W:${frame.rulaScore?.wrist || 0} N:${frame.rulaScore?.neck || 0} T:${frame.rulaScore?.trunk || 0}`);
+          
+          if (frame.hasObject) {
+            addText(`  Object detected in this frame`);
           }
-          return acc;
-        }, { upperArm: 0, lowerArm: 0, wrist: 0, neck: 0, trunk: 0 });
-
-        // Average the body parts
-        Object.keys(avgBodyPartsForSecond).forEach(key => {
-          avgBodyPartsForSecond[key] = Math.round(avgBodyPartsForSecond[key] / framesInSecond.length);
-        });
-
-        const hasObjectInSecond = framesInSecond.some(frame => frame.hasObject);
-        
-        // Use index + 1 for sequential frame numbering (1, 2, 3, 4...)
-        addText(`Frame ${index + 1} (${formatTime(second)}):`);
-        addText(`  RULA Score: ${avgScoreForSecond.toFixed(0)} - ${getRiskLevel(avgScoreForSecond)}`);
-        addText(`  Body Parts: UA:${avgBodyPartsForSecond.upperArm} LA:${avgBodyPartsForSecond.lowerArm} W:${avgBodyPartsForSecond.wrist} N:${avgBodyPartsForSecond.neck} T:${avgBodyPartsForSecond.trunk}`);
-        
-        if (hasObjectInSecond) {
-          addText(`  Object detected in this timeframe`);
+          yPosition += 2;
         }
-        yPosition += 2;
       });
     }
 
