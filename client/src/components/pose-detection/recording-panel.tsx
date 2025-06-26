@@ -594,61 +594,39 @@ export default function RecordingPanel({
         console.log(`Frame ${frameNumber}: No estimated weight skeleton - missing poseData or rebaScore`);
       }
 
-      // 4. Manual Weight Skeleton (generate when manual weights exist OR show placeholder)
-      if (frame.poseData && frame.rebaScore) {
+      // 4. Manual Weight Skeleton (only when manual weights are actually configured)
+      if (manualWeights.length > 0 && frame.poseData && frame.rebaScore) {
         try {
-          if (manualWeights.length > 0) {
-            // Generate skeleton with actual manual weights
-            const totalManualWeight = manualWeights.reduce((total, weight) => total + weight.weight, 0);
-            const manualWeightEstimation = { 
-              estimatedWeight: totalManualWeight / 1000, // Convert grams to kg
-              confidence: 1.0, 
-              detectedObjects: [], 
-              bodyPosture: { 
-                isLifting: true, 
-                isCarrying: true, 
-                armPosition: 'extended' as const, 
-                spineDeviation: 20, 
-                loadDirection: 'front' as const 
-              } 
-            };
-            const manualAdjustedRebaScore = calculateWeightAdjustedReba(frame.rebaScore, manualWeightEstimation, totalManualWeight);
-            const manualSkeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, manualAdjustedRebaScore, 'manual');
-            if (manualSkeletonCanvas) {
-              const pos = positions[3];
-              const manualImageData = manualSkeletonCanvas.toDataURL('image/jpeg', 0.8);
-              pdf.addImage(manualImageData, 'JPEG', pos.x, pos.y, imageWidth, imageHeight);
-              pdf.setFontSize(10);
-              pdf.text(`${pos.label} - ${(totalManualWeight/1000).toFixed(1)}kg - REBA: ${manualAdjustedRebaScore?.finalScore || 0}`, pos.x, pos.y - 2);
-              imagesAdded++;
-              console.log(`Frame ${frameNumber}: Manual weight skeleton added - ${(totalManualWeight/1000).toFixed(1)}kg`);
-            }
-          } else {
-            // Show placeholder skeleton indicating no manual weight set
-            const placeholderCanvas = await createSkeletonImage(frame.imageData, frame.poseData, frame.rebaScore, 'manual');
-            if (placeholderCanvas) {
-              const pos = positions[3];
-              // Add "No Manual Weight" overlay
-              const ctx = placeholderCanvas.getContext('2d');
-              if (ctx) {
-                ctx.fillStyle = 'rgba(128, 128, 128, 0.8)';
-                ctx.fillRect(10, placeholderCanvas.height - 50, 220, 40);
-                ctx.fillStyle = 'white';
-                ctx.font = 'bold 14px Arial';
-                ctx.fillText('No Manual Weight Set', 20, placeholderCanvas.height - 25);
-              }
-              
-              const placeholderImageData = placeholderCanvas.toDataURL('image/jpeg', 0.8);
-              pdf.addImage(placeholderImageData, 'JPEG', pos.x, pos.y, imageWidth, imageHeight);
-              pdf.setFontSize(10);
-              pdf.text(`${pos.label} - No Weight Set - REBA: ${frame.rebaScore?.finalScore || 0}`, pos.x, pos.y - 2);
-              imagesAdded++;
-              console.log(`Frame ${frameNumber}: Manual weight placeholder added`);
-            }
+          // Generate skeleton with actual manual weights
+          const totalManualWeight = manualWeights.reduce((total, weight) => total + weight.weight, 0);
+          const manualWeightEstimation = { 
+            estimatedWeight: totalManualWeight / 1000, // Convert grams to kg
+            confidence: 1.0, 
+            detectedObjects: [], 
+            bodyPosture: { 
+              isLifting: true, 
+              isCarrying: true, 
+              armPosition: 'extended' as const, 
+              spineDeviation: 20, 
+              loadDirection: 'front' as const 
+            } 
+          };
+          const manualAdjustedRebaScore = calculateWeightAdjustedReba(frame.rebaScore, manualWeightEstimation, totalManualWeight);
+          const manualSkeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, manualAdjustedRebaScore, 'manual');
+          if (manualSkeletonCanvas) {
+            const pos = positions[3];
+            const manualImageData = manualSkeletonCanvas.toDataURL('image/jpeg', 0.8);
+            pdf.addImage(manualImageData, 'JPEG', pos.x, pos.y, imageWidth, imageHeight);
+            pdf.setFontSize(10);
+            pdf.text(`${pos.label} - ${(totalManualWeight/1000).toFixed(1)}kg - REBA: ${manualAdjustedRebaScore?.finalScore || 0}`, pos.x, pos.y - 2);
+            imagesAdded++;
+            console.log(`Frame ${frameNumber}: Manual weight skeleton added - ${(totalManualWeight/1000).toFixed(1)}kg`);
           }
         } catch (error) {
           console.error(`Frame ${frameNumber}: Failed to add manual weight image:`, error);
         }
+      } else if (manualWeights.length === 0) {
+        console.log(`Frame ${frameNumber}: No manual weights configured - skipping manual weight skeleton`);
       }
 
       // Add frame summary at bottom
