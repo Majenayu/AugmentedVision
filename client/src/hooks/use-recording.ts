@@ -2,7 +2,7 @@ import { useState, useCallback, useRef } from "react";
 
 interface RecordingFrame {
   timestamp: number;
-  rulaScore: any;
+  rebaScore: any;
   imageData: string;
   poseData: any;
 }
@@ -47,10 +47,10 @@ export function useRecording() {
           ctx.drawImage(videoRef.current, 0, 0);
           const imageData = canvas.toDataURL('image/jpeg', 0.8);
           
-          // This will be updated with actual pose and RULA data from parent component
+          // This will be updated with actual pose and REBA data from parent component
           const frame: RecordingFrame = {
             timestamp: elapsed / 1000,
-            rulaScore: null,
+            rebaScore: null,
             imageData,
             poseData: null
           };
@@ -70,14 +70,14 @@ export function useRecording() {
     }
   }, []);
 
-  const updateLastFrame = useCallback((rulaScore: any, poseData: any) => {
+  const updateLastFrame = useCallback((rebaScore: any, poseData: any) => {
     setRecordingData(prev => {
       if (prev.length === 0) return prev;
       const updated = [...prev];
       const lastIndex = updated.length - 1;
       updated[lastIndex] = {
         ...updated[lastIndex],
-        rulaScore,
+        rebaScore,
         poseData
       };
       return updated;

@@ -8,16 +8,16 @@ import ObjectDetectionWeightInput from './object-detection-weight-input';
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
 
-import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
+import { estimateWeightFromPosture, calculateWeightAdjustedReba } from '@/lib/weight-detection';
 import { generatePostureAnalysis } from '@/lib/posture-analysis';
 
 interface RecordingFrame {
   timestamp: number;
-  rulaScore: any;
+  rebaScore: any;
   imageData: string;
   poseData: any;
   weightEstimation?: any;
-  adjustedRulaScore?: any;
+  adjustedRebaScore?: any;
   hasObject?: boolean;
 }
 
@@ -29,7 +29,7 @@ interface RecordingPanelProps {
   onStopRecording: () => void;
   onClearRecording: () => void;
   currentPoseData?: any;
-  currentRulaScore?: any;
+  currentRebaScore?: any;
   videoRef?: React.RefObject<HTMLVideoElement>;
 }
 
@@ -47,7 +47,7 @@ export default function RecordingPanel({
   onStopRecording,
   onClearRecording,
   currentPoseData,
-  currentRulaScore,
+  currentRebaScore,
   videoRef
 }: RecordingPanelProps) {
   const [selectedFrame, setSelectedFrame] = useState<RecordingFrame | null>(null);
@@ -70,7 +70,7 @@ export default function RecordingPanel({
     time: number;
     estimatedWeight: number;
     confidence: number;
-    rulaScore: number;
+    rebaScore: number;
     hasObject: boolean;
   }>>([]);
 
@@ -94,7 +94,7 @@ export default function RecordingPanel({
 
   // Update graph data only during recording
   useEffect(() => {
-    if (isRecording && currentPoseData && currentRulaScore && recordingStartTimeRef.current) {
+    if (isRecording && currentPoseData && currentRebaScore && recordingStartTimeRef.current) {
       const elapsedSeconds = (Date.now() - recordingStartTimeRef.current) / 1000;
 
       // Stop adding data after 60 seconds
@@ -104,9 +104,9 @@ export default function RecordingPanel({
 
         const newDataPoint = {
           time: elapsedSeconds,
-          rulaScore: currentRulaScore.finalScore || 0,
-          stressLevel: currentRulaScore.stressLevel || 0,
-          riskLevel: currentRulaScore.riskLevel || 'Unknown',
+          rebaScore: currentRebaScore.finalScore || 0,
+          stressLevel: currentRebaScore.stressLevel || 0,
+          riskLevel: currentRebaScore.riskLevel || 'Unknown',
           hasObject
         };
 
@@ -115,8 +115,8 @@ export default function RecordingPanel({
         // Estimated weight data
         if (currentPoseData.keypoints) {
           const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints);
-          const adjustedRulaScore = calculateWeightAdjustedRula(
-            currentRulaScore,
+          const adjustedRebaScore = calculateWeightAdjustedReba(
+            currentRebaScore,
             weightEstimation
           );
 
@@ -124,7 +124,7 @@ export default function RecordingPanel({
             time: elapsedSeconds,
             estimatedWeight: weightEstimation.estimatedWeight || 0,
             confidence: weightEstimation.confidence || 0,
-            rulaScore: adjustedRulaScore.finalScore || 0,
+            rebaScore: adjustedRebaScore.finalScore || 0,
             hasObject: weightEstimation.estimatedWeight > 0
           };
 
@@ -132,7 +132,7 @@ export default function RecordingPanel({
         }
       }
     }
-  }, [isRecording, currentPoseData, currentRulaScore]);
+  }, [isRecording, currentPoseData, currentRebaScore]);
 
   const addManualWeightFromInput = (weight: ManualWeight) => {
     setManualWeights(prev => [...prev, {
@@ -183,24 +183,24 @@ export default function RecordingPanel({
       const processedManualData = recordingData.map(frame => {
         if (frame.poseData?.keypoints) {
           const weightEstimation = estimateWeightFromPosture(frame.poseData.keypoints);
-          const adjustedRulaScore = calculateWeightAdjustedRula(
-            frame.rulaScore,
+          const adjustedRebaScore = calculateWeightAdjustedReba(
+            frame.rebaScore,
             weightEstimation,
             getTotalManualWeight()
           );
 
           return {
             time: frame.timestamp,
-            normalScore: frame.rulaScore?.finalScore || 0,
-            adjustedScore: adjustedRulaScore?.finalScore || 0,
+            normalScore: frame.rebaScore?.finalScore || 0,
+            adjustedScore: adjustedRebaScore?.finalScore || 0,
             weight: getTotalManualWeight(),
             hasObject: weightEstimation.estimatedWeight > 0
           };
         }
         return {
           time: frame.timestamp,
-          normalScore: frame.rulaScore?.finalScore || 0,
-          adjustedScore: frame.rulaScore?.finalScore || 0,
+          normalScore: frame.rebaScore?.finalScore || 0,
+          adjustedScore: frame.rebaScore?.finalScore || 0,
           weight: 0,
           hasObject: false
         };
@@ -214,8 +214,8 @@ export default function RecordingPanel({
   const processedData = recordingData.map(frame => {
     if (frame.poseData?.keypoints) {
       const weightEstimation = estimateWeightFromPosture(frame.poseData.keypoints);
-      const adjustedRulaScore = calculateWeightAdjustedRula(
-        frame.rulaScore,
+      const adjustedRebaScore = calculateWeightAdjustedReba(
+        frame.rebaScore,
         weightEstimation,
         analysisMode === 'manual' ? getTotalManualWeight() : undefined
       );
@@ -223,7 +223,7 @@ export default function RecordingPanel({
       return {
         ...frame,
         weightEstimation,
-        adjustedRulaScore,
+        adjustedRebaScore,
         hasObject: weightEstimation.estimatedWeight > 0
       };
     }
@@ -281,7 +281,7 @@ export default function RecordingPanel({
 
   // Update live graph data continuously (no real-time weight dialogs)
   useEffect(() => {
-    if (currentPoseData && currentRulaScore) {
+    if (currentPoseData && currentRebaScore) {
       const currentTime = Date.now();
       const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints || []);
 
@@ -290,7 +290,7 @@ export default function RecordingPanel({
           time: currentTime,
           estimatedWeight: weightEstimation.estimatedWeight,
           confidence: weightEstimation.confidence,
-          rulaScore: currentRulaScore.finalScore || 0,
+          rebaScore: currentRebaScore.finalScore || 0,
           hasObject: weightEstimation.estimatedWeight > 0
         }];
 
@@ -298,7 +298,7 @@ export default function RecordingPanel({
         return newData.slice(-100);
       });
     }
-  }, [currentPoseData, currentRulaScore]);
+  }, [currentPoseData, currentRebaScore]);
 
   const handleManualWeightAdd = (weight: ManualWeight) => {
     setManualWeights(prev => [...prev, weight]);
@@ -322,12 +322,12 @@ export default function RecordingPanel({
           loadDirection: 'front' as const 
         } 
       };
-      return calculateWeightAdjustedRula(frame.rulaScore, frame.weightEstimation || defaultWeightEstimation, totalManualWeight);
+      return calculateWeightAdjustedReba(frame.rebaScore, frame.weightEstimation || defaultWeightEstimation, totalManualWeight);
     }
 
 
 
-    return frame.rulaScore;
+    return frame.rebaScore;
   };
 
   const getCurrentWeightEstimation = (frame: RecordingFrame) => {
@@ -362,7 +362,7 @@ export default function RecordingPanel({
     // Prepare Live Graph Data
     const liveData = liveGraphData.map((point, index) => ({
       'Time (seconds)': index * 0.1, // Assuming 10fps recording
-      'RULA Score': point.rulaScore,
+      'RULA Score': point.rebaScore,
       'Estimated Weight (kg)': point.estimatedWeight,
       'Confidence': point.confidence,
       'Has Object': point.hasObject ? 'Yes' : 'No'
@@ -371,7 +371,7 @@ export default function RecordingPanel({
     // Prepare Recording Graph Data (Normal)
     const recordingData = recordingGraphData.map((point, index) => ({
       'Time (seconds)': index * (60 / recordingGraphData.length), // 60 seconds total
-      'RULA Score': point.rulaScore,
+      'RULA Score': point.rebaScore,
       'Risk Level': point.riskLevel,
       'Upper Arm Score': point.upperArm || 'N/A',
       'Lower Arm Score': point.lowerArm || 'N/A',
@@ -384,7 +384,7 @@ export default function RecordingPanel({
     const estimatedData = estimatedGraphData.map((point, index) => ({
       'Time (seconds)': index * (60 / estimatedGraphData.length),
       'Original RULA Score': point.originalRulaScore,
-      'Adjusted RULA Score': point.adjustedRulaScore,
+      'Adjusted RULA Score': point.adjustedRebaScore,
       'Estimated Weight (kg)': point.estimatedWeight,
       'Weight Multiplier': point.weightMultiplier,
       'Original Upper Arm': point.originalUpperArm || 'N/A',
@@ -405,7 +405,7 @@ export default function RecordingPanel({
     const manualData = manualGraphData.map((point, index) => ({
       'Time (seconds)': index * (60 / manualGraphData.length),
       'Original RULA Score': point.originalRulaScore,
-      'Adjusted RULA Score': point.adjustedRulaScore,
+      'Adjusted RULA Score': point.adjustedRebaScore,
       'Manual Weight (kg)': point.manualWeight,
       'Weight Multiplier': point.weightMultiplier,
       'Original Upper Arm': point.originalUpperArm || 'N/A',
@@ -515,7 +515,7 @@ export default function RecordingPanel({
     const avgConfidence = validFrames.length > 0 ?
       validFrames.reduce((sum, frame) => sum + (frame.poseData?.score || 0), 0) / validFrames.length * 100 : 0;
     const avgRulaScore = validFrames.length > 0 ?
-      validFrames.reduce((sum, frame) => sum + (frame.rulaScore?.finalScore || 0), 0) / validFrames.length : 0;
+      validFrames.reduce((sum, frame) => sum + (frame.rebaScore?.finalScore || 0), 0) / validFrames.length : 0;
 
     // Get risk level
     const getRiskLevel = (score: number) => {
@@ -588,14 +588,14 @@ export default function RecordingPanel({
 
     // Get average body part scores
     const avgBodyParts = validFrames.reduce((acc, frame) => {
-      if (frame.rulaScore) {
-        acc.upperArm += frame.rulaScore.upperArm || 0;
-        acc.lowerArm += frame.rulaScore.lowerArm || 0;
-        acc.wrist += frame.rulaScore.wrist || 0;
-        acc.neck += frame.rulaScore.neck || 0;
-        acc.trunk += frame.rulaScore.trunk || 0;
-        acc.scoreA += frame.rulaScore.scoreA || 0;
-        acc.scoreB += frame.rulaScore.scoreB || 0;
+      if (frame.rebaScore) {
+        acc.upperArm += frame.rebaScore.upperArm || 0;
+        acc.lowerArm += frame.rebaScore.lowerArm || 0;
+        acc.wrist += frame.rebaScore.wrist || 0;
+        acc.neck += frame.rebaScore.neck || 0;
+        acc.trunk += frame.rebaScore.trunk || 0;
+        acc.scoreA += frame.rebaScore.scoreA || 0;
+        acc.scoreB += frame.rebaScore.scoreB || 0;
       }
       return acc;
     }, { upperArm: 0, lowerArm: 0, wrist: 0, neck: 0, trunk: 0, scoreA: 0, scoreB: 0 });
@@ -641,8 +641,8 @@ export default function RecordingPanel({
             frame.timestamp;
           
           addText(`Frame ${index + 1} (${formatTime(timeSeconds)}):`);
-          addText(`  RULA Score: ${frame.rulaScore?.finalScore || 0} - ${getRiskLevel(frame.rulaScore?.finalScore || 0)}`);
-          addText(`  Body Parts: UA:${frame.rulaScore?.upperArm || 0} LA:${frame.rulaScore?.lowerArm || 0} W:${frame.rulaScore?.wrist || 0} N:${frame.rulaScore?.neck || 0} T:${frame.rulaScore?.trunk || 0}`);
+          addText(`  RULA Score: ${frame.rebaScore?.finalScore || 0} - ${getRiskLevel(frame.rebaScore?.finalScore || 0)}`);
+          addText(`  Body Parts: UA:${frame.rebaScore?.upperArm || 0} LA:${frame.rebaScore?.lowerArm || 0} W:${frame.rebaScore?.wrist || 0} N:${frame.rebaScore?.neck || 0} T:${frame.rebaScore?.trunk || 0}`);
           
           if (frame.hasObject) {
             addText(`  Object detected in this frame`);
@@ -856,7 +856,7 @@ export default function RecordingPanel({
                   />
                   <Line 
                     type="monotone" 
-                    dataKey="rulaScore" 
+                    dataKey="rebaScore" 
                     stroke="#3B82F6" 
                     strokeWidth={2}
                     dot={(props: any) => {
@@ -885,8 +885,8 @@ export default function RecordingPanel({
                 <LineChart 
                   data={recordingGraphData.map((liveData, index) => ({
                     ...liveData,
-                    liveRulaScore: liveData.rulaScore,
-                    estimatedRulaScore: estimatedGraphData[index]?.rulaScore || liveData.rulaScore
+                    liveRulaScore: liveData.rebaScore,
+                    estimatedRulaScore: estimatedGraphData[index]?.rebaScore || liveData.rebaScore
                   }))} 
                   onClick={handleChartClick}
                 >
@@ -1072,7 +1072,7 @@ export default function RecordingPanel({
                     <div className="relative w-full h-full bg-black">
                       <SkeletonOverlay
                         poseData={selectedFrame.poseData}
-                        rulaScore={getCurrentRulaScore(selectedFrame)}
+                        rebaScore={getCurrentRulaScore(selectedFrame)}
                         imageData={selectedFrame.imageData}
                         width={640}
                         height={360}
@@ -1101,16 +1101,16 @@ export default function RecordingPanel({
               {true && (
                 <div>
                 <h5 className="text-lg font-medium mb-3">RULA Assessment</h5>
-                {selectedFrame.rulaScore ? (
+                {selectedFrame.rebaScore ? (
                   <div className="space-y-3">
-                    {analysisMode !== 'normal' && selectedFrame.adjustedRulaScore && (
+                    {analysisMode !== 'normal' && selectedFrame.adjustedRebaScore && (
                       <div className="bg-yellow-900/20 border border-yellow-700 rounded-lg p-3">
                         <h6 className="text-sm font-medium text-yellow-400 mb-2">Weight-Adjusted Analysis</h6>
                         <div className="grid grid-cols-2 gap-2 text-sm">
-                          <div>Original Score: {selectedFrame.rulaScore.finalScore}</div>
-                          <div>Adjusted Score: {selectedFrame.adjustedRulaScore.finalScore}</div>
-                          <div>Weight: {selectedFrame.adjustedRulaScore.effectiveWeight}kg</div>
-                          <div>Multiplier: {selectedFrame.adjustedRulaScore.weightMultiplier}x</div>
+                          <div>Original Score: {selectedFrame.rebaScore.finalScore}</div>
+                          <div>Adjusted Score: {selectedFrame.adjustedRebaScore.finalScore}</div>
+                          <div>Weight: {selectedFrame.adjustedRebaScore.effectiveWeight}kg</div>
+                          <div>Multiplier: {selectedFrame.adjustedRebaScore.weightMultiplier}x</div>
                         </div>
                       </div>
                     )}
@@ -1236,13 +1236,13 @@ export default function RecordingPanel({
           </div>
           <div className="bg-dark-secondary rounded-lg p-4 text-center">
             <div className="text-2xl font-bold text-green-400">
-              {recordingData.filter(f => f.rulaScore?.finalScore <= 2).length}
+              {recordingData.filter(f => f.rebaScore?.finalScore <= 2).length}
             </div>
             <div className="text-sm text-text-secondary">Safe Postures</div>
           </div>
           <div className="bg-dark-secondary rounded-lg p-4 text-center">
             <div className="text-2xl font-bold text-red-400">
-              {recordingData.filter(f => f.rulaScore?.finalScore > 4).length}
+              {recordingData.filter(f => f.rebaScore?.finalScore > 4).length}
             </div>
             <div className="text-sm text-text-secondary">Risk Postures</div>
           </div>

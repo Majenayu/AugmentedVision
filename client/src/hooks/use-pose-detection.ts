@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { initializePoseDetection, detectPose } from "@/lib/pose-detection";
-import { calculateRulaScore } from "@/lib/rula-calculator-simple";
+import { calculateRebaScore } from "@/lib/rula-calculator-simple";
 
 export function usePoseDetection(
   videoRef: React.RefObject<HTMLVideoElement>,
@@ -9,7 +9,7 @@ export function usePoseDetection(
 ) {
   const [poseDetector, setPoseDetector] = useState<any>(null);
   const [poseData, setPoseData] = useState<any>(null);
-  const [rulaScore, setRulaScore] = useState<any>(null);
+  const [rebaScore, setRebaScore] = useState<any>(null);
   const [confidence, setConfidence] = useState(0);
   const [fps, setFps] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -47,12 +47,12 @@ export function usePoseDetection(
         const avgConfidence = pose.keypoints.reduce((sum: number, kp: any) => sum + kp.score, 0) / pose.keypoints.length;
         setConfidence(Math.round(avgConfidence * 100));
         
-        // Calculate RULA score
-        const rula = calculateRulaScore(pose.keypoints);
-        setRulaScore(rula);
+        // Calculate REBA score
+        const reba = calculateRebaScore(pose.keypoints);
+        setRebaScore(reba);
       } else {
         setPoseData(null);
-        setRulaScore(null);
+        setRebaScore(null);
         setConfidence(0);
       }
       
@@ -93,7 +93,7 @@ export function usePoseDetection(
   return {
     poseDetector,
     poseData,
-    rulaScore,
+    rebaScore,
     confidence,
     fps,
     isProcessing,

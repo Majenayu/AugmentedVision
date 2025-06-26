@@ -3,7 +3,7 @@ import * as THREE from 'three';
 
 interface ThreeDViewProps {
   poseData: any;
-  rulaScore: any;
+  rebaScore: any;
 }
 
 // COCO pose model connections (17 keypoints) - matching your CameraView
@@ -65,7 +65,7 @@ const RULA_SCORE_MAPPING = {
   legs: 'trunk' // Legs use trunk score as fallback since RULA doesn't score legs
 };
 
-export default function ThreeDView({ poseData, rulaScore }: ThreeDViewProps) {
+export default function ThreeDView({ poseData, rebaScore }: ThreeDViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -78,8 +78,8 @@ export default function ThreeDView({ poseData, rulaScore }: ThreeDViewProps) {
   const [cameraPosition, setCameraPosition] = useState({ x: 0, y: 0, z: 5 });
 
   // Get color based on individual RULA score (1-7 scale)
-  const getRulaColor = useCallback((bodyPart: string, rulaScore: any) => {
-    if (!rulaScore) {
+  const getRulaColor = useCallback((bodyPart: string, rebaScore: any) => {
+    if (!rebaScore) {
       return new THREE.Color(0x888888); // Gray for unknown
     }
 
@@ -87,11 +87,11 @@ export default function ThreeDView({ poseData, rulaScore }: ThreeDViewProps) {
     const rulaProperty = RULA_SCORE_MAPPING[bodyPart as keyof typeof RULA_SCORE_MAPPING];
     let score = 1; // Default low score
 
-    if (rulaProperty && rulaScore[rulaProperty] !== undefined) {
-      score = rulaScore[rulaProperty];
+    if (rulaProperty && rebaScore[rulaProperty] !== undefined) {
+      score = rebaScore[rulaProperty];
     } else {
       // Fallback to final score if specific part not found
-      score = rulaScore.finalScore || 1;
+      score = rebaScore.finalScore || 1;
     }
     
     // Ensure score is within valid range (1-7)
@@ -195,7 +195,7 @@ export default function ThreeDView({ poseData, rulaScore }: ThreeDViewProps) {
   }, []);
 
   // Update skeleton visualization with individual RULA coloring
-  const updateSkeleton = useCallback((keypoints: any[], rulaScore: any) => {
+  const updateSkeleton = useCallback((keypoints: any[], rebaScore: any) => {
     if (!skeletonGroupRef.current || !keypoints || keypoints.length === 0) {
       console.log('Cannot update skeleton: missing skeleton group or keypoints');
       return;
@@ -212,14 +212,14 @@ export default function ThreeDView({ poseData, rulaScore }: ThreeDViewProps) {
       return;
     }
 
-    console.log('RULA Score for coloring:', rulaScore);
+    console.log('RULA Score for coloring:', rebaScore);
 
     // Draw joints (keypoints) first
     let jointsDrawn = 0;
     transformedPositions.forEach((position, index) => {
       if (position) {
         const bodyPart = getBodyPartForLandmark(index);
-        const color = getRulaColor(bodyPart, rulaScore);
+        const color = getRulaColor(bodyPart, rebaScore);
         
         const geometry = new THREE.SphereGeometry(0.08, 16, 16);
         const material = new THREE.MeshPhongMaterial({ 
@@ -245,7 +245,7 @@ export default function ThreeDView({ poseData, rulaScore }: ThreeDViewProps) {
         // Get body part for this connection
         const connectionKey = `${Math.min(startIdx, endIdx)}-${Math.max(startIdx, endIdx)}`;
         const bodyPart = CONNECTION_BODY_PARTS[connectionKey] || 'trunk';
-        const color = getRulaColor(bodyPart, rulaScore);
+        const color = getRulaColor(bodyPart, rebaScore);
         
         // Create cylinder for bone
         const direction = new THREE.Vector3().subVectors(endPos, startPos);
@@ -443,9 +443,9 @@ export default function ThreeDView({ poseData, rulaScore }: ThreeDViewProps) {
   useEffect(() => {
     if (poseData && poseData.keypoints && isInitializedRef.current) {
       console.log('Received pose data update:', poseData.keypoints.length, 'keypoints');
-      updateSkeleton(poseData.keypoints, rulaScore);
+      updateSkeleton(poseData.keypoints, rebaScore);
     }
-  }, [poseData, rulaScore, updateSkeleton]);
+  }, [poseData, rebaScore, updateSkeleton]);
 
   return (
     <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
@@ -529,20 +529,20 @@ export default function ThreeDView({ poseData, rulaScore }: ThreeDViewProps) {
         )}
         
         {/* Simplified RULA Score Overlay - Final Score Only */}
-        {rulaScore && (
+        {rebaScore && (
           <div className="absolute bottom-4 left-4 bg-black bg-opacity-80 rounded-lg p-3">
             <div className="text-white text-sm">
               <div className="flex items-center space-x-2 mb-2">
                 <span>📊</span>
-                <span className="font-semibold">RULA Final Score: {String(rulaScore.finalScore || 'N/A')}</span>
+                <span className="font-semibold">RULA Final Score: {String(rebaScore.finalScore || 'N/A')}</span>
               </div>
               <div className="text-xs text-gray-300">
                 Risk Level: <span className={`font-semibold ${
-                  rulaScore.finalScore <= 2 ? 'text-green-400' :
-                  rulaScore.finalScore <= 4 ? 'text-yellow-400' :
-                  rulaScore.finalScore <= 6 ? 'text-orange-400' : 'text-red-400'
+                  rebaScore.finalScore <= 2 ? 'text-green-400' :
+                  rebaScore.finalScore <= 4 ? 'text-yellow-400' :
+                  rebaScore.finalScore <= 6 ? 'text-orange-400' : 'text-red-400'
                 }`}>
-                  {String(rulaScore.riskLevel || 'Unknown')}
+                  {String(rebaScore.riskLevel || 'Unknown')}
                 </span>
               </div>
             </div>
@@ -550,13 +550,13 @@ export default function ThreeDView({ poseData, rulaScore }: ThreeDViewProps) {
         )}
         
         {/* Debug Info */}
-        {poseData && rulaScore && (
+        {poseData && rebaScore && (
           <div className="absolute top-4 right-20 bg-black bg-opacity-70 rounded-lg p-2 text-xs text-gray-300">
             <div className="font-semibold mb-1">Debug Info</div>
             <div>Keypoints: {poseData.keypoints?.length || 0}</div>
             <div>Valid: {poseData.keypoints?.filter((kp: any) => kp && kp.score > 0.3).length || 0}</div>
-            <div>Final RULA: {rulaScore.finalScore || 'N/A'}</div>
-            <div>Stress Level: {rulaScore.stressLevel || 'N/A'}</div>
+            <div>Final RULA: {rebaScore.finalScore || 'N/A'}</div>
+            <div>Stress Level: {rebaScore.stressLevel || 'N/A'}</div>
           </div>
         )}
       </div>

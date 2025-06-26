@@ -1,14 +1,14 @@
 interface MetricsDashboardProps {
   fps: number;
   sessionDuration: string;
-  rulaScore: any;
+  rebaScore: any;
   poseData: any;
 }
 
 export default function MetricsDashboard({ 
   fps, 
   sessionDuration, 
-  rulaScore, 
+  rebaScore, 
   poseData 
 }: MetricsDashboardProps) {
   const inferenceTime = fps > 0 ? Math.round(1000 / fps) : 0;
@@ -74,20 +74,20 @@ export default function MetricsDashboard({
         <div className="space-y-3">
           <div className="flex justify-between items-center">
             <span className="text-text-secondary">Current RULA Score</span>
-            <span className="font-mono">{rulaScore?.finalScore || '--'}</span>
+            <span className="font-mono">{rebaScore?.finalScore || '--'}</span>
           </div>
           <div className="flex justify-between items-center">
             <span className="text-text-secondary">Risk Level</span>
             <span className={`font-mono text-sm ${
-              !rulaScore ? 'text-gray-400' :
-              rulaScore.finalScore <= 2 ? 'text-green-400' :
-              rulaScore.finalScore <= 4 ? 'text-yellow-400' :
-              rulaScore.finalScore <= 6 ? 'text-orange-400' : 'text-red-400'
+              !rebaScore ? 'text-gray-400' :
+              rebaScore.finalScore <= 2 ? 'text-green-400' :
+              rebaScore.finalScore <= 4 ? 'text-yellow-400' :
+              rebaScore.finalScore <= 6 ? 'text-orange-400' : 'text-red-400'
             }`}>
-              {rulaScore ? (
-                rulaScore.finalScore <= 2 ? 'Low' :
-                rulaScore.finalScore <= 4 ? 'Medium' :
-                rulaScore.finalScore <= 6 ? 'High' : 'Critical'
+              {rebaScore ? (
+                rebaScore.finalScore <= 2 ? 'Low' :
+                rebaScore.finalScore <= 4 ? 'Medium' :
+                rebaScore.finalScore <= 6 ? 'High' : 'Critical'
               ) : 'N/A'}
             </span>
           </div>

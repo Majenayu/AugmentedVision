@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import CameraView from "@/components/pose-detection/camera-view";
 import ThreeDView from "@/components/pose-detection/three-d-view";
-import RulaAssessment from "@/components/pose-detection/rula-assessment";
+import RebaAssessment from "@/components/pose-detection/rula-assessment";
 import MetricsDashboard from "@/components/pose-detection/metrics-dashboard";
 import RecordingPanel from "@/components/pose-detection/recording-panel";
 import { usePoseDetection } from "@/hooks/use-pose-detection";
@@ -31,7 +31,7 @@ export default function Home() {
   const {
     poseDetector,
     poseData,
-    rulaScore,
+    rebaScore,
     confidence,
     fps,
     isProcessing,
@@ -48,12 +48,12 @@ export default function Home() {
     clearRecording
   } = useRecording();
 
-  // Update recording with current pose and RULA data
+  // Update recording with current pose and REBA data
   useEffect(() => {
-    if (isRecording && poseData && rulaScore) {
-      updateLastFrame(rulaScore, poseData);
+    if (isRecording && poseData && rebaScore) {
+      updateLastFrame(rebaScore, poseData);
     }
-  }, [isRecording, poseData, rulaScore, updateLastFrame]);
+  }, [isRecording, poseData, rebaScore, updateLastFrame]);
 
   useEffect(() => {
     const initModel = async () => {
@@ -107,12 +107,12 @@ export default function Home() {
     startRecording(videoRef);
   };
 
-  // Update recording data when pose/RULA data changes
+  // Update recording data when pose/REBA data changes
   useEffect(() => {
-    if (isRecording && poseData && rulaScore) {
-      updateLastFrame(rulaScore, poseData);
+    if (isRecording && poseData && rebaScore) {
+      updateLastFrame(rebaScore, poseData);
     }
-  }, [isRecording, poseData, rulaScore, updateLastFrame]);
+  }, [isRecording, poseData, rebaScore, updateLastFrame]);
 
   const handleStopCamera = () => {
     stopCamera();
@@ -232,7 +232,7 @@ export default function Home() {
 
         {/* Main Viewing Area */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <ThreeDView poseData={poseData} rulaScore={rulaScore} />
+          <ThreeDView poseData={poseData} rebaScore={rebaScore} />
           <CameraView 
             videoRef={videoRef} 
             canvasRef={canvasRef} 
@@ -241,9 +241,9 @@ export default function Home() {
           />
         </div>
 
-        {/* RULA Assessment Panel */}
-        <RulaAssessment 
-          rulaScore={rulaScore} 
+        {/* REBA Assessment Panel */}
+        <RebaAssessment 
+          rebaScore={rebaScore} 
           poseData={poseData} 
           isProcessing={isProcessing}
         />
@@ -252,7 +252,7 @@ export default function Home() {
         <MetricsDashboard 
           fps={fps}
           sessionDuration={formatDuration(sessionDuration)}
-          rulaScore={rulaScore}
+          rebaScore={rebaScore}
           poseData={poseData}
         />
 
@@ -265,7 +265,7 @@ export default function Home() {
             onStopRecording={stopRecording}
             onClearRecording={clearRecording}
             currentPoseData={poseData}
-            currentRulaScore={rulaScore}
+            currentRebaScore={rebaScore}
             videoRef={videoRef}
           />
       </main>

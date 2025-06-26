@@ -42,8 +42,8 @@ export function estimateWeightFromPosture(keypoints: Keypoint[]): WeightEstimati
   };
 }
 
-export function calculateWeightAdjustedRula(originalRula: any, weightEstimation: WeightEstimation, manualWeight?: number): any {
-  if (!originalRula) return originalRula;
+export function calculateWeightAdjustedReba(originalReba: any, weightEstimation: WeightEstimation, manualWeight?: number): any {
+  if (!originalReba) return originalReba;
   
   const effectiveWeight = manualWeight || weightEstimation.estimatedWeight || 0;
   
@@ -57,11 +57,11 @@ export function calculateWeightAdjustedRula(originalRula: any, weightEstimation:
     weightMultiplier = 1.5; // Moderate
   }
   
-  // Apply weight adjustment to RULA score
-  const adjustedFinalScore = Math.min(7, Math.ceil(originalRula.finalScore * weightMultiplier));
+  // Apply weight adjustment to REBA score
+  const adjustedFinalScore = Math.min(7, Math.ceil(originalReba.finalScore * weightMultiplier));
   
   return {
-    ...originalRula,
+    ...originalReba,
     finalScore: adjustedFinalScore,
     effectiveWeight,
     weightMultiplier,
@@ -201,7 +201,7 @@ function calculateWeightFromPosture(bodyPosture: PostureAnalysis, keypoints: Key
 
 
 
-// RULA scoring tables (copied from original calculator)
+// REBA scoring tables (copied from original calculator)
 function getScoreA(upperArm: number, lowerArm: number, wrist: number): number {
   const scoreATable = [
     [[1,2,2,2,2,3,3,3], [2,2,2,2,3,3,3,3], [2,3,3,3,3,3,4,4]],

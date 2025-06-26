@@ -2,7 +2,7 @@ import React, { useRef, useEffect } from 'react';
 
 interface SkeletonOverlayProps {
   poseData: any;
-  rulaScore: any;
+  rebaScore: any;
   imageData?: string;
   width: number;
   height: number;
@@ -28,7 +28,7 @@ const KEYPOINT_NAMES = [
 
 export default function SkeletonOverlay({
   poseData,
-  rulaScore,
+  rebaScore,
   imageData,
   width,
   height,
@@ -160,22 +160,22 @@ export default function SkeletonOverlay({
         // Color coding based on RULA components and weight
         let riskLevel = 1;
 
-        if (rulaScore) {
+        if (rebaScore) {
           // Use the actual RULA score passed in (which should be weight-adjusted in manual mode)
           // Map joint to RULA component
           if ([5, 6, 7, 8].includes(jointIndex)) { // Arms
-            riskLevel = Math.max(rulaScore.upperArm || 1, rulaScore.lowerArm || 1);
+            riskLevel = Math.max(rebaScore.upperArm || 1, rebaScore.lowerArm || 1);
           } else if ([9, 10].includes(jointIndex)) { // Wrists
-            riskLevel = rulaScore.wrist || 1;
+            riskLevel = rebaScore.wrist || 1;
           } else if ([0, 1, 2, 3, 4].includes(jointIndex)) { // Neck/Head
-            riskLevel = rulaScore.neck || 1;
+            riskLevel = rebaScore.neck || 1;
           } else if ([11, 12].includes(jointIndex)) { // Trunk
-            riskLevel = rulaScore.trunk || 1;
+            riskLevel = rebaScore.trunk || 1;
           }
 
           // Use final score for better color representation when available
-          if (rulaScore.finalScore) {
-            riskLevel = Math.max(riskLevel, rulaScore.finalScore);
+          if (rebaScore.finalScore) {
+            riskLevel = Math.max(riskLevel, rebaScore.finalScore);
           }
         }
 
@@ -309,52 +309,52 @@ export default function SkeletonOverlay({
     
 
     // Export this function for use in other components
-    function generatePostureAnalysis(rulaScore: any): string {
+    function generatePostureAnalysis(rebaScore: any): string {
       const issues = [];
       const good = [];
       
       // Analyze upper arm
-      if (rulaScore.upperArm >= 4) {
+      if (rebaScore.upperArm >= 4) {
         issues.push("upper arm position is problematic (raised >90°)");
-      } else if (rulaScore.upperArm >= 3) {
+      } else if (rebaScore.upperArm >= 3) {
         issues.push("upper arm angle needs attention (45-90°)");
       } else {
         good.push("upper arm position");
       }
       
       // Analyze lower arm
-      if (rulaScore.lowerArm >= 2) {
+      if (rebaScore.lowerArm >= 2) {
         issues.push("elbow angle is suboptimal (outside 60-100°)");
       } else {
         good.push("elbow angle");
       }
       
       // Analyze wrist
-      if (rulaScore.wrist >= 3) {
+      if (rebaScore.wrist >= 3) {
         issues.push("wrist is severely bent or twisted");
-      } else if (rulaScore.wrist >= 2) {
+      } else if (rebaScore.wrist >= 2) {
         issues.push("wrist deviation detected");
       } else {
         good.push("wrist alignment");
       }
       
       // Analyze neck
-      if (rulaScore.neck >= 4) {
+      if (rebaScore.neck >= 4) {
         issues.push("neck is severely forward or tilted (>45°)");
-      } else if (rulaScore.neck >= 3) {
+      } else if (rebaScore.neck >= 3) {
         issues.push("neck posture needs correction (20-45° forward)");
-      } else if (rulaScore.neck >= 2) {
+      } else if (rebaScore.neck >= 2) {
         issues.push("slight forward head posture detected");
       } else {
         good.push("neck position");
       }
       
       // Analyze trunk
-      if (rulaScore.trunk >= 4) {
+      if (rebaScore.trunk >= 4) {
         issues.push("trunk is severely leaning or twisted (>60°)");
-      } else if (rulaScore.trunk >= 3) {
+      } else if (rebaScore.trunk >= 3) {
         issues.push("trunk posture needs attention (20-60° lean)");
-      } else if (rulaScore.trunk >= 2) {
+      } else if (rebaScore.trunk >= 2) {
         issues.push("slight trunk deviation from upright");
       } else {
         good.push("trunk alignment");
@@ -376,9 +376,9 @@ export default function SkeletonOverlay({
       }
       
       // Add recommendation
-      if (rulaScore.finalScore >= 5) {
+      if (rebaScore.finalScore >= 5) {
         analysis += "Immediate posture correction recommended.";
-      } else if (rulaScore.finalScore >= 3) {
+      } else if (rebaScore.finalScore >= 3) {
         analysis += "Consider adjusting posture soon.";
       } else {
         analysis += "Overall posture is acceptable.";
@@ -388,7 +388,7 @@ export default function SkeletonOverlay({
     }
 
     
-  }, [poseData, rulaScore, imageData, width, height, showColorCoding, weightEstimation]);
+  }, [poseData, rebaScore, imageData, width, height, showColorCoding, weightEstimation]);
 
   return (
     <canvas

@@ -5,7 +5,7 @@ interface Keypoint {
   score: number;
 }
 
-interface RulaScore {
+interface RebaScore {
   upperArm: number;
   lowerArm: number;
   wrist: number;
@@ -215,11 +215,11 @@ function getRiskLevel(finalScore: number): string {
 }
 
 function getStressLevel(finalScore: number): number {
-  // Map RULA score (1-7) to stress level (1-7)
+  // Map REBA score (1-7) to stress level (1-7)
   return Math.min(Math.max(finalScore, 1), 7);
 }
 
-export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
+export function calculateRebaScore(keypoints: Keypoint[]): RebaScore | null {
   if (!keypoints || keypoints.length < 17) {
     return null;
   }
@@ -283,7 +283,7 @@ export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
     const neckScore = getNeckScore(neckAngle, isNeckTwisted);
     const trunkScore = getTrunkScore(trunkAngle, isTrunkTwisted);
 
-    // Calculate final scores using corrected RULA tables
+    // Calculate final scores using corrected REBA tables
     const scoreA = getScoreA(upperArmScore, lowerArmScore, wristScore);
     const scoreB = getScoreB(neckScore, trunkScore);
     const finalScore = getFinalScore(scoreA, scoreB);
@@ -310,7 +310,7 @@ export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
     };
     
   } catch (error) {
-    console.error("Error calculating RULA score:", error);
+    console.error("Error calculating REBA score:", error);
     return null;
   }
 }

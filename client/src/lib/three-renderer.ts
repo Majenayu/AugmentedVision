@@ -129,7 +129,7 @@ export function useThreeRenderer() {
     };
   }, []);
 
-  const updatePose = useCallback((keypoints: any[], rulaScore: any) => {
+  const updatePose = useCallback((keypoints: any[], rebaScore: any) => {
     if (!sceneRef.current || !skeletonRef.current || !window.THREE) {
       return;
     }
@@ -184,12 +184,12 @@ export function useThreeRenderer() {
 
     // Determine skeleton color based on RULA score
     let skeletonColor = 0x00ff00; // Green (safe)
-    if (rulaScore) {
-      if (rulaScore.finalScore <= 2) {
+    if (rebaScore) {
+      if (rebaScore.finalScore <= 2) {
         skeletonColor = 0x00ff00; // Green
-      } else if (rulaScore.finalScore <= 4) {
+      } else if (rebaScore.finalScore <= 4) {
         skeletonColor = 0xffff00; // Yellow
-      } else if (rulaScore.finalScore <= 6) {
+      } else if (rebaScore.finalScore <= 6) {
         skeletonColor = 0xff8800; // Orange
       } else {
         skeletonColor = 0xff0000; // Red
