@@ -527,8 +527,9 @@ export default function RecordingPanel({
       }
 
       // 2. Skeleton Image
-      if (frame.poseData && frame.poseData.length > 0) {
+      if (frame.poseData && frame.rebaScore) {
         try {
+          console.log(`Frame ${frameNumber}: Attempting skeleton generation - poseData:`, frame.poseData, 'rebaScore:', frame.rebaScore);
           const skeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, frame.rebaScore);
           if (skeletonCanvas) {
             const pos = positions[1];
@@ -537,15 +538,21 @@ export default function RecordingPanel({
             pdf.setFontSize(10);
             pdf.text(`${pos.label} - REBA: ${frame.rebaScore?.finalScore || 0}`, pos.x, pos.y - 2);
             imagesAdded++;
+            console.log(`Frame ${frameNumber}: Skeleton image added successfully`);
+          } else {
+            console.warn(`Frame ${frameNumber}: Skeleton canvas creation returned null`);
           }
         } catch (error) {
-          console.warn('Failed to add skeleton image:', error);
+          console.error(`Frame ${frameNumber}: Failed to add skeleton image:`, error);
         }
+      } else {
+        console.warn(`Frame ${frameNumber}: Missing poseData or rebaScore - poseData:`, !!frame.poseData, 'rebaScore:', !!frame.rebaScore);
       }
 
       // 3. Estimated Weight Skeleton (if weight estimation exists)
-      if (frame.weightEstimation && frame.poseData && frame.poseData.length > 0) {
+      if (frame.weightEstimation && frame.poseData && frame.rebaScore) {
         try {
+          console.log(`Frame ${frameNumber}: Attempting estimated weight skeleton - weightEstimation:`, frame.weightEstimation);
           const adjustedRebaScore = calculateWeightAdjustedReba(frame.rebaScore, frame.weightEstimation);
           const estimatedSkeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, adjustedRebaScore, 'estimated');
           if (estimatedSkeletonCanvas) {
@@ -555,10 +562,15 @@ export default function RecordingPanel({
             pdf.setFontSize(10);
             pdf.text(`${pos.label} - ${frame.weightEstimation.estimatedWeight.toFixed(1)}kg - REBA: ${adjustedRebaScore?.finalScore || 0}`, pos.x, pos.y - 2);
             imagesAdded++;
+            console.log(`Frame ${frameNumber}: Estimated weight skeleton added successfully`);
+          } else {
+            console.warn(`Frame ${frameNumber}: Estimated weight skeleton canvas creation returned null`);
           }
         } catch (error) {
-          console.warn('Failed to add estimated weight image:', error);
+          console.error(`Frame ${frameNumber}: Failed to add estimated weight image:`, error);
         }
+      } else {
+        console.log(`Frame ${frameNumber}: No estimated weight skeleton - weightEstimation:`, !!frame.weightEstimation, 'poseData:', !!frame.poseData, 'rebaScore:', !!frame.rebaScore);
       }
 
       // 4. Manual Weight Skeleton (if manual weights exist)
@@ -629,13 +641,34 @@ export default function RecordingPanel({
         // Draw original image
         ctx.drawImage(img, 0, 0);
         
-        // Draw skeleton overlay
-        if (poseData && poseData.length > 0 && rebaScore) {
+        // Draw skeleton overlay with improved data handling
+        if (poseData && rebaScore) {
+          console.log('Creating skeleton image - poseData format:', typeof poseData, Array.isArray(poseData), poseData);
+          
+          let pose = null;
           // Handle different poseData formats
-          const pose = Array.isArray(poseData) ? poseData[0] : poseData;
-          if (pose && pose.keypoints) {
-            drawSkeletonOnCanvas(ctx, pose, rebaScore, canvas.width, canvas.height, mode);
+          if (Array.isArray(poseData)) {
+            pose = poseData.length > 0 ? poseData[0] : null;
+          } else if (poseData && typeof poseData === 'object') {
+            pose = poseData;
           }
+          
+          console.log('Extracted pose:', pose);
+          
+          if (pose && pose.keypoints && Array.isArray(pose.keypoints)) {
+            console.log('Drawing skeleton with', pose.keypoints.length, 'keypoints');
+            drawSkeletonOnCanvas(ctx, pose, rebaScore, canvas.width, canvas.height, mode);
+          } else {
+            console.warn('Invalid pose structure:', pose);
+            // Draw a fallback skeleton indicator
+            ctx.fillStyle = 'rgba(255, 0, 0, 0.8)';
+            ctx.fillRect(10, 10, 200, 30);
+            ctx.fillStyle = 'white';
+            ctx.font = '14px Arial';
+            ctx.fillText('No Pose Data Available', 20, 30);
+          }
+        } else {
+          console.warn('Missing poseData or rebaScore for skeleton creation');
         }
         
         resolve(canvas);
