@@ -4,12 +4,9 @@ import SkeletonOverlay from './skeleton-overlay';
 import ThreeDView from './three-d-view';
 import ManualWeightInput, { type ManualWeight } from './manual-weight-input';
 import ObjectDetectionWeightInput from './object-detection-weight-input';
-
 import * as XLSX from 'xlsx';
-import jsPDF from 'jspdf';
 
 import { estimateWeightFromPosture, calculateWeightAdjustedRula } from '@/lib/weight-detection';
-import { generatePostureAnalysis } from '@/lib/posture-analysis';
 
 interface RecordingFrame {
   timestamp: number;
@@ -35,8 +32,8 @@ interface RecordingPanelProps {
 
 
 
-type AnalysisMode = 'normal' | 'manual';
-type ViewMode = 'original' | 'skeleton';
+type AnalysisMode = 'normal' | 'estimated' | 'manual';
+type ViewMode = 'original' | 'skeleton' | 'enhanced';
 type GraphType = 'live' | 'estimated' | 'manual';
 
 export default function RecordingPanel({
@@ -52,12 +49,10 @@ export default function RecordingPanel({
 }: RecordingPanelProps) {
   const [selectedFrame, setSelectedFrame] = useState<RecordingFrame | null>(null);
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('normal');
-  const [viewMode, setViewMode] = useState<ViewMode>('original');
+  const [viewMode, setViewMode] = useState<ViewMode>('enhanced');
   const [activeGraph, setActiveGraph] = useState<GraphType>('live');
   const [manualWeights, setManualWeights] = useState<ManualWeight[]>([]);
   const [showWeightDialog, setShowWeightDialog] = useState(false);
-  const [showSecondObjectDetection, setShowSecondObjectDetection] = useState(false);
-
 
   // Separate graph data that only records during recording session
   const [recordingGraphData, setRecordingGraphData] = useState<any[]>([]);
@@ -99,8 +94,26 @@ export default function RecordingPanel({
 
       // Stop adding data after 60 seconds
       if (elapsedSeconds <= 60) {
-        // Detect objects in the current frame
-        const hasObject = currentPoseData.keypoints && estimateWeightFromPosture(currentPoseData.keypoints).estimatedWeight > 0;
+        // Detect objects based on arm position and pose characteristics
+        const hasObject = currentPoseData.keypoints && (() => {
+          const weightEstimation = estimateWeightFromPosture(currentPoseData.keypoints);
+          
+          // Debug logging to see what's being detected
+          if (weightEstimation.bodyPosture.isCarrying || weightEstimation.bodyPosture.isLifting) {
+            console.log('Object detected:', {
+              isCarrying: weightEstimation.bodyPosture.isCarrying,
+              isLifting: weightEstimation.bodyPosture.isLifting,
+              armPosition: weightEstimation.bodyPosture.armPosition,
+              estimatedWeight: weightEstimation.estimatedWeight
+            });
+          }
+          
+          // More sensitive detection - consider object present if any holding behavior is detected
+          return weightEstimation.bodyPosture.isCarrying || 
+                 weightEstimation.bodyPosture.isLifting ||
+                 weightEstimation.bodyPosture.armPosition === 'extended' ||
+                 weightEstimation.bodyPosture.armPosition === 'overhead';
+        })();
 
         const newDataPoint = {
           time: elapsedSeconds,
@@ -149,7 +162,11 @@ export default function RecordingPanel({
       id: Date.now().toString(),
       name: `Object ${manualWeights.length + 1}`,
       weight: 0,
+
       icon: '📦'
+
+      icon: "📦"
+ 8aec0b5ba0bad59b164834ccf0998d125ee1ffbe
     };
     setManualWeights([...manualWeights, newWeight]);
   };
@@ -261,14 +278,6 @@ export default function RecordingPanel({
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const getSessionDuration = () => {
-    if (recordingData.length === 0) return "00:00";
-    const startTime = recordingData[0].timestamp;
-    const endTime = recordingData[recordingData.length - 1].timestamp;
-    const durationMs = endTime - startTime;
-    return formatTime(Math.floor(durationMs / 1000));
-  };
-
   const startRecording = () => {
     if (!isRecording) {
       recordingStartTimeRef.current = Date.now();
@@ -325,7 +334,9 @@ export default function RecordingPanel({
       return calculateWeightAdjustedRula(frame.rulaScore, frame.weightEstimation || defaultWeightEstimation, totalManualWeight);
     }
 
-
+    if (analysisMode === 'estimated' && frame.weightEstimation?.estimatedWeight > 0) {
+      return calculateWeightAdjustedRula(frame.rulaScore, frame.weightEstimation);
+    }
 
     return frame.rulaScore;
   };
@@ -467,200 +478,6 @@ export default function RecordingPanel({
     XLSX.writeFile(workbook, fileName);
   };
 
-  // PDF Report Generation Function
-  const generatePDFReport = () => {
-    const pdf = new jsPDF();
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 20;
-    const lineHeight = 6;
-    let yPosition = margin;
-
-    // Helper function to add text with automatic page breaks
-    const addText = (text: string, fontSize = 10, isBold = false, align: 'left' | 'center' | 'right' = 'left') => {
-      if (yPosition > pageHeight - margin) {
-        pdf.addPage();
-        yPosition = margin;
-      }
-      
-      pdf.setFontSize(fontSize);
-      if (isBold) {
-        pdf.setFont('helvetica', 'bold');
-      } else {
-        pdf.setFont('helvetica', 'normal');
-      }
-
-      if (align === 'center') {
-        pdf.text(text, pageWidth / 2, yPosition, { align: 'center' });
-      } else if (align === 'right') {
-        pdf.text(text, pageWidth - margin, yPosition, { align: 'right' });
-      } else {
-        pdf.text(text, margin, yPosition);
-      }
-      
-      yPosition += lineHeight;
-    };
-
-    const addSection = (title: string) => {
-      yPosition += 3;
-      addText(title, 12, true);
-      yPosition += 2;
-    };
-
-    // Calculate overall statistics
-    const totalFrames = recordingData.length;
-    const validFrames = recordingData.filter(frame => frame.poseData?.keypoints && frame.poseData.keypoints.length > 0);
-    const avgValidKeypoints = validFrames.length > 0 ? 
-      validFrames.reduce((sum, frame) => sum + (frame.poseData?.keypoints?.filter((kp: any) => kp.score > 0.3).length || 0), 0) / validFrames.length : 0;
-    const avgConfidence = validFrames.length > 0 ?
-      validFrames.reduce((sum, frame) => sum + (frame.poseData?.score || 0), 0) / validFrames.length * 100 : 0;
-    const avgRulaScore = validFrames.length > 0 ?
-      validFrames.reduce((sum, frame) => sum + (frame.rulaScore?.finalScore || 0), 0) / validFrames.length : 0;
-
-    // Get risk level
-    const getRiskLevel = (score: number) => {
-      if (score <= 2) return "Low Risk - Acceptable";
-      if (score <= 4) return "Medium Risk - Investigate";
-      if (score <= 6) return "High Risk - Change Soon";
-      return "Critical Risk - Change Immediately";
-    };
-
-    const generateRecommendations = (avgScore: number, hasManualWeights: boolean) => {
-      const recommendations = [];
-      
-      if (avgScore <= 2) {
-        recommendations.push("Low risk detected - posture is generally acceptable");
-        recommendations.push("Continue current practices");
-        recommendations.push("Monitor for any changes in work conditions");
-      } else if (avgScore <= 4) {
-        recommendations.push("Minor ergonomic concerns detected");
-        recommendations.push("Adjust chair height and monitor position");
-        recommendations.push("Check keyboard and mouse placement");
-        recommendations.push("Take micro-breaks every 20-30 minutes");
-        recommendations.push("Consider ergonomic accessories");
-      } else if (avgScore <= 6) {
-        recommendations.push("Significant ergonomic issues identified");
-        recommendations.push("Immediate workspace assessment recommended");
-        recommendations.push("Implement regular stretching routine");
-        recommendations.push("Consider ergonomic training");
-        recommendations.push("Review task frequency and duration");
-      } else {
-        recommendations.push("Critical ergonomic risks detected");
-        recommendations.push("Immediate intervention required");
-        recommendations.push("Professional ergonomic assessment needed");
-        recommendations.push("Consider job task modification");
-        recommendations.push("Implement mandatory rest breaks");
-      }
-
-      if (hasManualWeights) {
-        const totalWeight = manualWeights.reduce((total, w) => total + w.weight, 0) / 1000;
-        recommendations.push(`Weight handling detected: ${totalWeight.toFixed(1)}kg`);
-        if (totalWeight > 10) {
-          recommendations.push("Consider mechanical lifting aids");
-          recommendations.push("Use proper lifting techniques");
-        }
-      }
-
-      return recommendations;
-    };
-
-    // Header
-    addText("ErgoTrack Assessment Report", 16, true, 'center');
-    yPosition += 5;
-
-    // Session Information
-    addSection("Session Information");
-    addText(`Date: ${new Date().toLocaleString()}`);
-    addText(`Duration: ${getSessionDuration()}`);
-    addText(`Assessment Type: ${analysisMode.toUpperCase()}`);
-    addText(`Total Frames: ${totalFrames}`);
-
-    // Pose Detection Quality
-    addSection("Pose Detection Quality");
-    addText(`Total Keypoints: 17`);
-    addText(`Valid Keypoints: ${Math.round(avgValidKeypoints)}`);
-    addText(`Detection Confidence: ${avgConfidence.toFixed(0)}%`);
-
-    // RULA Assessment Results
-    addSection("RULA Assessment Results");
-    addText(`Score: ${avgRulaScore.toFixed(1)}                Risk Level: ${getRiskLevel(avgRulaScore)}`);
-    yPosition += 3;
-
-    // Get average body part scores
-    const avgBodyParts = validFrames.reduce((acc, frame) => {
-      if (frame.rulaScore) {
-        acc.upperArm += frame.rulaScore.upperArm || 0;
-        acc.lowerArm += frame.rulaScore.lowerArm || 0;
-        acc.wrist += frame.rulaScore.wrist || 0;
-        acc.neck += frame.rulaScore.neck || 0;
-        acc.trunk += frame.rulaScore.trunk || 0;
-        acc.scoreA += frame.rulaScore.scoreA || 0;
-        acc.scoreB += frame.rulaScore.scoreB || 0;
-      }
-      return acc;
-    }, { upperArm: 0, lowerArm: 0, wrist: 0, neck: 0, trunk: 0, scoreA: 0, scoreB: 0 });
-
-    if (validFrames.length > 0) {
-      Object.keys(avgBodyParts).forEach(key => {
-        avgBodyParts[key] = avgBodyParts[key] / validFrames.length;
-      });
-    }
-
-    addText("Individual Body Part Scores:");
-    addText(`  Upper Arm: ${avgBodyParts.upperArm.toFixed(1)} Lower Arm: ${avgBodyParts.lowerArm.toFixed(1)} Wrist: ${avgBodyParts.wrist.toFixed(1)}`);
-    addText(`  Neck: ${avgBodyParts.neck.toFixed(1)} Trunk: ${avgBodyParts.trunk.toFixed(1)}`);
-    addText(`  Group A Score: ${avgBodyParts.scoreA.toFixed(1)} Group B Score: ${avgBodyParts.scoreB.toFixed(1)}`);
-
-    // Manual Weights (if any)
-    if (manualWeights.length > 0) {
-      yPosition += 3;
-      addText("Manual Weight Objects:");
-      manualWeights.forEach(weight => {
-        addText(`  - ${weight.name}: ${weight.weight}g`);
-      });
-      const totalWeight = manualWeights.reduce((total, w) => total + w.weight, 0) / 1000;
-      addText(`Total Weight: ${totalWeight.toFixed(1)}kg`);
-    }
-
-    // Recommendations
-    addSection("Recommendations");
-    const recommendations = generateRecommendations(avgRulaScore, manualWeights.length > 0);
-    recommendations.forEach((rec, index) => {
-      addText(`${index + 1}. ${rec}`);
-    });
-
-    // Frame-by-Frame Analysis
-    if (validFrames.length > 0) {
-      yPosition += 5;
-      addSection("Frame-by-Frame Analysis");
-      
-      validFrames.forEach((frame, index) => {
-        if (index % 10 === 0) { // Show every 10th frame (Frame 1, 11, 21, 31...)
-          const timeSeconds = recordingStartTimeRef.current ? 
-            (frame.timestamp - recordingStartTimeRef.current) / 1000 : 
-            frame.timestamp;
-          
-          addText(`Frame ${index + 1} (${formatTime(timeSeconds)}):`);
-          addText(`  RULA Score: ${frame.rulaScore?.finalScore || 0} - ${getRiskLevel(frame.rulaScore?.finalScore || 0)}`);
-          addText(`  Body Parts: UA:${frame.rulaScore?.upperArm || 0} LA:${frame.rulaScore?.lowerArm || 0} W:${frame.rulaScore?.wrist || 0} N:${frame.rulaScore?.neck || 0} T:${frame.rulaScore?.trunk || 0}`);
-          
-          if (frame.hasObject) {
-            addText(`  Object detected in this frame`);
-          }
-          yPosition += 2;
-        }
-      });
-    }
-
-    // Footer
-    yPosition = pageHeight - margin;
-    addText(`Generated by ErgoTrack on ${new Date().toLocaleString()}`, 8, false, 'center');
-
-    // Download the PDF
-    const fileName = `ErgoTrack_Assessment_${new Date().toISOString().split('T')[0]}.pdf`;
-    pdf.save(fileName);
-  };
-
   return (
     <div className="bg-dark-card rounded-lg shadow-lg p-6">
       <div className="flex items-center justify-between mb-6">
@@ -691,15 +508,6 @@ export default function RecordingPanel({
 
           {recordingData.length > 0 && !isRecording && (
             <>
-
-              <button
-                onClick={generatePDFReport}
-                className="bg-blue-600 hover:bg-blue-700 px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
-                title="Generate Assessment Report PDF"
-              >
-                <span className="material-icon">description</span>
-                <span>Generate PDF Report</span>
-              </button>
               <button
                 onClick={exportGraphDataToExcel}
                 className="bg-green-600 hover:bg-green-700 px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
@@ -755,6 +563,16 @@ export default function RecordingPanel({
                   Normal View
                 </button>
                 <button
+                  onClick={() => setAnalysisMode('estimated')}
+                  className={`px-3 py-1 rounded text-sm ${
+                    analysisMode === 'estimated' 
+                      ? 'bg-orange-600 text-white' 
+                      : 'bg-gray-700 text-gray-300'
+                  }`}
+                >
+                  Weight Estimated
+                </button>
+                <button
                   onClick={() => setAnalysisMode('manual')}
                   className={`px-3 py-1 rounded text-sm ${
                     analysisMode === 'manual' 
@@ -774,12 +592,6 @@ export default function RecordingPanel({
                     className="px-2 py-1 bg-green-600 hover:bg-green-700 rounded text-sm"
                   >
                     Manage Objects
-                  </button>
-                  <button
-                    onClick={() => setShowSecondObjectDetection(true)}
-                    className="px-2 py-1 bg-orange-600 hover:bg-orange-700 rounded text-sm"
-                  >
-                    Second Scan
                   </button>
                 </div>
               )}
@@ -1046,6 +858,14 @@ export default function RecordingPanel({
               >
                 Skeleton
               </button>
+              <button
+                onClick={() => setViewMode('enhanced')}
+                className={`px-3 py-1 rounded text-sm ${
+                  viewMode === 'enhanced' ? 'bg-purple-600 text-white' : 'bg-gray-700 text-gray-300'
+                }`}
+              >
+                Enhanced
+              </button>
             </div>
           </div>
 
@@ -1092,13 +912,31 @@ export default function RecordingPanel({
                     )}
                   </div>
                 )}
-
+                {viewMode === 'enhanced' && (
+                  <div className="relative w-full h-full bg-black">
+                    <SkeletonOverlay
+                      poseData={selectedFrame.poseData}
+                      rulaScore={getCurrentRulaScore(selectedFrame)}
+                      imageData={selectedFrame.imageData}
+                      width={640}
+                      height={360}
+                      showColorCoding={true}
+                      weightEstimation={getCurrentWeightEstimation(selectedFrame)}
+                      videoRef={videoRef}
+                    />
+                    {selectedFrame.hasObject && (
+                      <div className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 rounded text-xs font-bold">
+                        OBJECT DETECTED
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             </div>
 
             <div className="space-y-4">
-              {/* Show RULA table for all view modes */}
-              {true && (
+              {/* Only show RULA table for original and skeleton modes, not enhanced */}
+              {viewMode !== 'enhanced' && (
                 <div>
                 <h5 className="text-lg font-medium mb-3">RULA Assessment</h5>
                 {selectedFrame.rulaScore ? (
@@ -1140,7 +978,7 @@ export default function RecordingPanel({
                         </div>
                       </div>
                       <div className="bg-dark-secondary rounded p-3">
-                        <div className="text-sm text-text-secondary">Lower Arm</div>
+                        <div className="text-sm text-text-secondary">Lower Arm                        </div>
                         <div className="text-lg font-bold">
                           {getCurrentRulaScore(selectedFrame)?.lowerArm}
                         </div>
@@ -1158,35 +996,6 @@ export default function RecordingPanel({
                         </div>
                       </div>
                     </div>
-
-                    {/* Posture Analysis Status for Recorded Frame */}
-                    {getCurrentRulaScore(selectedFrame) && (
-                      <div className="mt-4 p-4 rounded-lg bg-blue-600 bg-opacity-20 border-2 border-blue-400">
-                        <div className="flex items-start space-x-3">
-                          <div className="bg-blue-500 rounded-full p-2 flex-shrink-0">
-                            <span className="material-icon text-white text-lg">psychology</span>
-                          </div>
-                          <div className="flex-1">
-                            <h4 className="font-semibold text-blue-300 mb-2 text-sm">
-                              Posture Analysis Status 
-                              {analysisMode === 'manual' && manualWeights.length > 0 && (
-                                <span className="ml-2 px-2 py-1 bg-yellow-900/20 border border-yellow-700 rounded text-xs">
-                                  Weight Adjusted ({manualWeights.reduce((total, weight) => total + weight.weight, 0)}g)
-                                </span>
-                              )}
-                            </h4>
-                            <div className="bg-dark-secondary rounded-lg p-3">
-                              <p className="text-white text-sm leading-relaxed">
-                                {generatePostureAnalysis(
-                                  getCurrentRulaScore(selectedFrame),
-                                  analysisMode === 'manual' && manualWeights.length > 0 ? 'manual' : 'recorded'
-                                )}
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      </div>
-                    )}
                   </div>
                 ) : (
                   <p className="text-text-secondary">No RULA data available for this frame</p>
@@ -1252,9 +1061,79 @@ export default function RecordingPanel({
       {/* Smart Object Detection Weight Management Dialog */}
       {showWeightDialog && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+<<<<<<< HEAD
           <div className="bg-gray-800 rounded-lg p-6 w-full max-w-4xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h3 className="text-lg font-medium">Smart Object Detection & Weight Management</h3>
+=======
+          <div className="bg-gray-800 rounded-lg p-6 w-full max-w-md mx-4">
+            <h3 className="text-lg font-medium mb-4">Manage Objects & Weights</h3>
+
+            <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+              {manualWeights.map((weight) => (
+                <div key={weight.id} className="flex items-center space-x-3 bg-gray-700 p-3 rounded-lg">
+                  {/* Display captured object image or icon */}
+                  <div className="w-12 h-12 flex-shrink-0">
+                    {weight.previewImage ? (
+                      <img 
+                        src={weight.previewImage} 
+                        alt={weight.name}
+                        className="w-full h-full object-cover rounded border border-gray-500"
+                      />
+                    ) : (
+                      <div className="w-full h-full bg-gray-600 rounded border border-gray-500 flex items-center justify-center">
+                        <span className="text-lg">{weight.icon}</span>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Object name input */}
+                  <input
+                    type="text"
+                    value={weight.name}
+                    onChange={(e) => updateManualWeight(weight.id, 'name', e.target.value)}
+                    className="flex-1 px-2 py-1 bg-gray-600 text-white rounded border border-gray-500"
+                    placeholder="Object name"
+                  />
+                  
+                  {/* Weight input */}
+                  <input
+                    type="number"
+                    value={weight.weight}
+                    onChange={(e) => updateManualWeight(weight.id, 'weight', Number(e.target.value))}
+                    className="w-20 px-2 py-1 bg-gray-600 text-white rounded border border-gray-500"
+                    placeholder="kg"
+                    min="0"
+                    max="100"
+                    step="0.1"
+                  />
+                  
+                  {/* Remove button */}
+                  <button
+                    onClick={() => removeManualWeight(weight.id)}
+                    className="px-2 py-1 bg-red-600 hover:bg-red-700 rounded text-sm"
+                  >
+                    ×
+                  </button>
+                </div>
+              ))}
+            </div>
+
+            {/* Manual Weight Input Component */}
+            <ManualWeightInput 
+              onAddWeight={addManualWeightFromInput}
+              existingWeights={manualWeights}
+              recordedFrames={recordingData}
+            />
+            
+            <div className="flex justify-between items-center mb-4 mt-4">
+              <div className="text-sm">
+                Total Weight: <span className="font-bold">{getTotalManualWeight()}kg</span>
+              </div>
+            </div>
+
+            <div className="flex space-x-2">
+>>>>>>> 8aec0b5ba0bad59b164834ccf0998d125ee1ffbe
               <button
                 onClick={() => setShowWeightDialog(false)}
                 className="text-gray-400 hover:text-white text-xl"
@@ -1274,40 +1153,6 @@ export default function RecordingPanel({
           </div>
         </div>
       )}
-
-      {/* Second Object Detection Dialog */}
-      {showSecondObjectDetection && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-dark-card rounded-lg shadow-lg p-6 max-w-4xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-xl font-medium">Second Object Detection Scan</h3>
-              <button
-                onClick={() => setShowSecondObjectDetection(false)}
-                className="text-gray-400 hover:text-white"
-              >
-                <span className="material-icon">close</span>
-              </button>
-            </div>
-
-            <div className="mb-4 p-4 bg-blue-900/20 border border-blue-700 rounded-lg">
-              <p className="text-sm text-blue-300">
-                Running a second object detection scan to find any objects that might have been missed in the first scan. 
-                This will analyze all recorded frames again with different detection parameters.
-              </p>
-            </div>
-
-            <ObjectDetectionWeightInput
-              onAddWeight={addManualWeightFromInput}
-              existingWeights={manualWeights}
-              videoRef={videoRef}
-              currentPoseData={currentPoseData}
-              isVisible={showSecondObjectDetection}
-              recordedFrames={recordingData}
-            />
-          </div>
-        </div>
-      )}
-
 
 
     </div>
