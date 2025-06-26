@@ -118,6 +118,7 @@ Changelog:
 - June 19, 2025. Added second object detection scan feature to catch objects missed in the first detection
 - June 26, 2025. Successfully migrated from Replit Agent to standard Replit environment with complete RULA to REBA methodology transition
 - June 26, 2025. Removed intrusive risk level alert comment from live view interface per user request
+- June 26, 2025. Added comprehensive image download feature for all recorded frames with original, skeleton, estimated weight skeleton, and manual weight skeleton formats in organized ZIP file structure
 
 # User Preferences
 

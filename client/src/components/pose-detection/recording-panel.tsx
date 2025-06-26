@@ -7,6 +7,7 @@ import ObjectDetectionWeightInput from './object-detection-weight-input';
 
 import * as XLSX from 'xlsx';
 import jsPDF from 'jspdf';
+import JSZip from 'jszip';
 
 import { estimateWeightFromPosture, calculateWeightAdjustedReba } from '@/lib/weight-detection';
 import { generatePostureAnalysis } from '@/lib/posture-analysis';
@@ -467,6 +468,205 @@ export default function RecordingPanel({
     XLSX.writeFile(workbook, fileName);
   };
 
+  // Download All Images Function
+  const downloadAllImages = async () => {
+    if (recordingData.length === 0) return;
+
+    const zip = new JSZip();
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
+    
+    // Create folders for different image types
+    const originalFolder = zip.folder("original_images");
+    const skeletonFolder = zip.folder("skeleton_images");
+    const estimatedWeightFolder = zip.folder("estimated_weight_skeleton");
+    const manualWeightFolder = zip.folder("manual_weight_skeleton");
+
+    // Process each recorded frame
+    for (let i = 0; i < recordingData.length; i++) {
+      const frame = recordingData[i];
+      const frameNumber = String(i + 1).padStart(3, '0');
+      const timeSeconds = frame.timestamp.toFixed(1);
+      
+      // 1. Original Image
+      if (frame.imageData) {
+        const originalImageData = frame.imageData.split(',')[1]; // Remove data:image/jpeg;base64, prefix
+        originalFolder?.file(`frame_${frameNumber}_${timeSeconds}s_original.jpg`, originalImageData, {base64: true});
+      }
+
+      // 2. Skeleton Image
+      if (frame.poseData && frame.poseData.length > 0) {
+        const skeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, frame.rebaScore);
+        if (skeletonCanvas) {
+          const skeletonImageData = skeletonCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+          skeletonFolder?.file(`frame_${frameNumber}_${timeSeconds}s_skeleton.jpg`, skeletonImageData, {base64: true});
+        }
+      }
+
+      // 3. Estimated Weight Skeleton (if weight estimation exists)
+      if (frame.weightEstimation && frame.poseData && frame.poseData.length > 0) {
+        const adjustedRebaScore = calculateWeightAdjustedReba(frame.rebaScore, frame.weightEstimation);
+        const estimatedSkeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, adjustedRebaScore, 'estimated');
+        if (estimatedSkeletonCanvas) {
+          const estimatedImageData = estimatedSkeletonCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+          estimatedWeightFolder?.file(`frame_${frameNumber}_${timeSeconds}s_estimated_${frame.weightEstimation.estimatedWeight.toFixed(1)}kg.jpg`, estimatedImageData, {base64: true});
+        }
+      }
+
+      // 4. Manual Weight Skeleton (if manual weights exist)
+      if (manualWeights.length > 0 && frame.poseData && frame.poseData.length > 0) {
+        const totalManualWeight = manualWeights.reduce((total, weight) => total + weight.weight, 0);
+        const defaultWeightEstimation = { 
+          estimatedWeight: 0, 
+          confidence: 0, 
+          detectedObjects: [], 
+          bodyPosture: { 
+            isLifting: false, 
+            isCarrying: false, 
+            armPosition: 'close' as const, 
+            spineDeviation: 0, 
+            loadDirection: 'front' as const 
+          } 
+        };
+        const manualAdjustedRebaScore = calculateWeightAdjustedReba(frame.rebaScore, frame.weightEstimation || defaultWeightEstimation, totalManualWeight);
+        const manualSkeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, manualAdjustedRebaScore, 'manual');
+        if (manualSkeletonCanvas) {
+          const manualImageData = manualSkeletonCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
+          manualWeightFolder?.file(`frame_${frameNumber}_${timeSeconds}s_manual_${(totalManualWeight/1000).toFixed(1)}kg.jpg`, manualImageData, {base64: true});
+        }
+      }
+    }
+
+    // Add metadata file
+    const metadata = {
+      exportDate: new Date().toISOString(),
+      totalFrames: recordingData.length,
+      recordingDuration: recordingData.length > 0 ? recordingData[recordingData.length - 1].timestamp : 0,
+      manualWeights: manualWeights.map(w => ({
+        name: w.name,
+        weight: w.weight,
+        weightKg: w.weight / 1000
+      })),
+      totalManualWeight: manualWeights.reduce((total, weight) => total + weight.weight, 0),
+      totalManualWeightKg: manualWeights.reduce((total, weight) => total + weight.weight, 0) / 1000,
+      imageFormats: {
+        original: "Original camera frames without analysis",
+        skeleton: "Pose skeleton overlay with REBA color coding",
+        estimatedWeight: "Skeleton with estimated weight adjustments (if available)",
+        manualWeight: "Skeleton with manual weight adjustments (if configured)"
+      }
+    };
+    zip.file("metadata.json", JSON.stringify(metadata, null, 2));
+
+    // Generate and download the zip file
+    try {
+      const blob = await zip.generateAsync({type: "blob"});
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `ErgoTrack_Images_${timestamp}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (error) {
+      console.error('Error generating zip file:', error);
+      alert('Failed to generate image download. Please try again.');
+    }
+  };
+
+  // Helper function to create skeleton overlay image
+  const createSkeletonImage = async (originalImageData: string, poseData: any[], rebaScore: any, mode: 'normal' | 'estimated' | 'manual' = 'normal'): Promise<HTMLCanvasElement | null> => {
+    return new Promise((resolve) => {
+      const canvas = document.createElement('canvas');
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        resolve(null);
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        canvas.width = img.width;
+        canvas.height = img.height;
+        
+        // Draw original image
+        ctx.drawImage(img, 0, 0);
+        
+        // Draw skeleton overlay using SkeletonOverlay logic
+        if (poseData && poseData.length > 0 && rebaScore) {
+          drawSkeletonOnCanvas(ctx, poseData[0], rebaScore, canvas.width, canvas.height, mode);
+        }
+        
+        resolve(canvas);
+      };
+      img.onerror = () => resolve(null);
+      img.src = originalImageData;
+    });
+  };
+
+  // Helper function to draw skeleton on canvas
+  const drawSkeletonOnCanvas = (ctx: CanvasRenderingContext2D, pose: any, rebaScore: any, width: number, height: number, mode: string) => {
+    if (!pose?.keypoints) return;
+
+    const keypoints = pose.keypoints;
+    const confidenceThreshold = 0.3;
+
+    // Get risk level color
+    const getRiskColor = (score: number) => {
+      if (score >= 1 && score <= 2) return '#22c55e'; // Green - Low risk
+      if (score >= 3 && score <= 4) return '#eab308'; // Yellow - Medium risk  
+      if (score >= 5 && score <= 7) return '#f97316'; // Orange - High risk
+      if (score >= 8 && score <= 10) return '#ef4444'; // Red - Very high risk
+      if (score >= 11) return '#7c2d12'; // Dark red - Extremely high risk
+      return '#6b7280'; // Gray - No score
+    };
+
+    const riskColor = getRiskColor(rebaScore?.finalScore || 0);
+    
+    // Draw connections
+    const connections = [
+      [5, 6], [5, 7], [7, 9], [6, 8], [8, 10], // Arms
+      [5, 11], [6, 12], [11, 12], // Shoulders to hips
+      [11, 13], [13, 15], [12, 14], [14, 16], // Legs
+      [0, 1], [1, 3], [0, 2], [2, 4] // Head
+    ];
+
+    ctx.strokeStyle = riskColor;
+    ctx.lineWidth = 3;
+    ctx.lineCap = 'round';
+
+    connections.forEach(([start, end]) => {
+      const startPoint = keypoints[start];
+      const endPoint = keypoints[end];
+      
+      if (startPoint?.score > confidenceThreshold && endPoint?.score > confidenceThreshold) {
+        ctx.beginPath();
+        ctx.moveTo(startPoint.x * width, startPoint.y * height);
+        ctx.lineTo(endPoint.x * width, endPoint.y * height);
+        ctx.stroke();
+      }
+    });
+
+    // Draw keypoints
+    ctx.fillStyle = riskColor;
+    keypoints.forEach((point: any) => {
+      if (point.score > confidenceThreshold) {
+        ctx.beginPath();
+        ctx.arc(point.x * width, point.y * height, 4, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+    });
+
+    // Add mode indicator text
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.fillRect(10, 10, 200, 60);
+    ctx.fillStyle = 'white';
+    ctx.font = '14px Arial';
+    ctx.fillText(`Mode: ${mode.toUpperCase()}`, 20, 30);
+    ctx.fillText(`REBA Score: ${rebaScore?.finalScore || 0}`, 20, 50);
+    ctx.fillText(`Risk: ${rebaScore?.riskLevel || 'Unknown'}`, 20, 70);
+  };
+
   // PDF Report Generation Function
   const generatePDFReport = () => {
     const pdf = new jsPDF();
@@ -602,7 +802,8 @@ export default function RecordingPanel({
 
     if (validFrames.length > 0) {
       Object.keys(avgBodyParts).forEach(key => {
-        avgBodyParts[key] = avgBodyParts[key] / validFrames.length;
+        const typedKey = key as keyof typeof avgBodyParts;
+        avgBodyParts[typedKey] = avgBodyParts[typedKey] / validFrames.length;
       });
     }
 
@@ -707,6 +908,14 @@ export default function RecordingPanel({
               >
                 <span className="material-icon">download</span>
                 <span>Export Excel</span>
+              </button>
+              <button
+                onClick={downloadAllImages}
+                className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
+                title="Download All Images (Original, Skeleton, Estimated Weight, Manual Weight)"
+              >
+                <span className="material-icon">image</span>
+                <span>Download Images</span>
               </button>
               <button
                 onClick={onClearRecording}
