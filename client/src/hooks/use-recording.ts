@@ -22,7 +22,7 @@ export function useRecording() {
     setRecordingProgress(0);
     recordingStartTime.current = Date.now();
 
-    // Record frame every 500ms for 60 seconds
+    // Record frame every 1000ms (1 second) for 60 seconds
     recordingInterval.current = setInterval(() => {
       const elapsed = Date.now() - recordingStartTime.current;
       const progress = Math.min((elapsed / 60000) * 100, 100);
@@ -58,7 +58,7 @@ export function useRecording() {
           setRecordingData(prev => [...prev, frame]);
         }
       }
-    }, 500);
+    }, 1000);
   }, []);
 
   const stopRecording = useCallback(() => {
