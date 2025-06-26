@@ -45,29 +45,69 @@ export function estimateWeightFromPosture(keypoints: Keypoint[]): WeightEstimati
 export function calculateWeightAdjustedReba(originalReba: any, weightEstimation: WeightEstimation, manualWeight?: number): any {
   if (!originalReba) return originalReba;
   
-  const effectiveWeight = manualWeight || weightEstimation.estimatedWeight || 0;
-  
-  // Weight adjustment multiplier based on weight ranges
-  let weightMultiplier = 1;
-  if (effectiveWeight > 23) {
-    weightMultiplier = 3; // Very heavy
-  } else if (effectiveWeight > 10) {
-    weightMultiplier = 2; // Heavy
-  } else if (effectiveWeight > 5) {
-    weightMultiplier = 1.5; // Moderate
+  // Use manual weight (in grams) or estimated weight (in kg)
+  let effectiveWeight = 0;
+  if (manualWeight && manualWeight > 0) {
+    effectiveWeight = manualWeight / 1000; // Convert grams to kg
+  } else if (weightEstimation.estimatedWeight > 0) {
+    effectiveWeight = weightEstimation.estimatedWeight;
   }
   
-  // Apply weight adjustment to REBA score
-  const adjustedFinalScore = Math.min(7, Math.ceil(originalReba.finalScore * weightMultiplier));
+  // Enhanced weight adjustment system
+  let scoreAdjustment = 0;
+  let stressAdjustment = 0;
+  
+  if (effectiveWeight > 0) {
+    // REBA weight adjustments based on standard guidelines
+    if (effectiveWeight >= 60) {
+      scoreAdjustment = 3; // Very heavy loads
+      stressAdjustment = 2;
+    } else if (effectiveWeight >= 23) {
+      scoreAdjustment = 2; // Heavy loads
+      stressAdjustment = 2;
+    } else if (effectiveWeight >= 10) {
+      scoreAdjustment = 2; // Moderate loads
+      stressAdjustment = 1;
+    } else if (effectiveWeight >= 5) {
+      scoreAdjustment = 1; // Light loads
+      stressAdjustment = 1;
+    } else if (effectiveWeight >= 2) {
+      scoreAdjustment = 1; // Very light loads
+      stressAdjustment = 0;
+    }
+  }
+  
+  // Apply adjustments to component scores
+  const adjustedUpperArm = Math.min(6, originalReba.upperArm + (scoreAdjustment > 0 ? 1 : 0));
+  const adjustedTrunk = Math.min(6, originalReba.trunk + scoreAdjustment);
+  const adjustedStress = Math.min(7, originalReba.stressLevel + stressAdjustment);
+  
+  // Recalculate final score with adjustments
+  const adjustedScoreA = getScoreA(adjustedUpperArm, originalReba.lowerArm, originalReba.wrist);
+  const adjustedScoreB = getScoreB(originalReba.neck, adjustedTrunk);
+  const adjustedFinalScore = Math.min(15, getFinalScore(adjustedScoreA, adjustedScoreB) + scoreAdjustment);
+  
+  // Determine risk level
+  const getRiskLevel = (score: number): string => {
+    if (score <= 2) return 'Low Risk - Investigate';
+    if (score <= 4) return 'Low Risk - Investigate';
+    if (score <= 7) return 'Medium Risk - Investigate & Change Soon';
+    if (score <= 10) return 'High Risk - Change Now';
+    return 'Critical Risk - Change Immediately';
+  };
   
   return {
     ...originalReba,
+    upperArm: adjustedUpperArm,
+    trunk: adjustedTrunk,
+    scoreA: adjustedScoreA,
+    scoreB: adjustedScoreB,
     finalScore: adjustedFinalScore,
+    stressLevel: adjustedStress,
+    riskLevel: getRiskLevel(adjustedFinalScore),
     effectiveWeight,
-    weightMultiplier,
-    riskLevel: adjustedFinalScore <= 2 ? 'Low Risk' :
-               adjustedFinalScore <= 4 ? 'Medium Risk' : 
-               adjustedFinalScore <= 6 ? 'High Risk' : 'Critical Risk'
+    scoreAdjustment,
+    weightApplied: effectiveWeight > 0
   };
 }
 
