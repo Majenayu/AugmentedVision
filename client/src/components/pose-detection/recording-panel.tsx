@@ -629,24 +629,34 @@ export default function RecordingPanel({
         // Draw original image
         ctx.drawImage(img, 0, 0);
         
-        // Draw skeleton overlay using SkeletonOverlay logic
+        // Draw skeleton overlay
         if (poseData && poseData.length > 0 && rebaScore) {
-          drawSkeletonOnCanvas(ctx, poseData[0], rebaScore, canvas.width, canvas.height, mode);
+          // Handle different poseData formats
+          const pose = Array.isArray(poseData) ? poseData[0] : poseData;
+          if (pose && pose.keypoints) {
+            drawSkeletonOnCanvas(ctx, pose, rebaScore, canvas.width, canvas.height, mode);
+          }
         }
         
         resolve(canvas);
       };
-      img.onerror = () => resolve(null);
+      img.onerror = () => {
+        console.error('Failed to load image for skeleton overlay');
+        resolve(null);
+      };
       img.src = originalImageData;
     });
   };
 
   // Helper function to draw skeleton on canvas
   const drawSkeletonOnCanvas = (ctx: CanvasRenderingContext2D, pose: any, rebaScore: any, width: number, height: number, mode: string) => {
-    if (!pose?.keypoints) return;
+    if (!pose?.keypoints || !Array.isArray(pose.keypoints)) {
+      console.warn('Invalid pose data for skeleton drawing:', pose);
+      return;
+    }
 
     const keypoints = pose.keypoints;
-    const confidenceThreshold = 0.3;
+    const confidenceThreshold = 0.2; // Lower threshold to catch more poses
 
     // Get risk level color
     const getRiskColor = (score: number) => {
@@ -655,12 +665,12 @@ export default function RecordingPanel({
       if (score >= 5 && score <= 7) return '#f97316'; // Orange - High risk
       if (score >= 8 && score <= 10) return '#ef4444'; // Red - Very high risk
       if (score >= 11) return '#7c2d12'; // Dark red - Extremely high risk
-      return '#6b7280'; // Gray - No score
+      return '#00bcd4'; // Cyan - Default/No score
     };
 
     const riskColor = getRiskColor(rebaScore?.finalScore || 0);
     
-    // Draw connections
+    // Draw connections with better error handling
     const connections = [
       [5, 6], [5, 7], [7, 9], [6, 8], [8, 10], // Arms
       [5, 11], [6, 12], [11, 12], // Shoulders to hips
@@ -669,39 +679,74 @@ export default function RecordingPanel({
     ];
 
     ctx.strokeStyle = riskColor;
-    ctx.lineWidth = 3;
+    ctx.lineWidth = 4; // Slightly thicker for better visibility
     ctx.lineCap = 'round';
 
+    let connectionsDrawn = 0;
     connections.forEach(([start, end]) => {
-      const startPoint = keypoints[start];
-      const endPoint = keypoints[end];
-      
-      if (startPoint?.score > confidenceThreshold && endPoint?.score > confidenceThreshold) {
-        ctx.beginPath();
-        ctx.moveTo(startPoint.x * width, startPoint.y * height);
-        ctx.lineTo(endPoint.x * width, endPoint.y * height);
-        ctx.stroke();
+      if (start < keypoints.length && end < keypoints.length) {
+        const startPoint = keypoints[start];
+        const endPoint = keypoints[end];
+        
+        if (startPoint && endPoint && 
+            startPoint.score > confidenceThreshold && 
+            endPoint.score > confidenceThreshold &&
+            typeof startPoint.x === 'number' && typeof startPoint.y === 'number' &&
+            typeof endPoint.x === 'number' && typeof endPoint.y === 'number') {
+          
+          ctx.beginPath();
+          // Handle normalized coordinates (0-1) vs pixel coordinates
+          const startX = startPoint.x > 1 ? startPoint.x : startPoint.x * width;
+          const startY = startPoint.y > 1 ? startPoint.y : startPoint.y * height;
+          const endX = endPoint.x > 1 ? endPoint.x : endPoint.x * width;
+          const endY = endPoint.y > 1 ? endPoint.y : endPoint.y * height;
+          
+          ctx.moveTo(startX, startY);
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
+          connectionsDrawn++;
+        }
       }
     });
 
     // Draw keypoints
     ctx.fillStyle = riskColor;
-    keypoints.forEach((point: any) => {
-      if (point.score > confidenceThreshold) {
+    let keypointsDrawn = 0;
+    keypoints.forEach((point: any, index: number) => {
+      if (point && point.score > confidenceThreshold && 
+          typeof point.x === 'number' && typeof point.y === 'number') {
         ctx.beginPath();
-        ctx.arc(point.x * width, point.y * height, 4, 0, 2 * Math.PI);
+        const x = point.x > 1 ? point.x : point.x * width;
+        const y = point.y > 1 ? point.y : point.y * height;
+        ctx.arc(x, y, 5, 0, 2 * Math.PI);
         ctx.fill();
+        keypointsDrawn++;
       }
     });
 
-    // Add mode indicator text
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(10, 10, 200, 60);
+    // Add mode indicator with better styling
+    const boxHeight = 70;
+    const boxWidth = 220;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(10, 10, boxWidth, boxHeight);
+    
+    // Add border
+    ctx.strokeStyle = riskColor;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(10, 10, boxWidth, boxHeight);
+    
     ctx.fillStyle = 'white';
-    ctx.font = '14px Arial';
+    ctx.font = 'bold 14px Arial';
     ctx.fillText(`Mode: ${mode.toUpperCase()}`, 20, 30);
-    ctx.fillText(`REBA Score: ${rebaScore?.finalScore || 0}`, 20, 50);
-    ctx.fillText(`Risk: ${rebaScore?.riskLevel || 'Unknown'}`, 20, 70);
+    ctx.fillText(`REBA Score: ${rebaScore?.finalScore || 0}`, 20, 48);
+    ctx.fillText(`Risk: ${rebaScore?.riskLevel || 'Unknown'}`, 20, 66);
+    
+    // Debug info in smaller text
+    ctx.font = '10px Arial';
+    ctx.fillStyle = '#ccc';
+    ctx.fillText(`Points: ${keypointsDrawn}/${keypoints.length} Lines: ${connectionsDrawn}`, 20, height - 10);
+
+    console.log(`Skeleton drawn - Mode: ${mode}, Points: ${keypointsDrawn}, Lines: ${connectionsDrawn}, REBA: ${rebaScore?.finalScore || 0}`);
   };
 
   // PDF Report Generation Function
@@ -949,10 +994,10 @@ export default function RecordingPanel({
               <button
                 onClick={downloadAllImages}
                 className="bg-purple-600 hover:bg-purple-700 px-4 py-2 rounded-lg transition-colors flex items-center space-x-2"
-                title="Download All Images (Original, Skeleton, Estimated Weight, Manual Weight)"
+                title="Download Complete PDF with All Image Types (Original, Skeleton, Estimated Weight, Manual Weight)"
               >
-                <span className="material-icon">image</span>
-                <span>Download Images</span>
+                <span className="material-icon">picture_as_pdf</span>
+                <span>Download All Images PDF</span>
               </button>
               <button
                 onClick={onClearRecording}
