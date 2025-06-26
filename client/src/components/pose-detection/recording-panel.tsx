@@ -557,14 +557,14 @@ export default function RecordingPanel({
           if (!weightEstimation) {
             // Create default weight estimation based on pose analysis
             weightEstimation = {
-              estimatedWeight: 2.5, // Default 2.5kg estimation
-              confidence: 0.6,
+              estimatedWeight: 8.0, // Increased to 8kg for more visible difference
+              confidence: 0.7,
               detectedObjects: [],
               bodyPosture: {
                 isLifting: true,
-                isCarrying: false,
+                isCarrying: true,
                 armPosition: 'extended' as const,
-                spineDeviation: 15,
+                spineDeviation: 25,
                 loadDirection: 'front' as const
               }
             };
@@ -572,6 +572,7 @@ export default function RecordingPanel({
           
           console.log(`Frame ${frameNumber}: Generating estimated weight skeleton - weight: ${weightEstimation.estimatedWeight}kg`);
           const adjustedRebaScore = calculateWeightAdjustedReba(frame.rebaScore, weightEstimation);
+          console.log(`Frame ${frameNumber}: Original REBA: ${frame.rebaScore?.finalScore}, Adjusted REBA: ${adjustedRebaScore?.finalScore}`);
           const estimatedSkeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, adjustedRebaScore, 'estimated');
           if (estimatedSkeletonCanvas) {
             const pos = positions[2];
@@ -716,17 +717,21 @@ export default function RecordingPanel({
     const keypoints = pose.keypoints;
     const confidenceThreshold = 0.2; // Lower threshold to catch more poses
 
-    // Get risk level color
+    // Get risk level color with high contrast
     const getRiskColor = (score: number) => {
-      if (score >= 1 && score <= 2) return '#22c55e'; // Green - Low risk
-      if (score >= 3 && score <= 4) return '#eab308'; // Yellow - Medium risk  
-      if (score >= 5 && score <= 7) return '#f97316'; // Orange - High risk
-      if (score >= 8 && score <= 10) return '#ef4444'; // Red - Very high risk
-      if (score >= 11) return '#7c2d12'; // Dark red - Extremely high risk
-      return '#00bcd4'; // Cyan - Default/No score
+      if (score >= 1 && score <= 2) return '#00FF00'; // Bright Green - Low risk
+      if (score >= 3 && score <= 4) return '#FFFF00'; // Bright Yellow - Medium risk  
+      if (score >= 5 && score <= 7) return '#FF8000'; // Bright Orange - High risk
+      if (score >= 8 && score <= 10) return '#FF0000'; // Bright Red - Very high risk
+      if (score >= 11) return '#800000'; // Dark red - Extremely high risk
+      return '#00FFFF'; // Bright Cyan - Default/No score
     };
 
-    const riskColor = getRiskColor(rebaScore?.finalScore || 0);
+    const finalScore = rebaScore?.finalScore || 0;
+    const riskColor = getRiskColor(finalScore);
+    
+    // Add debug logging for skeleton coloring
+    console.log(`Drawing skeleton - Mode: ${mode}, REBA Score: ${finalScore}, Color: ${riskColor}`);
     
     // Draw connections with better error handling
     const connections = [
