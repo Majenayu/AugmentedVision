@@ -117,6 +117,7 @@ Changelog:
 - June 19, 2025. Removed "Weight Estimated" analysis mode, keeping only Normal View and Manual Weight options
 - June 19, 2025. Added second object detection scan feature to catch objects missed in the first detection
 - June 26, 2025. Successfully migrated from Replit Agent to standard Replit environment with complete RULA to REBA methodology transition
+- June 26, 2025. Removed intrusive risk level alert comment from live view interface per user request
 
 # User Preferences
 

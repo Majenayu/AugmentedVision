@@ -162,47 +162,7 @@ export default function RebaAssessment({ rebaScore, poseData, isProcessing }: Re
 
       
 
-      {/* Risk Level Indicator */}
-      {rebaScore && (
-        <div className={`mt-4 p-4 rounded-lg border ${
-          rebaScore.finalScore <= 2 
-            ? 'bg-green-500 bg-opacity-20 border-green-500' 
-            : rebaScore.finalScore <= 4
-            ? 'bg-yellow-500 bg-opacity-20 border-yellow-500'
-            : rebaScore.finalScore <= 6
-            ? 'bg-orange-500 bg-opacity-20 border-orange-500'
-            : 'bg-red-500 bg-opacity-20 border-red-500'
-        }`}>
-          <div className="flex items-center space-x-3">
-            <span className={`material-icon text-2xl ${
-              rebaScore.finalScore <= 2 
-                ? 'text-green-500' 
-                : rebaScore.finalScore <= 4
-                ? 'text-yellow-500'
-                : rebaScore.finalScore <= 6
-                ? 'text-orange-500'
-                : 'text-red-500'
-            }`}>
-              {rebaScore.finalScore <= 2 ? 'check_circle' : 'warning'}
-            </span>
-            <div>
-              <h4 className={`font-medium ${getRiskLevelTextColor(rebaScore.finalScore)}`}>
-                {getRiskLevelText(rebaScore.finalScore)} Risk Level
-              </h4>
-              <p className="text-text-secondary text-sm">
-                {rebaScore.finalScore <= 2 
-                  ? 'Current posture is within acceptable ergonomic parameters. Continue monitoring for any changes.'
-                  : rebaScore.finalScore <= 4
-                  ? 'Some ergonomic concerns detected. Consider investigating posture and making minor adjustments.'
-                  : rebaScore.finalScore <= 6
-                  ? 'Significant ergonomic issues identified. Changes should be made soon to prevent injury.'
-                  : 'Critical ergonomic risk detected. Immediate intervention required to prevent musculoskeletal disorders.'
-                }
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+
     </div>
   );
 }
