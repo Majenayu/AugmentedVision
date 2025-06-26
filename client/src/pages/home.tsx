@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import CameraView from "@/components/pose-detection/camera-view";
 import ThreeDView from "@/components/pose-detection/three-d-view";
-import RebaAssessment from "@/components/pose-detection/rula-assessment";
+import RebaAssessment from "@/components/pose-detection/reba-assessment";
 import MetricsDashboard from "@/components/pose-detection/metrics-dashboard";
 import RecordingPanel from "@/components/pose-detection/recording-panel";
 import { usePoseDetection } from "@/hooks/use-pose-detection";

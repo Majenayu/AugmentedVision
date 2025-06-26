@@ -9,10 +9,10 @@ interface RebaAssessmentProps {
 
 export default function RebaAssessment({ rebaScore, poseData, isProcessing }: RebaAssessmentProps) {
   const getRiskLevelColor = (score: number) => {
-    if (score <= 2) return 'bg-rula-safe';
-    if (score <= 4) return 'bg-rula-investigate';
-    if (score <= 6) return 'bg-rula-change-soon';
-    return 'bg-rula-change-asap';
+    if (score <= 2) return 'bg-reba-safe';
+    if (score <= 4) return 'bg-reba-investigate';
+    if (score <= 6) return 'bg-reba-change-soon';
+    return 'bg-reba-change-asap';
   };
 
   const getRiskLevelText = (score: number) => {
@@ -23,10 +23,10 @@ export default function RebaAssessment({ rebaScore, poseData, isProcessing }: Re
   };
 
   const getRiskLevelTextColor = (score: number) => {
-    if (score <= 2) return 'text-rula-safe';
-    if (score <= 4) return 'text-rula-investigate';
-    if (score <= 6) return 'text-rula-change-soon';
-    return 'text-rula-change-asap';
+    if (score <= 2) return 'text-reba-safe';
+    if (score <= 4) return 'text-reba-investigate';
+    if (score <= 6) return 'text-reba-change-soon';
+    return 'text-reba-change-asap';
   };
 
   const getScoreProgress = (score: number, max: number) => {
@@ -48,7 +48,7 @@ export default function RebaAssessment({ rebaScore, poseData, isProcessing }: Re
         </div>
       </div>
 
-      {/* Main RULA Score Display */}
+      {/* Main REBA Score Display */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
         <div className="text-center">
           <div className={`w-24 h-24 rounded-full flex items-center justify-center mx-auto mb-3 ${

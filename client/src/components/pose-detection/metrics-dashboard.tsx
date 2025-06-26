@@ -73,7 +73,7 @@ export default function MetricsDashboard({
         </div>
         <div className="space-y-3">
           <div className="flex justify-between items-center">
-            <span className="text-text-secondary">Current RULA Score</span>
+            <span className="text-text-secondary">Current REBA Score</span>
             <span className="font-mono">{rebaScore?.finalScore || '--'}</span>
           </div>
           <div className="flex justify-between items-center">

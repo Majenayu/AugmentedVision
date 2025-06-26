@@ -1,4 +1,4 @@
-// Corrected RULA (Rapid Upper Limb Assessment) calculation
+// Corrected REBA (Rapid Upper Limb Assessment) calculation
 interface Keypoint {
   x: number;
   y: number;
@@ -125,7 +125,7 @@ function getTrunkScore(angle: number, isTwisted: boolean = false, isSideBent: bo
 }
 
 function getScoreA(upperArm: number, lowerArm: number, wrist: number): number {
-  // Corrected RULA Table A - properly structured 4x3x4 table
+  // Corrected REBA Table A - properly structured 4x3x4 table
   // [upperArm-1][lowerArm-1][wrist-1]
   const tableA = [
     // Upper Arm 1 (20° or less)
@@ -162,7 +162,7 @@ function getScoreA(upperArm: number, lowerArm: number, wrist: number): number {
 }
 
 function getScoreB(neck: number, trunk: number): number {
-  // Corrected RULA Table B - 6x5 table
+  // Corrected REBA Table B - 6x5 table
   const tableB = [
     [1, 2, 3, 4, 5], // Neck 1
     [2, 2, 3, 4, 5], // Neck 2
@@ -179,7 +179,7 @@ function getScoreB(neck: number, trunk: number): number {
 }
 
 function getFinalScore(scoreA: number, scoreB: number): number {
-  // Corrected RULA Table C - 7x7 table
+  // Corrected REBA Table C - 7x7 table
   const tableC = [
     [1, 1, 1, 2, 3, 3, 4], // Score A 1
     [1, 2, 2, 3, 3, 3, 4], // Score A 2
@@ -250,7 +250,7 @@ export function calculateRebaScore(keypoints: Keypoint[]): RebaScore | null {
     const wrist = useLeft ? leftWrist : rightWrist;
     const hip = useLeft ? leftHip : rightHip;
 
-    // Calculate angles for RULA assessment
+    // Calculate angles for REBA assessment
     
     // Upper arm angle from vertical
     const upperArmAngle = calculateVerticalAngle(shoulder, elbow);
@@ -276,7 +276,7 @@ export function calculateRebaScore(keypoints: Keypoint[]): RebaScore | null {
     const isNeckTwisted = Math.abs(nose.x - shoulder.x) > 20;
     const isTrunkTwisted = Math.abs(shoulder.x - hip.x) > 30;
 
-    // Get RULA scores with enhanced logic
+    // Get REBA scores with enhanced logic
     const upperArmScore = getUpperArmScore(upperArmAngle, isShoulderRaised, isArmAbducted);
     const lowerArmScore = getLowerArmScore(lowerArmAngle, armCrossesMidline);
     const wristScore = getWristScore(wristFlexionAngle, wristDeviationAngle, isWristTwisted);

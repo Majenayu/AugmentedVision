@@ -153,16 +153,16 @@ export default function SkeletonOverlay({
 
       const keypoints = poseData.keypoints;
 
-      // Get color based on RULA score and weight - use weight-adjusted scores when available
+      // Get color based on REBA score and weight - use weight-adjusted scores when available
       const getJointColor = (jointIndex: number) => {
         if (!showColorCoding) return '#00FF00'; // Default green
 
-        // Color coding based on RULA components and weight
+        // Color coding based on REBA components and weight
         let riskLevel = 1;
 
         if (rebaScore) {
-          // Use the actual RULA score passed in (which should be weight-adjusted in manual mode)
-          // Map joint to RULA component
+          // Use the actual REBA score passed in (which should be weight-adjusted in manual mode)
+          // Map joint to REBA component
           if ([5, 6, 7, 8].includes(jointIndex)) { // Arms
             riskLevel = Math.max(rebaScore.upperArm || 1, rebaScore.lowerArm || 1);
           } else if ([9, 10].includes(jointIndex)) { // Wrists
@@ -303,7 +303,7 @@ export default function SkeletonOverlay({
         }
       });
 
-      // Posture analysis moved to RULA Assessment component
+      // Posture analysis moved to REBA Assessment component
     }
 
     

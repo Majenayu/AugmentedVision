@@ -18,7 +18,7 @@ const POSE_CONNECTIONS = [
   [12, 14], [14, 16] // Right leg
 ];
 
-// Updated body part mappings to match RULA calculation structure
+// Updated body part mappings to match REBA calculation structure
 const BODY_PART_MAPPING = {
   // Neck/head landmarks
   neck: [0, 1, 2, 3, 4],
@@ -36,7 +36,7 @@ const BODY_PART_MAPPING = {
   // Trunk landmarks (shoulders to hips)
   trunk: [5, 6, 11, 12],
   
-  // Leg landmarks (not scored in RULA but included for completeness)
+  // Leg landmarks (not scored in REBA but included for completeness)
   legs: [11, 12, 13, 14, 15, 16]
 };
 
@@ -52,17 +52,17 @@ const CONNECTION_BODY_PARTS: { [key: string]: string } = {
   '12-14': 'legs', '14-16': 'legs'  // Right leg
 };
 
-// Map RULA score properties to our body part names
-const RULA_SCORE_MAPPING = {
+// Map REBA score properties to our body part names
+const REBA_SCORE_MAPPING = {
   neck: 'neck',
-  upperArmLeft: 'upperArm',   // RULA typically assesses one arm
+  upperArmLeft: 'upperArm',   // REBA typically assesses one arm
   lowerArmLeft: 'lowerArm',
   wristLeft: 'wrist',
   upperArmRight: 'upperArm',  // Use same scores for both sides
   lowerArmRight: 'lowerArm',
   wristRight: 'wrist',
   trunk: 'trunk',
-  legs: 'trunk' // Legs use trunk score as fallback since RULA doesn't score legs
+  legs: 'trunk' // Legs use trunk score as fallback since REBA doesn't score legs
 };
 
 export default function ThreeDView({ poseData, rebaScore }: ThreeDViewProps) {
@@ -77,18 +77,18 @@ export default function ThreeDView({ poseData, rebaScore }: ThreeDViewProps) {
   const [isControlsVisible, setIsControlsVisible] = useState(true);
   const [cameraPosition, setCameraPosition] = useState({ x: 0, y: 0, z: 5 });
 
-  // Get color based on individual RULA score (1-7 scale)
-  const getRulaColor = useCallback((bodyPart: string, rebaScore: any) => {
+  // Get color based on individual REBA score (1-7 scale)
+  const getRebaColor = useCallback((bodyPart: string, rebaScore: any) => {
     if (!rebaScore) {
       return new THREE.Color(0x888888); // Gray for unknown
     }
 
-    // Map our body part to RULA score property
-    const rulaProperty = RULA_SCORE_MAPPING[bodyPart as keyof typeof RULA_SCORE_MAPPING];
+    // Map our body part to REBA score property
+    const rebaProperty = REBA_SCORE_MAPPING[bodyPart as keyof typeof REBA_SCORE_MAPPING];
     let score = 1; // Default low score
 
-    if (rulaProperty && rebaScore[rulaProperty] !== undefined) {
-      score = rebaScore[rulaProperty];
+    if (rebaProperty && rebaScore[rebaProperty] !== undefined) {
+      score = rebaScore[rebaProperty];
     } else {
       // Fallback to final score if specific part not found
       score = rebaScore.finalScore || 1;
@@ -194,7 +194,7 @@ export default function ThreeDView({ poseData, rebaScore }: ThreeDViewProps) {
     return transformedPositions;
   }, []);
 
-  // Update skeleton visualization with individual RULA coloring
+  // Update skeleton visualization with individual REBA coloring
   const updateSkeleton = useCallback((keypoints: any[], rebaScore: any) => {
     if (!skeletonGroupRef.current || !keypoints || keypoints.length === 0) {
       console.log('Cannot update skeleton: missing skeleton group or keypoints');
@@ -212,14 +212,14 @@ export default function ThreeDView({ poseData, rebaScore }: ThreeDViewProps) {
       return;
     }
 
-    console.log('RULA Score for coloring:', rebaScore);
+    console.log('REBA Score for coloring:', rebaScore);
 
     // Draw joints (keypoints) first
     let jointsDrawn = 0;
     transformedPositions.forEach((position, index) => {
       if (position) {
         const bodyPart = getBodyPartForLandmark(index);
-        const color = getRulaColor(bodyPart, rebaScore);
+        const color = getRebaColor(bodyPart, rebaScore);
         
         const geometry = new THREE.SphereGeometry(0.08, 16, 16);
         const material = new THREE.MeshPhongMaterial({ 
@@ -245,7 +245,7 @@ export default function ThreeDView({ poseData, rebaScore }: ThreeDViewProps) {
         // Get body part for this connection
         const connectionKey = `${Math.min(startIdx, endIdx)}-${Math.max(startIdx, endIdx)}`;
         const bodyPart = CONNECTION_BODY_PARTS[connectionKey] || 'trunk';
-        const color = getRulaColor(bodyPart, rebaScore);
+        const color = getRebaColor(bodyPart, rebaScore);
         
         // Create cylinder for bone
         const direction = new THREE.Vector3().subVectors(endPos, startPos);
@@ -274,8 +274,8 @@ export default function ThreeDView({ poseData, rebaScore }: ThreeDViewProps) {
       }
     });
     
-    console.log(`3D Skeleton rendered: ${jointsDrawn} joints and ${bonesDrawn} bones with individual RULA coloring`);
-  }, [transformPoseCoordinates, getRulaColor, getBodyPartForLandmark]);
+    console.log(`3D Skeleton rendered: ${jointsDrawn} joints and ${bonesDrawn} bones with individual REBA coloring`);
+  }, [transformPoseCoordinates, getRebaColor, getBodyPartForLandmark]);
 
   // Initialize Three.js scene
   const initializeScene = useCallback((container: HTMLDivElement) => {
@@ -453,7 +453,7 @@ export default function ThreeDView({ poseData, rebaScore }: ThreeDViewProps) {
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-white flex items-center space-x-2">
             <span className="text-blue-400">🎯</span>
-            <span>3D Skeleton View - Individual RULA Coloring</span>
+            <span>3D Skeleton View - Individual REBA Coloring</span>
           </h3>
           <div className="flex items-center space-x-2">
             <button
@@ -528,13 +528,13 @@ export default function ThreeDView({ poseData, rebaScore }: ThreeDViewProps) {
           </div>
         )}
         
-        {/* Simplified RULA Score Overlay - Final Score Only */}
+        {/* Simplified REBA Score Overlay - Final Score Only */}
         {rebaScore && (
           <div className="absolute bottom-4 left-4 bg-black bg-opacity-80 rounded-lg p-3">
             <div className="text-white text-sm">
               <div className="flex items-center space-x-2 mb-2">
                 <span>📊</span>
-                <span className="font-semibold">RULA Final Score: {String(rebaScore.finalScore || 'N/A')}</span>
+                <span className="font-semibold">REBA Final Score: {String(rebaScore.finalScore || 'N/A')}</span>
               </div>
               <div className="text-xs text-gray-300">
                 Risk Level: <span className={`font-semibold ${
@@ -555,7 +555,7 @@ export default function ThreeDView({ poseData, rebaScore }: ThreeDViewProps) {
             <div className="font-semibold mb-1">Debug Info</div>
             <div>Keypoints: {poseData.keypoints?.length || 0}</div>
             <div>Valid: {poseData.keypoints?.filter((kp: any) => kp && kp.score > 0.3).length || 0}</div>
-            <div>Final RULA: {rebaScore.finalScore || 'N/A'}</div>
+            <div>Final REBA: {rebaScore.finalScore || 'N/A'}</div>
             <div>Stress Level: {rebaScore.stressLevel || 'N/A'}</div>
           </div>
         )}

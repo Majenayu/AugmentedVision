@@ -24,11 +24,11 @@
   --ring: 240 4.9% 83.9%;
   --radius: 0.5rem;
   
-  /* Custom RULA colors */
-  --rula-safe: 142 71% 45%;
-  --rula-investigate: 45 93% 47%;
-  --rula-change-soon: 25 95% 53%;
-  --rula-change-asap: 0 84% 60%;
+  /* Custom REBA colors */
+  --reba-safe: 142 71% 45%;
+  --reba-investigate: 45 93% 47%;
+  --reba-change-soon: 25 95% 53%;
+  --reba-change-asap: 0 84% 60%;
   
   /* Material Design colors */
   --material-blue: 207 90% 54%;
@@ -116,36 +116,36 @@
     color: hsl(var(--material-blue));
   }
   
-  .bg-rula-safe {
-    background-color: hsl(var(--rula-safe));
+  .bg-reba-safe {
+    background-color: hsl(var(--reba-safe));
   }
   
-  .bg-rula-investigate {
-    background-color: hsl(var(--rula-investigate));
+  .bg-reba-investigate {
+    background-color: hsl(var(--reba-investigate));
   }
   
-  .bg-rula-change-soon {
-    background-color: hsl(var(--rula-change-soon));
+  .bg-reba-change-soon {
+    background-color: hsl(var(--reba-change-soon));
   }
   
-  .bg-rula-change-asap {
-    background-color: hsl(var(--rula-change-asap));
+  .bg-reba-change-asap {
+    background-color: hsl(var(--reba-change-asap));
   }
   
-  .text-rula-safe {
-    color: hsl(var(--rula-safe));
+  .text-reba-safe {
+    color: hsl(var(--reba-safe));
   }
   
-  .text-rula-investigate {
-    color: hsl(var(--rula-investigate));
+  .text-reba-investigate {
+    color: hsl(var(--reba-investigate));
   }
   
-  .text-rula-change-soon {
-    color: hsl(var(--rula-change-soon));
+  .text-reba-change-soon {
+    color: hsl(var(--reba-change-soon));
   }
   
-  .text-rula-change-asap {
-    color: hsl(var(--rula-change-asap));
+  .text-reba-change-asap {
+    color: hsl(var(--reba-change-asap));
   }
 }
 

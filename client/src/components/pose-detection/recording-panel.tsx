@@ -307,7 +307,7 @@ export default function RecordingPanel({
 
 
 
-  const getCurrentRulaScore = (frame: RecordingFrame) => {
+  const getCurrentRebaScore = (frame: RecordingFrame) => {
     if (analysisMode === 'manual' && manualWeights.length > 0) {
       const totalManualWeight = manualWeights.reduce((total, weight) => total + weight.weight, 0);
       const defaultWeightEstimation = { 
@@ -362,7 +362,7 @@ export default function RecordingPanel({
     // Prepare Live Graph Data
     const liveData = liveGraphData.map((point, index) => ({
       'Time (seconds)': index * 0.1, // Assuming 10fps recording
-      'RULA Score': point.rebaScore,
+      'REBA Score': point.rebaScore,
       'Estimated Weight (kg)': point.estimatedWeight,
       'Confidence': point.confidence,
       'Has Object': point.hasObject ? 'Yes' : 'No'
@@ -371,7 +371,7 @@ export default function RecordingPanel({
     // Prepare Recording Graph Data (Normal)
     const recordingData = recordingGraphData.map((point, index) => ({
       'Time (seconds)': index * (60 / recordingGraphData.length), // 60 seconds total
-      'RULA Score': point.rebaScore,
+      'REBA Score': point.rebaScore,
       'Risk Level': point.riskLevel,
       'Upper Arm Score': point.upperArm || 'N/A',
       'Lower Arm Score': point.lowerArm || 'N/A',
@@ -383,8 +383,8 @@ export default function RecordingPanel({
     // Prepare Estimated Graph Data with detailed breakdown
     const estimatedData = estimatedGraphData.map((point, index) => ({
       'Time (seconds)': index * (60 / estimatedGraphData.length),
-      'Original RULA Score': point.originalRulaScore,
-      'Adjusted RULA Score': point.adjustedRebaScore,
+      'Original REBA Score': point.originalRebaScore,
+      'Adjusted REBA Score': point.adjustedRebaScore,
       'Estimated Weight (kg)': point.estimatedWeight,
       'Weight Multiplier': point.weightMultiplier,
       'Original Upper Arm': point.originalUpperArm || 'N/A',
@@ -404,8 +404,8 @@ export default function RecordingPanel({
     // Prepare Manual Graph Data with detailed breakdown
     const manualData = manualGraphData.map((point, index) => ({
       'Time (seconds)': index * (60 / manualGraphData.length),
-      'Original RULA Score': point.originalRulaScore,
-      'Adjusted RULA Score': point.adjustedRebaScore,
+      'Original REBA Score': point.originalRebaScore,
+      'Adjusted REBA Score': point.adjustedRebaScore,
       'Manual Weight (kg)': point.manualWeight,
       'Weight Multiplier': point.weightMultiplier,
       'Original Upper Arm': point.originalUpperArm || 'N/A',
@@ -514,7 +514,7 @@ export default function RecordingPanel({
       validFrames.reduce((sum, frame) => sum + (frame.poseData?.keypoints?.filter((kp: any) => kp.score > 0.3).length || 0), 0) / validFrames.length : 0;
     const avgConfidence = validFrames.length > 0 ?
       validFrames.reduce((sum, frame) => sum + (frame.poseData?.score || 0), 0) / validFrames.length * 100 : 0;
-    const avgRulaScore = validFrames.length > 0 ?
+    const avgRebaScore = validFrames.length > 0 ?
       validFrames.reduce((sum, frame) => sum + (frame.rebaScore?.finalScore || 0), 0) / validFrames.length : 0;
 
     // Get risk level
@@ -581,9 +581,9 @@ export default function RecordingPanel({
     addText(`Valid Keypoints: ${Math.round(avgValidKeypoints)}`);
     addText(`Detection Confidence: ${avgConfidence.toFixed(0)}%`);
 
-    // RULA Assessment Results
-    addSection("RULA Assessment Results");
-    addText(`Score: ${avgRulaScore.toFixed(1)}                Risk Level: ${getRiskLevel(avgRulaScore)}`);
+    // REBA Assessment Results
+    addSection("REBA Assessment Results");
+    addText(`Score: ${avgRebaScore.toFixed(1)}                Risk Level: ${getRiskLevel(avgRebaScore)}`);
     yPosition += 3;
 
     // Get average body part scores
@@ -624,7 +624,7 @@ export default function RecordingPanel({
 
     // Recommendations
     addSection("Recommendations");
-    const recommendations = generateRecommendations(avgRulaScore, manualWeights.length > 0);
+    const recommendations = generateRecommendations(avgRebaScore, manualWeights.length > 0);
     recommendations.forEach((rec, index) => {
       addText(`${index + 1}. ${rec}`);
     });
@@ -641,7 +641,7 @@ export default function RecordingPanel({
             frame.timestamp;
           
           addText(`Frame ${index + 1} (${formatTime(timeSeconds)}):`);
-          addText(`  RULA Score: ${frame.rebaScore?.finalScore || 0} - ${getRiskLevel(frame.rebaScore?.finalScore || 0)}`);
+          addText(`  REBA Score: ${frame.rebaScore?.finalScore || 0} - ${getRiskLevel(frame.rebaScore?.finalScore || 0)}`);
           addText(`  Body Parts: UA:${frame.rebaScore?.upperArm || 0} LA:${frame.rebaScore?.lowerArm || 0} W:${frame.rebaScore?.wrist || 0} N:${frame.rebaScore?.neck || 0} T:${frame.rebaScore?.trunk || 0}`);
           
           if (frame.hasObject) {
@@ -799,7 +799,7 @@ export default function RecordingPanel({
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
           >
-            Live RULA Graph
+            Live REBA Graph
           </button>
           <button
             onClick={() => setActiveGraph('estimated')}
@@ -826,10 +826,10 @@ export default function RecordingPanel({
           </button>
         </div>
 
-        {/* Normal RULA Graph - Only shows data from recording session */}
+        {/* Normal REBA Graph - Only shows data from recording session */}
         {activeGraph === 'live' && (
           <div className="bg-gray-800 rounded-lg p-4">
-            <h4 className="text-lg font-medium mb-3 text-blue-400">Normal RULA Score (Recording Session)</h4>
+            <h4 className="text-lg font-medium mb-3 text-blue-400">Normal REBA Score (Recording Session)</h4>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={recordingGraphData} onClick={handleChartClick}>
@@ -846,7 +846,7 @@ export default function RecordingPanel({
                   />
                   <Tooltip 
                     labelFormatter={formatTime}
-                    formatter={(value: any) => [value, 'RULA Score']}
+                    formatter={(value: any) => [value, 'REBA Score']}
                     contentStyle={{
                       backgroundColor: '#1F2937',
                       border: '1px solid #374151',
@@ -871,7 +871,7 @@ export default function RecordingPanel({
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Normal RULA scores from recording session. Red dots indicate detected objects. Click on points to view frame details.
+              Normal REBA scores from recording session. Red dots indicate detected objects. Click on points to view frame details.
             </p>
           </div>
         )}
@@ -879,14 +879,14 @@ export default function RecordingPanel({
         {/* Estimated Weight Graph - Shows both live and estimated data */}
         {activeGraph === 'estimated' && (
           <div className="bg-gray-800 rounded-lg p-4">
-            <h4 className="text-lg font-medium mb-3 text-orange-400">Weight-Adjusted RULA Analysis (Recording Session)</h4>
+            <h4 className="text-lg font-medium mb-3 text-orange-400">Weight-Adjusted REBA Analysis (Recording Session)</h4>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart 
                   data={recordingGraphData.map((liveData, index) => ({
                     ...liveData,
-                    liveRulaScore: liveData.rebaScore,
-                    estimatedRulaScore: estimatedGraphData[index]?.rebaScore || liveData.rebaScore
+                    liveRebaScore: liveData.rebaScore,
+                    estimatedRebaScore: estimatedGraphData[index]?.rebaScore || liveData.rebaScore
                   }))} 
                   onClick={handleChartClick}
                 >
@@ -904,8 +904,8 @@ export default function RecordingPanel({
                   <Tooltip 
                     labelFormatter={formatTime}
                     formatter={(value: any, name: string) => {
-                      if (name === 'liveRulaScore') return [value, 'Live RULA Score'];
-                      if (name === 'estimatedRulaScore') return [value, 'Weight-Adjusted RULA Score'];
+                      if (name === 'liveRebaScore') return [value, 'Live REBA Score'];
+                      if (name === 'estimatedRebaScore') return [value, 'Weight-Adjusted REBA Score'];
                       return [value, name];
                     }}
                     contentStyle={{
@@ -915,10 +915,10 @@ export default function RecordingPanel({
                       color: '#F9FAFB'
                     }}
                   />
-                  {/* Blue line for live RULA scores */}
+                  {/* Blue line for live REBA scores */}
                   <Line 
                     type="monotone" 
-                    dataKey="liveRulaScore" 
+                    dataKey="liveRebaScore" 
                     stroke="#3B82F6" 
                     strokeWidth={2}
                     dot={(props: any) => {
@@ -928,10 +928,10 @@ export default function RecordingPanel({
                       return <circle cx={props.cx} cy={props.cy} r={2} fill="#3B82F6" />;
                     }}
                   />
-                  {/* Orange line for estimated weight-adjusted RULA scores */}
+                  {/* Orange line for estimated weight-adjusted REBA scores */}
                   <Line 
                     type="monotone" 
-                    dataKey="estimatedRulaScore" 
+                    dataKey="estimatedRebaScore" 
                     stroke="#F59E0B" 
                     strokeWidth={2}
                     dot={(props: any) => {
@@ -946,7 +946,7 @@ export default function RecordingPanel({
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Blue line: Live RULA scores | Orange line: Weight-adjusted RULA scores | Red dots indicate detected objects. Click on points to view frame details.
+              Blue line: Live REBA scores | Orange line: Weight-adjusted REBA scores | Red dots indicate detected objects. Click on points to view frame details.
             </p>
           </div>
         )}
@@ -971,9 +971,9 @@ export default function RecordingPanel({
                   <Tooltip 
                     labelFormatter={formatTime}
                     formatter={(value: any, name: string) => {
-                      if (name === 'normalScore') return [value, 'Normal RULA'];
-                      if (name === 'adjustedScore') return [value, 'Manual Weight-Adjusted RULA'];
-                      return [value, 'RULA Score'];
+                      if (name === 'normalScore') return [value, 'Normal REBA'];
+                      if (name === 'adjustedScore') return [value, 'Manual Weight-Adjusted REBA'];
+                      return [value, 'REBA Score'];
                     }}
                     contentStyle={{
                       backgroundColor: '#1F2937',
@@ -1012,7 +1012,7 @@ export default function RecordingPanel({
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Gray dashed: Normal RULA | Green solid: Manual weight-adjusted RULA (Total: {getTotalManualWeight()}kg) | Red dots indicate detected objects.
+              Gray dashed: Normal REBA | Green solid: Manual weight-adjusted REBA (Total: {getTotalManualWeight()}kg) | Red dots indicate detected objects.
             </p>
           </div>
         )}
@@ -1072,7 +1072,7 @@ export default function RecordingPanel({
                     <div className="relative w-full h-full bg-black">
                       <SkeletonOverlay
                         poseData={selectedFrame.poseData}
-                        rebaScore={getCurrentRulaScore(selectedFrame)}
+                        rebaScore={getCurrentRebaScore(selectedFrame)}
                         imageData={selectedFrame.imageData}
                         width={640}
                         height={360}
@@ -1097,10 +1097,10 @@ export default function RecordingPanel({
             </div>
 
             <div className="space-y-4">
-              {/* Show RULA table for all view modes */}
+              {/* Show REBA table for all view modes */}
               {true && (
                 <div>
-                <h5 className="text-lg font-medium mb-3">RULA Assessment</h5>
+                <h5 className="text-lg font-medium mb-3">REBA Assessment</h5>
                 {selectedFrame.rebaScore ? (
                   <div className="space-y-3">
                     {analysisMode !== 'normal' && selectedFrame.adjustedRebaScore && (
@@ -1118,17 +1118,17 @@ export default function RecordingPanel({
                     <div className="flex justify-between items-center">
                       <span>Final Score:</span>
                       <span className="font-bold text-xl">
-                        {getCurrentRulaScore(selectedFrame)?.finalScore}
+                        {getCurrentRebaScore(selectedFrame)?.finalScore}
                       </span>
                     </div>
                     <div className="flex justify-between items-center">
                       <span>Risk Level:</span>
                       <span className={`font-medium ${
-                        getCurrentRulaScore(selectedFrame)?.finalScore <= 2 ? 'text-green-400' :
-                        getCurrentRulaScore(selectedFrame)?.finalScore <= 4 ? 'text-yellow-400' :
-                        getCurrentRulaScore(selectedFrame)?.finalScore <= 6 ? 'text-orange-400' : 'text-red-400'
+                        getCurrentRebaScore(selectedFrame)?.finalScore <= 2 ? 'text-green-400' :
+                        getCurrentRebaScore(selectedFrame)?.finalScore <= 4 ? 'text-yellow-400' :
+                        getCurrentRebaScore(selectedFrame)?.finalScore <= 6 ? 'text-orange-400' : 'text-red-400'
                       }`}>
-                        {getCurrentRulaScore(selectedFrame)?.riskLevel}
+                        {getCurrentRebaScore(selectedFrame)?.riskLevel}
                       </span>
                     </div>
 
@@ -1136,31 +1136,31 @@ export default function RecordingPanel({
                       <div className="bg-dark-secondary rounded p-3">
                         <div className="text-sm text-text-secondary">Upper Arm</div>
                         <div className="text-lg font-bold">
-                          {getCurrentRulaScore(selectedFrame)?.upperArm}
+                          {getCurrentRebaScore(selectedFrame)?.upperArm}
                         </div>
                       </div>
                       <div className="bg-dark-secondary rounded p-3">
                         <div className="text-sm text-text-secondary">Lower Arm</div>
                         <div className="text-lg font-bold">
-                          {getCurrentRulaScore(selectedFrame)?.lowerArm}
+                          {getCurrentRebaScore(selectedFrame)?.lowerArm}
                         </div>
                       </div>
                       <div className="bg-dark-secondary rounded p-3">
                         <div className="text-sm text-text-secondary">Wrist</div>
                         <div className="text-lg font-bold">
-                          {getCurrentRulaScore(selectedFrame)?.wrist}
+                          {getCurrentRebaScore(selectedFrame)?.wrist}
                         </div>
                       </div>
                       <div className="bg-dark-secondary rounded p-3">
                         <div className="text-sm text-text-secondary">Neck</div>
                         <div className="text-lg font-bold">
-                          {getCurrentRulaScore(selectedFrame)?.neck}
+                          {getCurrentRebaScore(selectedFrame)?.neck}
                         </div>
                       </div>
                     </div>
 
                     {/* Posture Analysis Status for Recorded Frame */}
-                    {getCurrentRulaScore(selectedFrame) && (
+                    {getCurrentRebaScore(selectedFrame) && (
                       <div className="mt-4 p-4 rounded-lg bg-blue-600 bg-opacity-20 border-2 border-blue-400">
                         <div className="flex items-start space-x-3">
                           <div className="bg-blue-500 rounded-full p-2 flex-shrink-0">
@@ -1178,7 +1178,7 @@ export default function RecordingPanel({
                             <div className="bg-dark-secondary rounded-lg p-3">
                               <p className="text-white text-sm leading-relaxed">
                                 {generatePostureAnalysis(
-                                  getCurrentRulaScore(selectedFrame),
+                                  getCurrentRebaScore(selectedFrame),
                                   analysisMode === 'manual' && manualWeights.length > 0 ? 'manual' : 'recorded'
                                 )}
                               </p>
@@ -1189,7 +1189,7 @@ export default function RecordingPanel({
                     )}
                   </div>
                 ) : (
-                  <p className="text-text-secondary">No RULA data available for this frame</p>
+                  <p className="text-text-secondary">No REBA data available for this frame</p>
                 )}
               </div>
               )}

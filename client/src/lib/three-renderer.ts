@@ -182,7 +182,7 @@ export function useThreeRenderer() {
       [12, 14], [14, 16] // Right leg
     ];
 
-    // Determine skeleton color based on RULA score
+    // Determine skeleton color based on REBA score
     let skeletonColor = 0x00ff00; // Green (safe)
     if (rebaScore) {
       if (rebaScore.finalScore <= 2) {
