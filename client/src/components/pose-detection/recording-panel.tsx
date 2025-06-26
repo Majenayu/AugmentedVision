@@ -12,6 +12,26 @@ import JSZip from 'jszip';
 import { estimateWeightFromPosture, calculateWeightAdjustedReba } from '@/lib/weight-detection';
 import { generatePostureAnalysis } from '@/lib/posture-analysis';
 
+// Centralized naming system for all downloads
+let downloadCounter = 1;
+
+const generateFileName = (type: 'PDF' | 'Excel' | 'Doc'): string => {
+  const timestamp = new Date().toLocaleString('en-US', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false
+  }).replace(/[/,\s:]/g, '_');
+  
+  const fileName = `Data_${downloadCounter}_${timestamp}`;
+  downloadCounter++;
+  
+  return fileName;
+};
+
 interface RecordingFrame {
   timestamp: number;
   rebaScore: any;
@@ -358,7 +378,6 @@ export default function RecordingPanel({
 
   // Excel export functions
   const exportGraphDataToExcel = () => {
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
     
     // Prepare Live Graph Data
     const liveData = liveGraphData.map((point, index) => ({
@@ -463,9 +482,9 @@ export default function RecordingPanel({
       XLSX.utils.book_append_sheet(workbook, weightsSheet, 'Manual Objects List');
     }
 
-    // Download the file
-    const fileName = `ErgoTrack_Analysis_${timestamp}.xlsx`;
-    XLSX.writeFile(workbook, fileName);
+    // Download the file with standardized naming
+    const fileName = generateFileName('Excel');
+    XLSX.writeFile(workbook, `${fileName}.xlsx`);
   };
 
   // Download All Images Function - Creates a single PDF with all image formats per frame
@@ -476,7 +495,6 @@ export default function RecordingPanel({
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
     const margin = 10;
-    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
     
     // Title page
     pdf.setFontSize(20);
@@ -639,10 +657,10 @@ export default function RecordingPanel({
       }
     }
 
-    // Download the PDF
+    // Download the PDF with standardized naming
     try {
-      const fileName = `ErgoTrack_Complete_Images_${timestamp}.pdf`;
-      pdf.save(fileName);
+      const fileName = generateFileName('PDF');
+      pdf.save(`${fileName}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
       alert('Failed to generate image PDF. Please try again.');
