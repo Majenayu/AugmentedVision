@@ -468,18 +468,25 @@ export default function RecordingPanel({
     XLSX.writeFile(workbook, fileName);
   };
 
-  // Download All Images Function
+  // Download All Images Function - Creates a single PDF with all image formats per frame
   const downloadAllImages = async () => {
     if (recordingData.length === 0) return;
 
-    const zip = new JSZip();
+    const pdf = new jsPDF('p', 'mm', 'a4');
+    const pageWidth = pdf.internal.pageSize.getWidth();
+    const pageHeight = pdf.internal.pageSize.getHeight();
+    const margin = 10;
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-').split('T')[0];
     
-    // Create folders for different image types
-    const originalFolder = zip.folder("original_images");
-    const skeletonFolder = zip.folder("skeleton_images");
-    const estimatedWeightFolder = zip.folder("estimated_weight_skeleton");
-    const manualWeightFolder = zip.folder("manual_weight_skeleton");
+    // Title page
+    pdf.setFontSize(20);
+    pdf.text('ErgoTrack - Complete Image Analysis', pageWidth/2, 30, { align: 'center' });
+    pdf.setFontSize(12);
+    pdf.text(`Generated: ${new Date().toLocaleString()}`, pageWidth/2, 45, { align: 'center' });
+    pdf.text(`Total Frames: ${recordingData.length}`, pageWidth/2, 55, { align: 'center' });
+    if (manualWeights.length > 0) {
+      pdf.text(`Manual Weight: ${(manualWeights.reduce((total, weight) => total + weight.weight, 0) / 1000).toFixed(1)}kg`, pageWidth/2, 65, { align: 'center' });
+    }
 
     // Process each recorded frame
     for (let i = 0; i < recordingData.length; i++) {
@@ -487,90 +494,120 @@ export default function RecordingPanel({
       const frameNumber = String(i + 1).padStart(3, '0');
       const timeSeconds = frame.timestamp.toFixed(1);
       
+      // Add new page for each frame
+      pdf.addPage();
+      
+      // Frame header
+      pdf.setFontSize(14);
+      pdf.text(`Frame ${frameNumber} - Time: ${timeSeconds}s`, margin, 20);
+      
+      // Image dimensions for 2x2 grid layout
+      const imageWidth = (pageWidth - 3 * margin) / 2;
+      const imageHeight = (pageHeight - 60) / 2;
+      
+      let imagesAdded = 0;
+      const positions = [
+        { x: margin, y: 30, label: 'Original' },
+        { x: margin + imageWidth + margin, y: 30, label: 'Skeleton' },
+        { x: margin, y: 30 + imageHeight + 10, label: 'Estimated Weight' },
+        { x: margin + imageWidth + margin, y: 30 + imageHeight + 10, label: 'Manual Weight' }
+      ];
+
       // 1. Original Image
       if (frame.imageData) {
-        const originalImageData = frame.imageData.split(',')[1]; // Remove data:image/jpeg;base64, prefix
-        originalFolder?.file(`frame_${frameNumber}_${timeSeconds}s_original.jpg`, originalImageData, {base64: true});
+        try {
+          const pos = positions[0];
+          pdf.addImage(frame.imageData, 'JPEG', pos.x, pos.y, imageWidth, imageHeight);
+          pdf.setFontSize(10);
+          pdf.text(pos.label, pos.x, pos.y - 2);
+          imagesAdded++;
+        } catch (error) {
+          console.warn('Failed to add original image:', error);
+        }
       }
 
       // 2. Skeleton Image
       if (frame.poseData && frame.poseData.length > 0) {
-        const skeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, frame.rebaScore);
-        if (skeletonCanvas) {
-          const skeletonImageData = skeletonCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-          skeletonFolder?.file(`frame_${frameNumber}_${timeSeconds}s_skeleton.jpg`, skeletonImageData, {base64: true});
+        try {
+          const skeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, frame.rebaScore);
+          if (skeletonCanvas) {
+            const pos = positions[1];
+            const skeletonImageData = skeletonCanvas.toDataURL('image/jpeg', 0.8);
+            pdf.addImage(skeletonImageData, 'JPEG', pos.x, pos.y, imageWidth, imageHeight);
+            pdf.setFontSize(10);
+            pdf.text(`${pos.label} - REBA: ${frame.rebaScore?.finalScore || 0}`, pos.x, pos.y - 2);
+            imagesAdded++;
+          }
+        } catch (error) {
+          console.warn('Failed to add skeleton image:', error);
         }
       }
 
       // 3. Estimated Weight Skeleton (if weight estimation exists)
       if (frame.weightEstimation && frame.poseData && frame.poseData.length > 0) {
-        const adjustedRebaScore = calculateWeightAdjustedReba(frame.rebaScore, frame.weightEstimation);
-        const estimatedSkeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, adjustedRebaScore, 'estimated');
-        if (estimatedSkeletonCanvas) {
-          const estimatedImageData = estimatedSkeletonCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-          estimatedWeightFolder?.file(`frame_${frameNumber}_${timeSeconds}s_estimated_${frame.weightEstimation.estimatedWeight.toFixed(1)}kg.jpg`, estimatedImageData, {base64: true});
+        try {
+          const adjustedRebaScore = calculateWeightAdjustedReba(frame.rebaScore, frame.weightEstimation);
+          const estimatedSkeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, adjustedRebaScore, 'estimated');
+          if (estimatedSkeletonCanvas) {
+            const pos = positions[2];
+            const estimatedImageData = estimatedSkeletonCanvas.toDataURL('image/jpeg', 0.8);
+            pdf.addImage(estimatedImageData, 'JPEG', pos.x, pos.y, imageWidth, imageHeight);
+            pdf.setFontSize(10);
+            pdf.text(`${pos.label} - ${frame.weightEstimation.estimatedWeight.toFixed(1)}kg - REBA: ${adjustedRebaScore?.finalScore || 0}`, pos.x, pos.y - 2);
+            imagesAdded++;
+          }
+        } catch (error) {
+          console.warn('Failed to add estimated weight image:', error);
         }
       }
 
       // 4. Manual Weight Skeleton (if manual weights exist)
       if (manualWeights.length > 0 && frame.poseData && frame.poseData.length > 0) {
-        const totalManualWeight = manualWeights.reduce((total, weight) => total + weight.weight, 0);
-        const defaultWeightEstimation = { 
-          estimatedWeight: 0, 
-          confidence: 0, 
-          detectedObjects: [], 
-          bodyPosture: { 
-            isLifting: false, 
-            isCarrying: false, 
-            armPosition: 'close' as const, 
-            spineDeviation: 0, 
-            loadDirection: 'front' as const 
-          } 
-        };
-        const manualAdjustedRebaScore = calculateWeightAdjustedReba(frame.rebaScore, frame.weightEstimation || defaultWeightEstimation, totalManualWeight);
-        const manualSkeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, manualAdjustedRebaScore, 'manual');
-        if (manualSkeletonCanvas) {
-          const manualImageData = manualSkeletonCanvas.toDataURL('image/jpeg', 0.8).split(',')[1];
-          manualWeightFolder?.file(`frame_${frameNumber}_${timeSeconds}s_manual_${(totalManualWeight/1000).toFixed(1)}kg.jpg`, manualImageData, {base64: true});
+        try {
+          const totalManualWeight = manualWeights.reduce((total, weight) => total + weight.weight, 0);
+          const defaultWeightEstimation = { 
+            estimatedWeight: 0, 
+            confidence: 0, 
+            detectedObjects: [], 
+            bodyPosture: { 
+              isLifting: false, 
+              isCarrying: false, 
+              armPosition: 'close' as const, 
+              spineDeviation: 0, 
+              loadDirection: 'front' as const 
+            } 
+          };
+          const manualAdjustedRebaScore = calculateWeightAdjustedReba(frame.rebaScore, frame.weightEstimation || defaultWeightEstimation, totalManualWeight);
+          const manualSkeletonCanvas = await createSkeletonImage(frame.imageData, frame.poseData, manualAdjustedRebaScore, 'manual');
+          if (manualSkeletonCanvas) {
+            const pos = positions[3];
+            const manualImageData = manualSkeletonCanvas.toDataURL('image/jpeg', 0.8);
+            pdf.addImage(manualImageData, 'JPEG', pos.x, pos.y, imageWidth, imageHeight);
+            pdf.setFontSize(10);
+            pdf.text(`${pos.label} - ${(totalManualWeight/1000).toFixed(1)}kg - REBA: ${manualAdjustedRebaScore?.finalScore || 0}`, pos.x, pos.y - 2);
+            imagesAdded++;
+          }
+        } catch (error) {
+          console.warn('Failed to add manual weight image:', error);
         }
+      }
+
+      // Add frame summary at bottom
+      pdf.setFontSize(8);
+      const summaryY = pageHeight - 20;
+      pdf.text(`Images included: ${imagesAdded}/4`, margin, summaryY);
+      if (frame.rebaScore) {
+        pdf.text(`Original REBA Score: ${frame.rebaScore.finalScore} (${frame.rebaScore.riskLevel})`, margin, summaryY + 5);
       }
     }
 
-    // Add metadata file
-    const metadata = {
-      exportDate: new Date().toISOString(),
-      totalFrames: recordingData.length,
-      recordingDuration: recordingData.length > 0 ? recordingData[recordingData.length - 1].timestamp : 0,
-      manualWeights: manualWeights.map(w => ({
-        name: w.name,
-        weight: w.weight,
-        weightKg: w.weight / 1000
-      })),
-      totalManualWeight: manualWeights.reduce((total, weight) => total + weight.weight, 0),
-      totalManualWeightKg: manualWeights.reduce((total, weight) => total + weight.weight, 0) / 1000,
-      imageFormats: {
-        original: "Original camera frames without analysis",
-        skeleton: "Pose skeleton overlay with REBA color coding",
-        estimatedWeight: "Skeleton with estimated weight adjustments (if available)",
-        manualWeight: "Skeleton with manual weight adjustments (if configured)"
-      }
-    };
-    zip.file("metadata.json", JSON.stringify(metadata, null, 2));
-
-    // Generate and download the zip file
+    // Download the PDF
     try {
-      const blob = await zip.generateAsync({type: "blob"});
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `ErgoTrack_Images_${timestamp}.zip`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
+      const fileName = `ErgoTrack_Complete_Images_${timestamp}.pdf`;
+      pdf.save(fileName);
     } catch (error) {
-      console.error('Error generating zip file:', error);
-      alert('Failed to generate image download. Please try again.');
+      console.error('Error generating PDF:', error);
+      alert('Failed to generate image PDF. Please try again.');
     }
   };
 
