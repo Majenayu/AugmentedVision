@@ -211,22 +211,20 @@ export default function SkeletonOverlay({
         }
         
         const video = videoRef.current;
-        let x = point.x;
-        let y = point.y;
         
-        // Calculate video scaling to fit canvas exactly like camera-view.tsx
+        // Use EXACT same logic as camera-view.tsx transformCoordinates function  
         const videoAspect = video.videoWidth / video.videoHeight;
         const canvasAspect = width / height;
         
         let scaleX, scaleY, offsetX = 0, offsetY = 0;
         
         if (videoAspect > canvasAspect) {
-          // Video is wider - fit to height, center horizontally
+          // Video is wider - fit to height
           scaleY = height;
           scaleX = height * videoAspect;
           offsetX = (width - scaleX) / 2;
         } else {
-          // Video is taller - fit to width, center vertically
+          // Video is taller - fit to width
           scaleX = width;
           scaleY = width / videoAspect;
           offsetY = (height - scaleY) / 2;
@@ -234,18 +232,18 @@ export default function SkeletonOverlay({
         
         let transformedX, transformedY;
         
-        // Handle coordinate normalization
-        if (x > 1 || y > 1) {
+        // Handle different coordinate systems exactly like camera-view.tsx
+        if (point.x > 1 || point.y > 1) {
           // Absolute coordinates - normalize first
-          transformedX = (x / video.videoWidth) * scaleX + offsetX;
-          transformedY = (y / video.videoHeight) * scaleY + offsetY;
+          transformedX = (point.x / video.videoWidth) * scaleX + offsetX;
+          transformedY = (point.y / video.videoHeight) * scaleY + offsetY;
         } else {
           // Normalized coordinates (0-1)
-          transformedX = x * scaleX + offsetX;
-          transformedY = y * scaleY + offsetY;
+          transformedX = point.x * scaleX + offsetX;
+          transformedY = point.y * scaleY + offsetY;
         }
         
-        // Mirror X coordinate to match camera display
+        // Since canvas is mirrored, flip X coordinate (exact same as camera-view.tsx)
         transformedX = width - transformedX;
         
         return { x: transformedX, y: transformedY };
