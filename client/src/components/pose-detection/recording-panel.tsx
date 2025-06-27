@@ -52,6 +52,7 @@ interface RecordingPanelProps {
   currentPoseData?: any;
   currentRebaScore?: any;
   videoRef?: React.RefObject<HTMLVideoElement>;
+  assessmentMode?: 'RULA' | 'REBA';
 }
 
 
@@ -69,7 +70,8 @@ export default function RecordingPanel({
   onClearRecording,
   currentPoseData,
   currentRebaScore,
-  videoRef
+  videoRef,
+  assessmentMode = 'REBA'
 }: RecordingPanelProps) {
   const [selectedFrame, setSelectedFrame] = useState<RecordingFrame | null>(null);
   const [analysisMode, setAnalysisMode] = useState<AnalysisMode>('normal');
@@ -1171,7 +1173,7 @@ export default function RecordingPanel({
                 : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
             }`}
           >
-            Live REBA Graph
+            Live {assessmentMode} Graph
           </button>
           <button
             onClick={() => setActiveGraph('estimated')}
@@ -1201,7 +1203,7 @@ export default function RecordingPanel({
         {/* Normal REBA Graph - Only shows data from recording session */}
         {activeGraph === 'live' && (
           <div className="bg-gray-800 rounded-lg p-4">
-            <h4 className="text-lg font-medium mb-3 text-blue-400">Normal REBA Score (Recording Session)</h4>
+            <h4 className="text-lg font-medium mb-3 text-blue-400">Normal {assessmentMode} Score (Recording Session)</h4>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart data={recordingGraphData} onClick={handleChartClick}>
@@ -1218,7 +1220,7 @@ export default function RecordingPanel({
                   />
                   <Tooltip 
                     labelFormatter={formatTime}
-                    formatter={(value: any) => [value, 'REBA Score']}
+                    formatter={(value: any) => [value, `${assessmentMode} Score`]}
                     contentStyle={{
                       backgroundColor: '#1F2937',
                       border: '1px solid #374151',
@@ -1243,7 +1245,7 @@ export default function RecordingPanel({
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Normal REBA scores from recording session. Red dots indicate detected objects. Click on points to view frame details.
+              Normal {assessmentMode} scores from recording session. Red dots indicate detected objects. Click on points to view frame details.
             </p>
           </div>
         )}
@@ -1251,7 +1253,7 @@ export default function RecordingPanel({
         {/* Estimated Weight Graph - Shows both live and estimated data */}
         {activeGraph === 'estimated' && (
           <div className="bg-gray-800 rounded-lg p-4">
-            <h4 className="text-lg font-medium mb-3 text-orange-400">Weight-Adjusted REBA Analysis (Recording Session)</h4>
+            <h4 className="text-lg font-medium mb-3 text-orange-400">Weight-Adjusted {assessmentMode} Analysis (Recording Session)</h4>
             <div className="h-64 w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <LineChart 
@@ -1276,8 +1278,8 @@ export default function RecordingPanel({
                   <Tooltip 
                     labelFormatter={formatTime}
                     formatter={(value: any, name: string) => {
-                      if (name === 'liveRebaScore') return [value, 'Live REBA Score'];
-                      if (name === 'estimatedRebaScore') return [value, 'Weight-Adjusted REBA Score'];
+                      if (name === 'liveRebaScore') return [value, `Live ${assessmentMode} Score`];
+                      if (name === 'estimatedRebaScore') return [value, `Weight-Adjusted ${assessmentMode} Score`];
                       return [value, name];
                     }}
                     contentStyle={{
@@ -1318,7 +1320,7 @@ export default function RecordingPanel({
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Blue line: Live REBA scores | Orange line: Weight-adjusted REBA scores | Red dots indicate detected objects. Click on points to view frame details.
+              Blue line: Live {assessmentMode} scores | Orange line: Weight-adjusted {assessmentMode} scores | Red dots indicate detected objects. Click on points to view frame details.
             </p>
           </div>
         )}
@@ -1343,9 +1345,9 @@ export default function RecordingPanel({
                   <Tooltip 
                     labelFormatter={formatTime}
                     formatter={(value: any, name: string) => {
-                      if (name === 'normalScore') return [value, 'Normal REBA'];
-                      if (name === 'adjustedScore') return [value, 'Manual Weight-Adjusted REBA'];
-                      return [value, 'REBA Score'];
+                      if (name === 'normalScore') return [value, `Normal ${assessmentMode}`];
+                      if (name === 'adjustedScore') return [value, `Manual Weight-Adjusted ${assessmentMode}`];
+                      return [value, `${assessmentMode} Score`];
                     }}
                     contentStyle={{
                       backgroundColor: '#1F2937',
@@ -1384,7 +1386,7 @@ export default function RecordingPanel({
               </ResponsiveContainer>
             </div>
             <p className="text-sm text-gray-400 mt-2">
-              Gray dashed: Normal REBA | Green solid: Manual weight-adjusted REBA (Total: {getTotalManualWeight()}kg) | Red dots indicate detected objects.
+              Gray dashed: Normal {assessmentMode} | Green solid: Manual weight-adjusted {assessmentMode} (Total: {getTotalManualWeight()}kg) | Red dots indicate detected objects.
             </p>
           </div>
         )}
@@ -1472,7 +1474,7 @@ export default function RecordingPanel({
               {/* Show REBA table for all view modes */}
               {true && (
                 <div>
-                <h5 className="text-lg font-medium mb-3">REBA Assessment</h5>
+                <h5 className="text-lg font-medium mb-3">{assessmentMode} Assessment</h5>
                 {selectedFrame.rebaScore ? (
                   <div className="space-y-3">
                     {analysisMode !== 'normal' && selectedFrame.adjustedRebaScore && (
@@ -1561,7 +1563,7 @@ export default function RecordingPanel({
                     )}
                   </div>
                 ) : (
-                  <p className="text-text-secondary">No REBA data available for this frame</p>
+                  <p className="text-text-secondary">No {assessmentMode} data available for this frame</p>
                 )}
               </div>
               )}

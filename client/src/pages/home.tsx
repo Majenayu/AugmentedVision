@@ -274,7 +274,7 @@ export default function Home() {
 
         {/* Main Viewing Area */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-          <ThreeDView poseData={poseData} rebaScore={rebaScore} />
+          <ThreeDView poseData={poseData} rebaScore={rebaScore} assessmentMode={assessmentMode} />
           <CameraView 
             videoRef={videoRef} 
             canvasRef={canvasRef} 
@@ -310,6 +310,7 @@ export default function Home() {
             currentPoseData={poseData}
             currentRebaScore={rebaScore}
             videoRef={videoRef}
+            assessmentMode={assessmentMode}
           />
       </main>
 

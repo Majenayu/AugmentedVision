@@ -4,6 +4,7 @@ import * as THREE from 'three';
 interface ThreeDViewProps {
   poseData: any;
   rebaScore: any;
+  assessmentMode?: 'RULA' | 'REBA';
 }
 
 // COCO pose model connections (17 keypoints) - matching your CameraView
@@ -65,7 +66,7 @@ const REBA_SCORE_MAPPING = {
   legs: 'trunk' // Legs use trunk score as fallback since REBA doesn't score legs
 };
 
-export default function ThreeDView({ poseData, rebaScore }: ThreeDViewProps) {
+export default function ThreeDView({ poseData, rebaScore, assessmentMode = 'REBA' }: ThreeDViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const sceneRef = useRef<THREE.Scene | null>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -453,7 +454,7 @@ export default function ThreeDView({ poseData, rebaScore }: ThreeDViewProps) {
         <div className="flex items-center justify-between">
           <h3 className="text-lg font-medium text-white flex items-center space-x-2">
             <span className="text-blue-400">🎯</span>
-            <span>3D Skeleton View - Individual REBA Coloring</span>
+            <span>3D Skeleton View - Individual {assessmentMode} Coloring</span>
           </h3>
           <div className="flex items-center space-x-2">
             <button
