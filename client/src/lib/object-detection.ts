@@ -98,17 +98,15 @@ export async function detectObjects(
     
     const detectedObjects: DetectedObject[] = predictions
       .filter(prediction => {
-        // Higher confidence threshold for better accuracy
-        if (prediction.score < 0.5) return false;
+        // Lower confidence threshold to catch more objects
+        if (prediction.score < 0.3) return false;
         
-        // Filter out objects that are typically not handheld
+        // Filter out objects that are typically not handheld - reduced exclusion list
         const className = prediction.class.toLowerCase();
         const excludedObjects = [
           'person', 'chair', 'couch', 'bed', 'table', 'toilet', 'tv', 'microwave',
           'oven', 'toaster', 'sink', 'refrigerator', 'car', 'bus', 'truck', 'boat',
-          'airplane', 'motorcycle', 'bicycle', 'stop sign', 'parking meter',
-          'bench', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant',
-          'bear', 'zebra', 'giraffe', 'frisbee', 'skis', 'snowboard', 'kite'
+          'airplane', 'motorcycle', 'bicycle', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow'
         ];
         
         return !excludedObjects.includes(className);
