@@ -225,7 +225,7 @@ export default function ThreeDView({ poseData, rebaScore, assessmentMode = 'REBA
 
     // Define which keypoints to show based on assessment mode
     const visibleKeypoints = assessmentMode === 'RULA' 
-      ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] // Head, neck, shoulders, arms, wrists only
+      ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] // Head, neck, shoulders, arms, wrists, trunk (hips)
       : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]; // All keypoints for REBA
 
     // Draw joints (keypoints) first - only show relevant ones

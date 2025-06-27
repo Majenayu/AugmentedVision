@@ -13,12 +13,13 @@ interface SkeletonOverlayProps {
   assessmentMode?: 'RULA' | 'REBA';
 }
 
-// RULA connections - Upper body only (neck, arms, wrists)
+// RULA connections - Complete upper body (neck, arms, wrists, trunk)
 const RULA_CONNECTIONS = [
   [0, 1], [0, 2], [1, 3], [2, 4], // Head/neck
   [5, 6], // Shoulders
   [5, 7], [7, 9], // Left arm
   [6, 8], [8, 10], // Right arm
+  [5, 11], [6, 12], [11, 12], // Trunk (shoulders to hips)
 ];
 
 // REBA connections - Full body
@@ -282,7 +283,7 @@ export default function SkeletonOverlay({
 
       // Define which keypoints to show based on assessment mode
       const visibleKeypoints = assessmentMode === 'RULA' 
-        ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] // Head, neck, shoulders, arms, wrists only
+        ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] // Head, neck, shoulders, arms, wrists, trunk (hips)
         : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]; // All keypoints for REBA
 
       // Draw keypoints with enhanced visibility

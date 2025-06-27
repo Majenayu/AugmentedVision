@@ -121,6 +121,8 @@ Changelog:
 - June 26, 2025. Added comprehensive image download feature for all recorded frames with original, skeleton, estimated weight skeleton, and manual weight skeleton formats in organized ZIP file structure
 - June 27, 2025. Completed migration from Replit Agent to standard Replit environment with enhanced security practices
 - June 27, 2025. Updated RULA calculator to include trunk assessment (full body) instead of upper body only, making it consistent with REBA methodology
+- June 27, 2025. Enhanced RULA calculator to include complete upper body assessment with trunk/stomach area for comprehensive posture evaluation
+- June 27, 2025. Updated skeleton visualization to show trunk keypoints (hips) in RULA mode for complete upper body representation
 - June 27, 2025. Added proper error handling and debugging to PDF report generation functionality
 - June 27, 2025. Fixed client/server separation and ensured robust security practices throughout the application
 
