@@ -39,86 +39,102 @@ function calculateAngleBetweenPoints(p1: Keypoint, p2: Keypoint, p3: Keypoint): 
 }
 
 function calculateVerticalDeviationAngle(upper: Keypoint, lower: Keypoint): number {
-  const deltaX = Math.abs(lower.x - upper.x);
-  const deltaY = Math.abs(lower.y - upper.y);
+  const deltaX = lower.x - upper.x;
+  const deltaY = lower.y - upper.y;
   
-  if (deltaY === 0) return 90;
+  // Calculate angle from vertical (0° = straight vertical)
+  // In camera coordinates, Y increases downward
+  const angle = Math.atan2(Math.abs(deltaX), Math.abs(deltaY)) * (180 / Math.PI);
   
-  const angle = Math.atan(deltaX / deltaY) * (180 / Math.PI);
-  return angle;
+  // Return absolute angle for RULA assessment
+  return Math.abs(angle);
 }
 
 // RULA Upper Arm Score (shoulder to elbow angle from vertical)
 function getUpperArmScore(angle: number): number {
-  if (angle <= 20) return 1;       // 20° extension to 20° flexion
-  if (angle <= 45) return 2;       // 20° to 45° flexion
-  if (angle <= 90) return 3;       // 45° to 90° flexion
-  return 4;                        // >90° flexion
+  if (angle <= 20) return 1;       // Neutral position (20° extension to 20° flexion)
+  if (angle <= 45) return 2;       // Moderate flexion (20° to 45°)
+  if (angle <= 90) return 3;       // High flexion (45° to 90°)
+  return 4;                        // Extreme flexion (>90°)
 }
 
-// RULA Lower Arm Score (elbow angle)
+// RULA Lower Arm Score (elbow angle) - More responsive scoring
 function getLowerArmScore(elbowAngle: number): number {
-  // Optimal elbow angle is 60-100 degrees
-  if (elbowAngle >= 60 && elbowAngle <= 100) return 1;
-  return 2; // Outside optimal range
+  // Optimal range is 60-100 degrees
+  if (elbowAngle >= 60 && elbowAngle <= 100) {
+    return 1; // Optimal working range
+  } else if (elbowAngle >= 40 && elbowAngle < 60) {
+    return 2; // Slightly flexed
+  } else if (elbowAngle > 100 && elbowAngle <= 130) {
+    return 2; // Slightly extended
+  } else {
+    return 3; // Extreme positions
+  }
 }
 
-// RULA Wrist Score (wrist deviation from neutral)
+// RULA Wrist Score (wrist deviation from neutral) - Enhanced sensitivity
 function getWristScore(deviationAngle: number): number {
-  if (deviationAngle <= 15) return 1;  // Neutral position
-  return 2;                            // Bent or deviated
+  if (deviationAngle <= 10) return 1;    // Good neutral position
+  if (deviationAngle <= 20) return 2;    // Slight deviation
+  if (deviationAngle <= 30) return 3;    // Moderate deviation
+  return 4;                              // Extreme deviation
 }
 
-// RULA Neck Score (neck flexion)
+// RULA Neck Score (neck flexion) - More granular scoring
 function getNeckScore(flexionAngle: number): number {
-  if (flexionAngle <= 10) return 1;    // 0-10° flexion
-  if (flexionAngle <= 20) return 2;    // 10-20° flexion
-  return 3;                            // >20° flexion
+  if (flexionAngle <= 5) return 1;      // Excellent posture
+  if (flexionAngle <= 15) return 2;     // Good posture (slight flexion)
+  if (flexionAngle <= 25) return 3;     // Moderate forward head
+  if (flexionAngle <= 35) return 4;     // Poor posture
+  return 5;                              // Very poor posture
 }
 
-// RULA Trunk Score (trunk flexion)
+// RULA Trunk Score (trunk flexion) - Enhanced range
 function getTrunkScore(flexionAngle: number): number {
-  if (flexionAngle <= 5) return 1;     // Well supported, upright
-  if (flexionAngle <= 20) return 2;    // 5-20° flexion
-  if (flexionAngle <= 60) return 3;    // 20-60° flexion
-  return 4;                            // >60° flexion
+  if (flexionAngle <= 5) return 1;      // Upright, well supported
+  if (flexionAngle <= 15) return 2;     // Slight lean forward
+  if (flexionAngle <= 30) return 3;     // Moderate lean
+  if (flexionAngle <= 60) return 4;     // Significant lean
+  return 5;                              // Extreme lean/bend
 }
 
-// RULA Score A Table (Upper Arm, Lower Arm, Wrist)
+// RULA Score A Table (Upper Arm, Lower Arm, Wrist) - Extended for enhanced scoring
 function getScoreA(upperArm: number, lowerArm: number, wrist: number): number {
   const table = [
     // Upper Arm Score 1
-    [[1,2,2,2], [2,2,3,3]],
+    [[1,2,2,2], [2,2,3,3], [2,3,3,4]],
     // Upper Arm Score 2  
-    [[2,2,3,3], [2,3,3,4]],
+    [[2,2,3,3], [2,3,3,4], [3,3,4,4]],
     // Upper Arm Score 3
-    [[2,3,3,4], [3,3,4,4]],
+    [[2,3,3,4], [3,3,4,4], [3,4,4,5]],
     // Upper Arm Score 4
-    [[3,3,4,4], [3,4,4,5]]
+    [[3,3,4,4], [3,4,4,5], [4,4,5,5]]
   ];
   
   const upperArmIdx = Math.min(Math.max(upperArm - 1, 0), 3);
-  const lowerArmIdx = Math.min(Math.max(lowerArm - 1, 0), 1);
+  const lowerArmIdx = Math.min(Math.max(lowerArm - 1, 0), 2);
   const wristIdx = Math.min(Math.max(wrist - 1, 0), 3);
   
   return table[upperArmIdx][lowerArmIdx][wristIdx];
 }
 
-// RULA Score B Table (Neck, Trunk)
+// RULA Score B Table (Neck, Trunk) - Extended for enhanced scoring
 function getScoreB(neck: number, trunk: number): number {
   const table = [
-    [1,3,2,2,3,3], // Neck Score 1
-    [2,3,2,3,4,5], // Neck Score 2
-    [3,3,3,4,5,6]  // Neck Score 3
+    [1,2,2,3,3,4], // Neck Score 1
+    [2,3,3,3,4,5], // Neck Score 2
+    [3,3,4,4,5,5], // Neck Score 3
+    [4,4,4,5,5,6], // Neck Score 4
+    [5,5,5,6,6,7]  // Neck Score 5
   ];
   
-  const neckIdx = Math.min(Math.max(neck - 1, 0), 2);
-  const trunkIdx = Math.min(Math.max(trunk - 1, 0), 5);
+  const neckIdx = Math.min(Math.max(neck - 1, 0), 4);
+  const trunkIdx = Math.min(Math.max(trunk - 1, 0), 4);
   
   return table[neckIdx][trunkIdx];
 }
 
-// RULA Final Score Table
+// RULA Final Score Table (Corrected for 1-7 scale)
 function getFinalScore(scoreA: number, scoreB: number): number {
   const table = [
     [1,2,3,3,4,5,5], // Score A = 1
@@ -134,14 +150,16 @@ function getFinalScore(scoreA: number, scoreB: number): number {
   const scoreAIdx = Math.min(Math.max(scoreA - 1, 0), 7);
   const scoreBIdx = Math.min(Math.max(scoreB - 1, 0), 6);
   
-  return table[scoreAIdx][scoreBIdx];
+  // Ensure final score is in range 1-7
+  return Math.min(Math.max(table[scoreAIdx][scoreBIdx], 1), 7);
 }
 
 function getRiskLevel(finalScore: number): string {
-  if (finalScore <= 2) return 'Acceptable';
-  if (finalScore <= 4) return 'Low Risk';
-  if (finalScore <= 6) return 'Medium Risk';
-  return 'High Risk';
+  if (finalScore === 1) return 'Negligible Risk';
+  if (finalScore === 2) return 'Low Risk';
+  if (finalScore <= 4) return 'Medium Risk';
+  if (finalScore <= 6) return 'High Risk';
+  return 'Very High Risk'; // Score 7
 }
 
 function getStressLevel(finalScore: number): number {
@@ -194,12 +212,12 @@ export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
     const elbow = rightElbow;
     const wrist = rightWrist;
     
-    // Calculate angles
-    const upperArmAngle = calculateVerticalDeviationAngle(shoulder, elbow);
-    const lowerArmAngle = calculateAngleBetweenPoints(shoulder, elbow, wrist);
-    const wristAngle = calculateVerticalDeviationAngle(elbow, wrist);
-    const neckAngle = calculateVerticalDeviationAngle(shoulderMidpoint, nose);
-    const trunkAngle = calculateVerticalDeviationAngle(hipMidpoint, shoulderMidpoint);
+    // Calculate angles with better precision for RULA
+    const upperArmAngle = Math.abs(calculateVerticalDeviationAngle(shoulder, elbow));
+    const lowerArmAngle = Math.abs(calculateAngleBetweenPoints(shoulder, elbow, wrist));
+    const wristAngle = Math.abs(calculateVerticalDeviationAngle(elbow, wrist));
+    const neckAngle = Math.abs(calculateVerticalDeviationAngle(shoulderMidpoint, nose));
+    const trunkAngle = Math.abs(calculateVerticalDeviationAngle(hipMidpoint, shoulderMidpoint));
     
     console.log('RULA Angles:', {
       upperArm: upperArmAngle.toFixed(1) + '°',

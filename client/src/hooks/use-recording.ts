@@ -33,21 +33,34 @@ export function useRecording() {
         return;
       }
 
-      // Capture frame
+      // Capture frame with proper alignment
       if (videoRef.current) {
         const canvas = document.createElement('canvas');
         const ctx = canvas.getContext('2d');
-        canvas.width = videoRef.current.videoWidth;
-        canvas.height = videoRef.current.videoHeight;
+        const video = videoRef.current;
+        
+        // Set canvas size to match video resolution for highest quality
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
         
         if (ctx) {
-          // Mirror the image horizontally to match the display
+          // Save context state
+          ctx.save();
+          
+          // Apply horizontal flip to match camera display
           ctx.scale(-1, 1);
           ctx.translate(-canvas.width, 0);
-          ctx.drawImage(videoRef.current, 0, 0);
-          const imageData = canvas.toDataURL('image/jpeg', 0.8);
           
-          // This will be updated with actual pose and REBA data from parent component
+          // Draw video frame
+          ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+          
+          // Restore context
+          ctx.restore();
+          
+          // Generate high-quality image data
+          const imageData = canvas.toDataURL('image/jpeg', 0.9);
+          
+          // Create frame data structure
           const frame: RecordingFrame = {
             timestamp: elapsed / 1000,
             rebaScore: null,

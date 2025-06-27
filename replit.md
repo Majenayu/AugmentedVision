@@ -127,6 +127,8 @@ Changelog:
 - June 27, 2025. Fixed client/server separation and ensured robust security practices throughout the application
 - June 27, 2025. Completed migration from Replit Agent to standard Replit environment with enhanced RULA score calculation accuracy
 - June 27, 2025. Fixed RULA scoring matrices and added comprehensive debugging for pose-based score calculations
+- June 27, 2025. Enhanced RULA scoring system with proper 1-7 scale range and improved angle calculations for better pose responsiveness
+- June 27, 2025. Fixed photo capture alignment issues in RULA mode with improved horizontal mirroring and quality settings
 
 # User Preferences
 
