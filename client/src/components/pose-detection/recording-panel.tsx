@@ -525,18 +525,9 @@ export default function RecordingPanel({
       const maxImageWidth = (pageWidth - 3 * margin) / 2;
       const maxImageHeight = (pageHeight - 80) / 2;
       
-      // Standard video aspect ratio (assuming 16:9 or 4:3)
-      const videoAspectRatio = 16 / 9; // Most common webcam ratio
-      
-      // Calculate dimensions maintaining aspect ratio
-      let imageWidth = maxImageWidth;
-      let imageHeight = maxImageWidth / videoAspectRatio;
-      
-      // If height exceeds max, scale by height instead
-      if (imageHeight > maxImageHeight) {
-        imageHeight = maxImageHeight;
-        imageWidth = maxImageHeight * videoAspectRatio;
-      }
+      // Use fixed dimensions that work well for PDF layout
+      const imageWidth = maxImageWidth;
+      const imageHeight = maxImageHeight;
       
       let imagesAdded = 0;
       const positions = [
@@ -694,35 +685,12 @@ export default function RecordingPanel({
 
       const img = new Image();
       img.onload = () => {
-        // Set canvas size to maintain consistent aspect ratio
-        const targetWidth = 640;
-        const targetHeight = 480;
-        const imgAspectRatio = img.width / img.height;
-        const targetAspectRatio = targetWidth / targetHeight;
+        // Use original image dimensions
+        canvas.width = img.width;
+        canvas.height = img.height;
         
-        let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
-        
-        if (imgAspectRatio > targetAspectRatio) {
-          // Image is wider than target
-          drawWidth = targetWidth;
-          drawHeight = targetWidth / imgAspectRatio;
-          offsetY = (targetHeight - drawHeight) / 2;
-        } else {
-          // Image is taller than target
-          drawHeight = targetHeight;
-          drawWidth = targetHeight * imgAspectRatio;
-          offsetX = (targetWidth - drawWidth) / 2;
-        }
-        
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
-        
-        // Fill background with black
-        ctx.fillStyle = '#000000';
-        ctx.fillRect(0, 0, targetWidth, targetHeight);
-        
-        // Draw image centered and properly scaled
-        ctx.drawImage(img, offsetX, offsetY, drawWidth, drawHeight);
+        // Draw original image
+        ctx.drawImage(img, 0, 0);
         
         // Draw skeleton overlay with improved data handling
         if (poseData && rebaScore) {

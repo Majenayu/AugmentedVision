@@ -39,44 +39,21 @@ export function useRecording() {
         const ctx = canvas.getContext('2d');
         const video = videoRef.current;
         
-        // Use standardized dimensions to prevent stretching
-        const targetWidth = 640;
-        const targetHeight = 480;
-        const videoAspectRatio = video.videoWidth / video.videoHeight;
-        const targetAspectRatio = targetWidth / targetHeight;
-        
-        canvas.width = targetWidth;
-        canvas.height = targetHeight;
+        // Set canvas to match video resolution
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
         
         if (ctx) {
-          // Fill background
-          ctx.fillStyle = '#000000';
-          ctx.fillRect(0, 0, targetWidth, targetHeight);
-          
-          // Calculate proper scaling to maintain aspect ratio
-          let drawWidth, drawHeight, offsetX = 0, offsetY = 0;
-          
-          if (videoAspectRatio > targetAspectRatio) {
-            // Video is wider than target
-            drawWidth = targetWidth;
-            drawHeight = targetWidth / videoAspectRatio;
-            offsetY = (targetHeight - drawHeight) / 2;
-          } else {
-            // Video is taller than target
-            drawHeight = targetHeight;
-            drawWidth = targetHeight * videoAspectRatio;
-            offsetX = (targetWidth - drawWidth) / 2;
-          }
           
           // Save context state
           ctx.save();
           
           // Apply horizontal flip to match camera display
           ctx.scale(-1, 1);
-          ctx.translate(-targetWidth, 0);
+          ctx.translate(-canvas.width, 0);
           
-          // Draw video frame with proper scaling and centering
-          ctx.drawImage(video, -offsetX - drawWidth, offsetY, drawWidth, drawHeight);
+          // Draw video frame directly
+          ctx.drawImage(video, 0, 0);
           
           // Restore context
           ctx.restore();
