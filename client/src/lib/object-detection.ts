@@ -8,32 +8,68 @@ export const DETECTABLE_OBJECTS = {
   'screwdriver': { category: 'tools', estimatedWeight: 150, unit: 'g', icon: '🪛' },
   'drill': { category: 'tools', estimatedWeight: 1500, unit: 'g', icon: '🪚' },
   'saw': { category: 'tools', estimatedWeight: 800, unit: 'g', icon: '🪚' },
+  'scissors': { category: 'tools', estimatedWeight: 100, unit: 'g', icon: '✂️' },
+  'knife': { category: 'tools', estimatedWeight: 150, unit: 'g', icon: '🔪' },
   
   // Containers and boxes
   'box': { category: 'containers', estimatedWeight: 200, unit: 'g', icon: '📦' },
   'suitcase': { category: 'containers', estimatedWeight: 2000, unit: 'g', icon: '🧳' },
   'bag': { category: 'containers', estimatedWeight: 500, unit: 'g', icon: '🎒' },
   'backpack': { category: 'containers', estimatedWeight: 800, unit: 'g', icon: '🎒' },
+  'handbag': { category: 'containers', estimatedWeight: 600, unit: 'g', icon: '👜' },
   
   // Electronics
   'laptop': { category: 'electronics', estimatedWeight: 2000, unit: 'g', icon: '💻' },
   'phone': { category: 'electronics', estimatedWeight: 200, unit: 'g', icon: '📱' },
+  'cell phone': { category: 'electronics', estimatedWeight: 200, unit: 'g', icon: '📱' },
+  'mobile phone': { category: 'electronics', estimatedWeight: 200, unit: 'g', icon: '📱' },
   'tablet': { category: 'electronics', estimatedWeight: 600, unit: 'g', icon: '📱' },
+  'remote': { category: 'electronics', estimatedWeight: 150, unit: 'g', icon: '📺' },
+  'mouse': { category: 'electronics', estimatedWeight: 100, unit: 'g', icon: '🖱️' },
+  'keyboard': { category: 'electronics', estimatedWeight: 800, unit: 'g', icon: '⌨️' },
   
   // Books and documents
   'book': { category: 'office', estimatedWeight: 400, unit: 'g', icon: '📚' },
+  'paper': { category: 'office', estimatedWeight: 50, unit: 'g', icon: '📄' },
+  'clipboard': { category: 'office', estimatedWeight: 300, unit: 'g', icon: '📋' },
   
   // Sports equipment
   'dumbbell': { category: 'fitness', estimatedWeight: 5000, unit: 'g', icon: '🏋️' },
   'ball': { category: 'sports', estimatedWeight: 400, unit: 'g', icon: '⚽' },
+  'sports ball': { category: 'sports', estimatedWeight: 400, unit: 'g', icon: '⚽' },
+  'baseball': { category: 'sports', estimatedWeight: 150, unit: 'g', icon: '⚾' },
+  'tennis racket': { category: 'sports', estimatedWeight: 300, unit: 'g', icon: '🎾' },
   
   // Kitchen items
   'bottle': { category: 'containers', estimatedWeight: 500, unit: 'g', icon: '🍼' },
+  'wine bottle': { category: 'containers', estimatedWeight: 1000, unit: 'g', icon: '🍷' },
   'cup': { category: 'containers', estimatedWeight: 200, unit: 'g', icon: '☕' },
+  'mug': { category: 'containers', estimatedWeight: 300, unit: 'g', icon: '☕' },
+  'bowl': { category: 'containers', estimatedWeight: 250, unit: 'g', icon: '🥣' },
+  'fork': { category: 'utensils', estimatedWeight: 50, unit: 'g', icon: '🍴' },
+  'spoon': { category: 'utensils', estimatedWeight: 40, unit: 'g', icon: '🥄' },
+  'banana': { category: 'food', estimatedWeight: 120, unit: 'g', icon: '🍌' },
+  'apple': { category: 'food', estimatedWeight: 180, unit: 'g', icon: '🍎' },
+  'orange': { category: 'food', estimatedWeight: 150, unit: 'g', icon: '🍊' },
+  'sandwich': { category: 'food', estimatedWeight: 200, unit: 'g', icon: '🥪' },
   
   // General items
-  'chair': { category: 'furniture', estimatedWeight: 5000, unit: 'g', icon: '🪑' },
-  'umbrella': { category: 'accessories', estimatedWeight: 300, unit: 'g', icon: '☂️' }
+  'umbrella': { category: 'accessories', estimatedWeight: 300, unit: 'g', icon: '☂️' },
+  'keys': { category: 'accessories', estimatedWeight: 100, unit: 'g', icon: '🔑' },
+  'glasses': { category: 'accessories', estimatedWeight: 50, unit: 'g', icon: '👓' },
+  'watch': { category: 'accessories', estimatedWeight: 80, unit: 'g', icon: '⌚' },
+  'pen': { category: 'office', estimatedWeight: 20, unit: 'g', icon: '✏️' },
+  'pencil': { category: 'office', estimatedWeight: 10, unit: 'g', icon: '✏️' },
+  'flashlight': { category: 'tools', estimatedWeight: 200, unit: 'g', icon: '🔦' },
+  'wallet': { category: 'accessories', estimatedWeight: 150, unit: 'g', icon: '💼' },
+  'purse': { category: 'accessories', estimatedWeight: 400, unit: 'g', icon: '👛' },
+  
+  // Workplace items
+  'stapler': { category: 'office', estimatedWeight: 300, unit: 'g', icon: '📎' },
+  'calculator': { category: 'office', estimatedWeight: 150, unit: 'g', icon: '🧮' },
+  'ruler': { category: 'office', estimatedWeight: 50, unit: 'g', icon: '📏' },
+  'folder': { category: 'office', estimatedWeight: 100, unit: 'g', icon: '📁' },
+  'binder': { category: 'office', estimatedWeight: 500, unit: 'g', icon: '📂' }
 };
 
 export interface DetectedObject {
@@ -101,12 +137,12 @@ export async function detectObjects(
         // Lower confidence threshold to catch more objects
         if (prediction.score < 0.3) return false;
         
-        // Filter out objects that are typically not handheld - reduced exclusion list
+        // Only exclude objects that are definitely not handheld
         const className = prediction.class.toLowerCase();
         const excludedObjects = [
-          'person', 'chair', 'couch', 'bed', 'table', 'toilet', 'tv', 'microwave',
-          'oven', 'toaster', 'sink', 'refrigerator', 'car', 'bus', 'truck', 'boat',
-          'airplane', 'motorcycle', 'bicycle', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow'
+          'person', 'car', 'bus', 'truck', 'boat', 'airplane', 'motorcycle', 
+          'bicycle', 'bird', 'cat', 'dog', 'horse', 'sheep', 'cow', 'elephant',
+          'bear', 'zebra', 'giraffe'
         ];
         
         return !excludedObjects.includes(className);
@@ -125,23 +161,26 @@ export async function detectObjects(
         };
       })
       .filter(obj => {
-        // Relaxed size filtering for better object detection
+        // Very permissive size filtering for handheld objects
         const [x, y, width, height] = obj.bbox;
         const frameWidth = element.width || (element as HTMLImageElement).naturalWidth || 640;
         const frameHeight = element.height || (element as HTMLImageElement).naturalHeight || 480;
+        
+        // Basic size validation - objects must be at least 10x10 pixels
+        if (width < 10 || height < 10) return false;
         
         const objectArea = width * height;
         const frameArea = frameWidth * frameHeight;
         const sizeRatio = objectArea / frameArea;
         
-        // Allow larger objects - increase threshold to 50%
-        if (sizeRatio > 0.5) return false;
+        // Allow very large objects - increase threshold to 70%
+        if (sizeRatio > 0.7) return false;
         
-        // More permissive aspect ratio filtering
+        // Very permissive aspect ratio filtering
         const aspectRatio = width / height;
-        if (aspectRatio > 8 || aspectRatio < 0.1) return false;
+        if (aspectRatio > 10 || aspectRatio < 0.05) return false;
         
-        // Accept all objects that pass basic filtering (don't restrict by category)
+        // Accept all objects that pass basic filtering
         return true;
       })
       .sort((a, b) => b.confidence - a.confidence) // Sort by confidence

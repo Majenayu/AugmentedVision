@@ -37,7 +37,7 @@ export default function ObjectDetectionWeightInput({
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Initialize object detection model
+  // Initialize object detection model and start analysis
   useEffect(() => {
     const initModel = async () => {
       try {
@@ -45,9 +45,15 @@ export default function ObjectDetectionWeightInput({
         await initializeObjectDetection();
         console.log('Object detection model initialized successfully');
         setIsModelLoaded(true);
+        
+        // Automatically start analysis after model loads
+        setTimeout(() => {
+          analyzeAllRecordedFrames();
+        }, 500);
       } catch (error) {
         console.error('Failed to initialize object detection:', error);
         setIsModelLoaded(false);
+        alert('Failed to load object detection model. Please try again.');
       }
     };
 
@@ -123,37 +129,48 @@ export default function ObjectDetectionWeightInput({
         isModelLoaded, 
         recordedFramesCount: recordedFrames.length 
       });
+      alert(`Cannot analyze frames: Model loaded: ${isModelLoaded}, Frames: ${recordedFrames.length}`);
       return;
     }
 
     setIsAnalyzing(true);
     try {
-      console.log(`Analyzing ${recordedFrames.length} recorded frames for objects...`);
+      console.log(`Starting analysis of ${recordedFrames.length} recorded frames for objects...`);
 
       const allObjectsWithCrops: ObjectWithCrop[] = [];
+      let totalObjectsFound = 0;
 
-      for (let i = 0; i < recordedFrames.length; i++) {
+      // Process every 3rd frame to speed up analysis while maintaining coverage
+      const frameStep = Math.max(1, Math.floor(recordedFrames.length / 10));
+      console.log(`Processing every ${frameStep} frames for efficiency`);
+
+      for (let i = 0; i < recordedFrames.length; i += frameStep) {
         const frame = recordedFrames[i];
         console.log(`Processing frame ${i + 1}/${recordedFrames.length} at time ${Math.round(frame.timestamp / 1000)}s`);
 
         try {
           // Detect objects in this frame's image data
           const objects = await detectObjects(frame.imageData);
+          totalObjectsFound += objects.length;
 
-          console.log(`Frame ${i + 1}: Found ${objects.length} objects`);
+          console.log(`Frame ${i + 1}: Found ${objects.length} objects:`, objects.map(o => `${o.class} (${Math.round(o.confidence * 100)}%)`));
 
           // Create cropped images for each detected object
           for (const obj of objects) {
-            const croppedImage = await cropObjectFromImage(frame.imageData, obj.bbox);
-            if (croppedImage) {
-              allObjectsWithCrops.push({
-                ...obj,
-                croppedImage,
-                // Add frame info to distinguish objects from different frames
-                frameIndex: i,
-                frameTimestamp: frame.timestamp
-              } as ObjectWithCrop & { frameIndex: number; frameTimestamp: number });
-              console.log(`Frame ${i + 1}: Successfully processed ${obj.class}`);
+            try {
+              const croppedImage = await cropObjectFromImage(frame.imageData, obj.bbox);
+              if (croppedImage) {
+                allObjectsWithCrops.push({
+                  ...obj,
+                  croppedImage,
+                  // Add frame info to distinguish objects from different frames
+                  frameIndex: i,
+                  frameTimestamp: frame.timestamp
+                } as ObjectWithCrop & { frameIndex: number; frameTimestamp: number });
+                console.log(`Frame ${i + 1}: Successfully cropped ${obj.class} with confidence ${Math.round(obj.confidence * 100)}%`);
+              }
+            } catch (cropError) {
+              console.error(`Error cropping object ${obj.class}:`, cropError);
             }
           }
         } catch (frameError) {
@@ -179,9 +196,37 @@ export default function ObjectDetectionWeightInput({
       });
 
       console.log(`After deduplication: ${uniqueObjects.length} unique objects`);
+      
+      // If no objects found in recorded frames, try current video feed
+      if (uniqueObjects.length === 0 && videoRef?.current) {
+        console.log('No objects found in recorded frames, trying current video feed...');
+        try {
+          const liveObjects = await detectObjects(videoRef.current);
+          console.log(`Found ${liveObjects.length} objects in live video feed`);
+          
+          for (const obj of liveObjects) {
+            const croppedImage = await cropObjectFromVideo(obj.bbox);
+            if (croppedImage) {
+              uniqueObjects.push({
+                ...obj,
+                croppedImage
+              });
+            }
+          }
+          console.log(`Added ${uniqueObjects.length} objects from live feed`);
+        } catch (liveError) {
+          console.error('Error detecting objects from live video:', liveError);
+        }
+      }
+      
       setDetectedObjects(uniqueObjects);
+      
+      if (uniqueObjects.length === 0) {
+        alert('No objects detected. Try holding objects closer to the camera or ensure good lighting.');
+      }
     } catch (error) {
       console.error('Recorded frames analysis error:', error);
+      alert('Error analyzing frames for objects. Please try again.');
     } finally {
       setIsAnalyzing(false);
     }

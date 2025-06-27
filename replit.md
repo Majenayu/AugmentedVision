@@ -132,6 +132,7 @@ Changelog:
 - June 27, 2025. Fixed image stretching in downloaded photos and PDF reports by implementing proper aspect ratio calculations
 - June 27, 2025. Standardized image dimensions to 640x480 with letterboxing to prevent distortion in captured frames
 - June 27, 2025. Fixed skeleton alignment issues in REBA mode by implementing proper coordinate transformation and mirroring
+- June 27, 2025. Enhanced object detection system with expanded object database, improved sensitivity, and automatic analysis for better handheld object recognition
 
 # User Preferences
 
