@@ -147,22 +147,7 @@ export default function Home() {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
-  // If RULA mode is selected, show green page with "Hi"
-  if (assessmentMode === 'RULA') {
-    return (
-      <div className="min-h-screen bg-green-500 text-white flex items-center justify-center">
-        <div className="text-center">
-          <h1 className="text-8xl font-bold mb-8">Hi</h1>
-          <button 
-            onClick={() => setAssessmentMode('REBA')}
-            className="bg-white text-green-500 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
-          >
-            Switch to REBA Mode
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // RULA and REBA modes use the same interface with different labels
 
   return (
     <div className="min-h-screen bg-dark-surface text-white">
@@ -175,8 +160,13 @@ export default function Home() {
                 <span className="material-icon text-white text-xl">accessibility_new</span>
               </div>
               <div>
-                <h1 className="text-2xl font-bold text-white">ErgoTrack</h1>
-                <p className="text-text-secondary text-sm">Real-time Ergonomic Assessment</p>
+                <h1 className="text-2xl font-bold text-white">ErgoTrack - {assessmentMode}</h1>
+                <p className="text-text-secondary text-sm">
+                  {assessmentMode === 'RULA' 
+                    ? 'Real-time Upper Limb Assessment' 
+                    : 'Real-time Ergonomic Assessment'
+                  }
+                </p>
               </div>
             </div>
 
@@ -293,11 +283,12 @@ export default function Home() {
           />
         </div>
 
-        {/* REBA Assessment Panel */}
+        {/* Assessment Panel */}
         <RebaAssessment 
           rebaScore={rebaScore} 
           poseData={poseData} 
           isProcessing={isProcessing}
+          assessmentMode={assessmentMode}
         />
 
         {/* Real-time Metrics Dashboard */}
@@ -327,10 +318,11 @@ export default function Home() {
         <div className="container mx-auto px-6 py-6">
           <div className="flex items-center justify-between">
             <div className="text-text-secondary text-sm">
-              <p>&copy; 2024 ErgoTrack. Real-time ergonomic assessment powered by TensorFlow.js and MoveNet.</p>
+              <p>&copy; 2024 ErgoTrack. Real-time {assessmentMode.toLowerCase()} assessment powered by TensorFlow.js and MoveNet.</p>
             </div>
             <div className="flex items-center space-x-4">
               <span className="text-xs text-text-secondary">Model: MoveNet Lightning</span>
+              <span className="text-xs text-text-secondary">Mode: {assessmentMode}</span>
               <span className="text-xs text-text-secondary">Version: 4.0</span>
             </div>
           </div>

@@ -5,9 +5,10 @@ interface RebaAssessmentProps {
   rebaScore: any;
   poseData: any;
   isProcessing: boolean;
+  assessmentMode?: 'RULA' | 'REBA';
 }
 
-export default function RebaAssessment({ rebaScore, poseData, isProcessing }: RebaAssessmentProps) {
+export default function RebaAssessment({ rebaScore, poseData, isProcessing, assessmentMode = 'REBA' }: RebaAssessmentProps) {
   const getRiskLevelColor = (score: number) => {
     if (score <= 2) return 'bg-reba-safe';
     if (score <= 4) return 'bg-reba-investigate';
@@ -38,7 +39,7 @@ export default function RebaAssessment({ rebaScore, poseData, isProcessing }: Re
       <div className="flex items-center justify-between mb-6">
         <h3 className="text-xl font-medium flex items-center space-x-2">
           <span className="material-icon text-orange-500">assessment</span>
-          <span>REBA Ergonomic Assessment</span>
+          <span>{assessmentMode} Ergonomic Assessment</span>
         </h3>
         <div className="flex items-center space-x-2">
           <div className={`w-3 h-3 rounded-full ${isProcessing ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`}></div>
@@ -58,7 +59,7 @@ export default function RebaAssessment({ rebaScore, poseData, isProcessing }: Re
               {rebaScore ? rebaScore.finalScore : '--'}
             </span>
           </div>
-          <h4 className="text-lg font-medium mb-1">REBA Score</h4>
+          <h4 className="text-lg font-medium mb-1">{assessmentMode} Score</h4>
           <p className="text-text-secondary text-sm">Current assessment level</p>
         </div>
 
@@ -78,7 +79,7 @@ export default function RebaAssessment({ rebaScore, poseData, isProcessing }: Re
       </div>
 
       {/* Detailed Metrics */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+      <div className={`grid grid-cols-2 gap-4 ${assessmentMode === 'REBA' ? 'md:grid-cols-5' : 'md:grid-cols-4'}`}>
         <div className="bg-dark-secondary rounded-lg p-4">
           <div className="flex items-center justify-between mb-2">
             <span className="text-sm text-text-secondary">Upper Arm</span>
@@ -143,21 +144,23 @@ export default function RebaAssessment({ rebaScore, poseData, isProcessing }: Re
           </div>
         </div>
 
-        <div className="bg-dark-secondary rounded-lg p-4">
-          <div className="flex items-center justify-between mb-2">
-            <span className="text-sm text-text-secondary">Trunk</span>
-            <span className="material-icon text-red-500 text-lg">accessibility_new</span>
+        {assessmentMode === 'REBA' && (
+          <div className="bg-dark-secondary rounded-lg p-4">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-sm text-text-secondary">Trunk</span>
+              <span className="material-icon text-red-500 text-lg">accessibility_new</span>
+            </div>
+            <div className="text-2xl font-bold mb-1">
+              {rebaScore?.trunk || '--'}
+            </div>
+            <div className="w-full bg-gray-700 rounded-full h-2">
+              <div 
+                className="bg-green-500 h-2 rounded-full transition-all duration-300" 
+                style={{width: `${rebaScore ? getScoreProgress(rebaScore.trunk, 4) : 0}%`}}
+              ></div>
+            </div>
           </div>
-          <div className="text-2xl font-bold mb-1">
-            {rebaScore?.trunk || '--'}
-          </div>
-          <div className="w-full bg-gray-700 rounded-full h-2">
-            <div 
-              className="bg-green-500 h-2 rounded-full transition-all duration-300" 
-              style={{width: `${rebaScore ? getScoreProgress(rebaScore.trunk, 4) : 0}%`}}
-            ></div>
-          </div>
-        </div>
+        )}
       </div>
 
       
