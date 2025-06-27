@@ -131,6 +131,7 @@ Changelog:
 - June 27, 2025. Fixed photo capture alignment issues in RULA mode with improved horizontal mirroring and quality settings
 - June 27, 2025. Fixed image stretching in downloaded photos and PDF reports by implementing proper aspect ratio calculations
 - June 27, 2025. Standardized image dimensions to 640x480 with letterboxing to prevent distortion in captured frames
+- June 27, 2025. Fixed skeleton alignment issues in REBA mode by implementing proper coordinate transformation and mirroring
 
 # User Preferences
 

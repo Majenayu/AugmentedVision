@@ -794,14 +794,18 @@ export default function RecordingPanel({
             typeof endPoint.x === 'number' && typeof endPoint.y === 'number') {
           
           ctx.beginPath();
-          // Handle normalized coordinates (0-1) vs pixel coordinates
+          // Transform coordinates with proper mirroring to match camera view
           const startX = startPoint.x > 1 ? startPoint.x : startPoint.x * width;
           const startY = startPoint.y > 1 ? startPoint.y : startPoint.y * height;
           const endX = endPoint.x > 1 ? endPoint.x : endPoint.x * width;
           const endY = endPoint.y > 1 ? endPoint.y : endPoint.y * height;
           
-          ctx.moveTo(startX, startY);
-          ctx.lineTo(endX, endY);
+          // Mirror X coordinates to match camera display
+          const mirroredStartX = width - startX;
+          const mirroredEndX = width - endX;
+          
+          ctx.moveTo(mirroredStartX, startY);
+          ctx.lineTo(mirroredEndX, endY);
           ctx.stroke();
           connectionsDrawn++;
         }
@@ -822,7 +826,11 @@ export default function RecordingPanel({
         ctx.beginPath();
         const x = point.x > 1 ? point.x : point.x * width;
         const y = point.y > 1 ? point.y : point.y * height;
-        ctx.arc(x, y, 5, 0, 2 * Math.PI);
+        
+        // Mirror X coordinate to match camera display
+        const mirroredX = width - x;
+        
+        ctx.arc(mirroredX, y, 5, 0, 2 * Math.PI);
         ctx.fill();
         keypointsDrawn++;
       }
