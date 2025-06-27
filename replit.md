@@ -125,6 +125,8 @@ Changelog:
 - June 27, 2025. Updated skeleton visualization to show trunk keypoints (hips) in RULA mode for complete upper body representation
 - June 27, 2025. Added proper error handling and debugging to PDF report generation functionality
 - June 27, 2025. Fixed client/server separation and ensured robust security practices throughout the application
+- June 27, 2025. Completed migration from Replit Agent to standard Replit environment with enhanced RULA score calculation accuracy
+- June 27, 2025. Fixed RULA scoring matrices and added comprehensive debugging for pose-based score calculations
 
 # User Preferences
 

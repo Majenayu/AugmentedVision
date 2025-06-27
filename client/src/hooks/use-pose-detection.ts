@@ -50,9 +50,17 @@ export function usePoseDetection(
         setConfidence(Math.round(avgConfidence * 100));
         
         // Calculate score based on assessment mode
+        console.log('Assessment mode:', assessmentMode);
         const score = assessmentMode === 'RULA' 
           ? calculateRulaScore(pose.keypoints)
           : calculateRebaScore(pose.keypoints);
+        
+        if (score) {
+          console.log(`${assessmentMode} Score calculated:`, score.finalScore, score.riskLevel);
+        } else {
+          console.log(`${assessmentMode} Score calculation failed`);
+        }
+        
         setRebaScore(score);
       } else {
         setPoseData(null);

@@ -176,23 +176,22 @@ function getScoreB(neck: number, trunk: number): number {
   return scoreBTable[neckIndex][trunkIndex];
 }
 
-// RULA Final Score calculation (simplified for upper body only)
+// RULA Final Score calculation (Complete upper body with trunk)
 function getFinalScore(scoreA: number, scoreB: number): number {
-  // Simplified RULA Final Score table for upper body assessment
-  // Since Score B is now just neck score (1-6), we use a simplified table
+  // Standard RULA Final Score table (Score A vs Score B)
   const finalScoreTable = [
-    [1,2,3,3,4,5], // Score A = 1
-    [2,2,3,4,4,5], // Score A = 2
-    [3,3,3,4,4,5], // Score A = 3
-    [3,3,4,4,5,6], // Score A = 4
-    [4,4,4,5,6,6], // Score A = 5
-    [4,4,5,6,6,7], // Score A = 6
-    [5,5,6,6,7,7], // Score A = 7
-    [5,5,6,7,7,7]  // Score A = 8
+    [1,2,3,3,4,5,5], // Score A = 1
+    [2,2,3,4,4,5,5], // Score A = 2
+    [3,3,3,4,4,5,6], // Score A = 3
+    [3,3,3,4,5,6,6], // Score A = 4
+    [4,4,4,5,6,7,7], // Score A = 5
+    [4,4,5,6,6,7,7], // Score A = 6
+    [5,5,6,6,7,7,7], // Score A = 7
+    [5,5,6,7,7,7,7]  // Score A = 8
   ];
   
   const scoreAIndex = Math.min(Math.max(scoreA - 1, 0), 7);
-  const scoreBIndex = Math.min(Math.max(scoreB - 1, 0), 5);
+  const scoreBIndex = Math.min(Math.max(scoreB - 1, 0), 6);
   
   return finalScoreTable[scoreAIndex][scoreBIndex];
 }
@@ -210,6 +209,7 @@ function getStressLevel(finalScore: number): number {
 
 export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
   if (!keypoints || keypoints.length < 17) {
+    console.log('RULA: Insufficient keypoints detected:', keypoints?.length || 0);
     return null;
   }
 
@@ -224,6 +224,16 @@ export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
     const rightWrist = keypoints[10];
     const leftHip = keypoints[11];
     const rightHip = keypoints[12];
+    
+    // Check keypoint confidence
+    const minConfidence = 0.3;
+    const requiredKeypoints = [nose, leftShoulder, rightShoulder, leftElbow, rightElbow, leftWrist, rightWrist, leftHip, rightHip];
+    const lowConfidenceKeypoints = requiredKeypoints.filter(kp => kp.score < minConfidence);
+    
+    if (lowConfidenceKeypoints.length > 3) {
+      console.log('RULA: Too many low confidence keypoints, skipping calculation');
+      return null;
+    }
     
     // Use average of both sides for RULA assessment
     const shoulderMidpoint = {
@@ -245,6 +255,14 @@ export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
     const neckAngle = calculateVerticalAngle(shoulderMidpoint, nose);
     const trunkAngle = calculateVerticalAngle(hipMidpoint, shoulderMidpoint);
     
+    console.log('RULA Angles:', {
+      upperArm: upperArmAngle.toFixed(1),
+      lowerArm: lowerArmAngle.toFixed(1),
+      wrist: wristAngle.toFixed(1),
+      neck: neckAngle.toFixed(1),
+      trunk: trunkAngle.toFixed(1)
+    });
+    
     // Get individual body part scores (RULA complete upper body with trunk)
     const upperArmScore = getUpperArmScore(upperArmAngle);
     const lowerArmScore = getLowerArmScore(lowerArmAngle);
@@ -258,6 +276,18 @@ export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
     const finalScore = getFinalScore(scoreA, scoreB);
     const riskLevel = getRiskLevel(finalScore);
     const stressLevel = getStressLevel(finalScore);
+    
+    console.log('RULA Scores:', {
+      upperArm: upperArmScore,
+      lowerArm: lowerArmScore,
+      wrist: wristScore,
+      neck: neckScore,
+      trunk: trunkScore,
+      scoreA: scoreA,
+      scoreB: scoreB,
+      final: finalScore,
+      risk: riskLevel
+    });
     
     return {
       upperArm: upperArmScore,
