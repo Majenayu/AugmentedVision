@@ -5,9 +5,10 @@ interface CameraViewProps {
   canvasRef: React.RefObject<HTMLCanvasElement>;
   cameraActive: boolean;
   poseData: any;
+  assessmentMode?: 'RULA' | 'REBA';
 }
 
-export default function CameraView({ videoRef, canvasRef, cameraActive, poseData }: CameraViewProps) {
+export default function CameraView({ videoRef, canvasRef, cameraActive, poseData, assessmentMode = 'REBA' }: CameraViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,8 +48,15 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
     if (poseData.keypoints && poseData.keypoints.length > 0) {
       const keypoints = poseData.keypoints;
       
-      // COCO pose model connections (17 keypoints)
-      const connections = [
+      // Use appropriate connections based on assessment mode
+      const rulaConnections = [
+        [0, 1], [0, 2], [1, 3], [2, 4], // Head/neck
+        [5, 6], // Shoulders
+        [5, 7], [7, 9], // Left arm
+        [6, 8], [8, 10], // Right arm
+      ];
+      
+      const rebaConnections = [
         [0, 1], [0, 2], [1, 3], [2, 4], // Head
         [5, 6], // Shoulders
         [5, 7], [7, 9], // Left arm
@@ -58,6 +66,8 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
         [11, 13], [13, 15], // Left leg
         [12, 14], [14, 16] // Right leg
       ];
+      
+      const connections = assessmentMode === 'RULA' ? rulaConnections : rebaConnections;
 
       const confidenceThreshold = 0.3;
       
@@ -122,10 +132,15 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
         }
       });
 
-      // Draw keypoints
+      // Define which keypoints to show based on assessment mode
+      const visibleKeypoints = assessmentMode === 'RULA' 
+        ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] // Head, neck, shoulders, arms, wrists only
+        : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]; // All keypoints for REBA
+
+      // Draw keypoints - only show relevant ones
       let keypointsDrawn = 0;
       keypoints.forEach((keypoint: any, index: number) => {
-        if (keypoint && keypoint.score > confidenceThreshold) {
+        if (keypoint && keypoint.score > confidenceThreshold && visibleKeypoints.includes(index)) {
           const pos = transformCoordinates(keypoint.x, keypoint.y);
           
           // Different colors for different body parts

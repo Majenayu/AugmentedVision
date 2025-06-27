@@ -7,8 +7,16 @@ interface ThreeDViewProps {
   assessmentMode?: 'RULA' | 'REBA';
 }
 
-// COCO pose model connections (17 keypoints) - matching your CameraView
-const POSE_CONNECTIONS = [
+// RULA connections - Upper body only (excluding trunk/legs)
+const RULA_CONNECTIONS = [
+  [0, 1], [0, 2], [1, 3], [2, 4], // Head/neck
+  [5, 6], // Shoulders
+  [5, 7], [7, 9], // Left arm
+  [6, 8], [8, 10], // Right arm
+];
+
+// REBA connections - Full body
+const REBA_CONNECTIONS = [
   [0, 1], [0, 2], [1, 3], [2, 4], // Head
   [5, 6], // Shoulders
   [5, 7], [7, 9], // Left arm
@@ -215,10 +223,15 @@ export default function ThreeDView({ poseData, rebaScore, assessmentMode = 'REBA
 
     console.log('REBA Score for coloring:', rebaScore);
 
-    // Draw joints (keypoints) first
+    // Define which keypoints to show based on assessment mode
+    const visibleKeypoints = assessmentMode === 'RULA' 
+      ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] // Head, neck, shoulders, arms, wrists only
+      : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]; // All keypoints for REBA
+
+    // Draw joints (keypoints) first - only show relevant ones
     let jointsDrawn = 0;
     transformedPositions.forEach((position, index) => {
-      if (position) {
+      if (position && visibleKeypoints.includes(index)) {
         const bodyPart = getBodyPartForLandmark(index);
         const color = getRebaColor(bodyPart, rebaScore);
         
@@ -236,9 +249,10 @@ export default function ThreeDView({ poseData, rebaScore, assessmentMode = 'REBA
       }
     });
 
-    // Draw bones (connections) after joints
+    // Draw bones (connections) after joints - use appropriate connections based on assessment mode
     let bonesDrawn = 0;
-    POSE_CONNECTIONS.forEach(([startIdx, endIdx]) => {
+    const connections = assessmentMode === 'RULA' ? RULA_CONNECTIONS : REBA_CONNECTIONS;
+    connections.forEach(([startIdx, endIdx]) => {
       const startPos = transformedPositions[startIdx];
       const endPos = transformedPositions[endIdx];
       

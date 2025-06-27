@@ -37,7 +37,7 @@ export default function Home() {
     fps,
     isProcessing,
     initializeModel
-  } = usePoseDetection(videoRef, canvasRef, cameraActive);
+  } = usePoseDetection(videoRef, canvasRef, cameraActive, assessmentMode);
 
   const {
     isRecording,
@@ -280,6 +280,7 @@ export default function Home() {
             canvasRef={canvasRef} 
             cameraActive={cameraActive}
             poseData={poseData}
+            assessmentMode={assessmentMode}
           />
         </div>
 
