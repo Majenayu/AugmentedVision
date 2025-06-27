@@ -10,7 +10,6 @@ interface RulaScore {
   lowerArm: number;
   wrist: number;
   neck: number;
-  trunk: number;
   scoreA: number;
   scoreB: number;
   finalScore: number;
@@ -21,7 +20,6 @@ interface RulaScore {
   lowerArmAngle: number;
   wristAngle: number;
   neckAngle: number;
-  trunkAngle: number;
 }
 
 function calculateAngle(p1: Keypoint, p2: Keypoint, p3: Keypoint): number {
@@ -122,24 +120,7 @@ function getNeckScore(angle: number, isTwisted: boolean = false, isSideBent: boo
   return Math.min(score, 4);
 }
 
-function getTrunkScore(angle: number, isTwisted: boolean = false, isSideBent: boolean = false): number {
-  let score = 1;
-  
-  if (angle <= 10) {
-    score = 1;
-  } else if (angle <= 20) {
-    score = 2;
-  } else if (angle <= 60) {
-    score = 3;
-  } else {
-    score = 4;
-  }
-  
-  // Adjustments for twisting or side bending
-  if (isTwisted || isSideBent) score += 1;
-  
-  return Math.min(score, 5);
-}
+// getTrunkScore removed - RULA only assesses upper body parts (arms, wrists, neck)
 
 // RULA Score A calculation (Upper Arm + Lower Arm + Wrist)
 function getScoreA(upperArm: number, lowerArm: number, wrist: number): number {
@@ -158,40 +139,29 @@ function getScoreA(upperArm: number, lowerArm: number, wrist: number): number {
   return scoreATable[upperArmIndex][lowerArmIndex][wristIndex];
 }
 
-// RULA Score B calculation (Neck + Trunk)
-function getScoreB(neck: number, trunk: number): number {
-  // RULA Score B table (Neck + Trunk)
-  const scoreBTable = [
-    [1,3,2,2,3,3], // Neck score 1
-    [2,3,2,3,3,4], // Neck score 2
-    [3,3,3,3,4,5], // Neck score 3
-    [5,5,4,5,6,7], // Neck score 4
-    [7,7,7,7,7,8], // Neck score 5
-    [8,8,8,8,8,9]  // Neck score 6
-  ];
-  
-  const neckIndex = Math.min(Math.max(neck - 1, 0), 5);
-  const trunkIndex = Math.min(Math.max(trunk - 1, 0), 5);
-  
-  return scoreBTable[neckIndex][trunkIndex];
+// RULA Score B calculation (Neck only - no trunk in RULA)
+function getScoreB(neck: number): number {
+  // For RULA, Score B is simply the neck score since no trunk is assessed
+  return neck;
 }
 
-// RULA Final Score calculation
+// RULA Final Score calculation (simplified for upper body only)
 function getFinalScore(scoreA: number, scoreB: number): number {
-  // RULA Final Score table
+  // Simplified RULA Final Score table for upper body assessment
+  // Since Score B is now just neck score (1-6), we use a simplified table
   const finalScoreTable = [
-    [1,2,3,3,4,5,5], // Score A = 1
-    [2,2,3,4,4,5,5], // Score A = 2
-    [3,3,3,4,4,5,6], // Score A = 3
-    [3,3,3,4,5,6,6], // Score A = 4
-    [4,4,4,5,6,7,7], // Score A = 5
-    [4,4,5,6,6,7,7], // Score A = 6
-    [5,5,6,6,7,7,7], // Score A = 7
-    [5,5,6,7,7,7,7]  // Score A = 8
+    [1,2,3,3,4,5], // Score A = 1
+    [2,2,3,4,4,5], // Score A = 2
+    [3,3,3,4,4,5], // Score A = 3
+    [3,3,4,4,5,6], // Score A = 4
+    [4,4,4,5,6,6], // Score A = 5
+    [4,4,5,6,6,7], // Score A = 6
+    [5,5,6,6,7,7], // Score A = 7
+    [5,5,6,7,7,7]  // Score A = 8
   ];
   
   const scoreAIndex = Math.min(Math.max(scoreA - 1, 0), 7);
-  const scoreBIndex = Math.min(Math.max(scoreB - 1, 0), 6);
+  const scoreBIndex = Math.min(Math.max(scoreB - 1, 0), 5);
   
   return finalScoreTable[scoreAIndex][scoreBIndex];
 }
@@ -237,23 +207,21 @@ export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
       score: Math.min(leftHip.score, rightHip.score)
     };
     
-    // Calculate angles for dominant side (right side as default)
+    // Calculate angles for dominant side (right side as default) - RULA upper body only
     const upperArmAngle = calculateVerticalAngle(rightShoulder, rightElbow);
     const lowerArmAngle = calculateAngle(rightShoulder, rightElbow, rightWrist);
     const wristAngle = calculateVerticalAngle(rightElbow, rightWrist);
     const neckAngle = calculateVerticalAngle(shoulderMidpoint, nose);
-    const trunkAngle = calculateVerticalAngle(hipMidpoint, shoulderMidpoint);
     
-    // Get individual body part scores (RULA specific)
+    // Get individual body part scores (RULA specific - upper body only)
     const upperArmScore = getUpperArmScore(upperArmAngle);
     const lowerArmScore = getLowerArmScore(lowerArmAngle);
     const wristScore = getWristScore(wristAngle, 0); // Simplified wrist deviation
     const neckScore = getNeckScore(neckAngle);
-    const trunkScore = getTrunkScore(trunkAngle);
     
-    // Calculate RULA scores
+    // Calculate RULA scores (no trunk assessment)
     const scoreA = getScoreA(upperArmScore, lowerArmScore, wristScore);
-    const scoreB = getScoreB(neckScore, trunkScore); // Include trunk in RULA
+    const scoreB = getScoreB(neckScore); // Only neck for RULA
     const finalScore = getFinalScore(scoreA, scoreB);
     const riskLevel = getRiskLevel(finalScore);
     const stressLevel = getStressLevel(finalScore);
@@ -263,7 +231,6 @@ export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
       lowerArm: lowerArmScore,
       wrist: wristScore,
       neck: neckScore,
-      trunk: trunkScore,
       scoreA,
       scoreB,
       finalScore,
@@ -272,8 +239,7 @@ export function calculateRulaScore(keypoints: Keypoint[]): RulaScore | null {
       upperArmAngle,
       lowerArmAngle,
       wristAngle,
-      neckAngle,
-      trunkAngle
+      neckAngle
     };
   } catch (error) {
     console.error('Error calculating RULA score:', error);
