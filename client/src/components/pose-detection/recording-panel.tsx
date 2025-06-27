@@ -753,13 +753,24 @@ export default function RecordingPanel({
     // Add debug logging for skeleton coloring
     console.log(`Drawing skeleton - Mode: ${mode}, REBA Score: ${finalScore}, Color: ${riskColor}`);
     
-    // Draw connections with better error handling
-    const connections = [
+    // Draw connections with better error handling - use assessment mode specific connections
+    const rulaConnections = [
+      [0, 1], [0, 2], [1, 3], [2, 4], // Head/neck
+      [5, 6], // Shoulders
+      [5, 7], [7, 9], // Left arm
+      [6, 8], [8, 10], // Right arm
+      [5, 11], [6, 12], // Shoulders to hips
+      [11, 12], // Hip connection
+    ];
+    
+    const rebaConnections = [
       [5, 6], [5, 7], [7, 9], [6, 8], [8, 10], // Arms
       [5, 11], [6, 12], [11, 12], // Shoulders to hips
       [11, 13], [13, 15], [12, 14], [14, 16], // Legs
       [0, 1], [1, 3], [0, 2], [2, 4] // Head
     ];
+    
+    const connections = assessmentMode === 'RULA' ? rulaConnections : rebaConnections;
 
     ctx.strokeStyle = riskColor;
     ctx.lineWidth = 4; // Slightly thicker for better visibility
@@ -792,12 +803,17 @@ export default function RecordingPanel({
       }
     });
 
-    // Draw keypoints
+    // Draw keypoints - filter based on assessment mode
+    const visibleKeypoints = assessmentMode === 'RULA' 
+      ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] // Head, neck, shoulders, arms, wrists, hips
+      : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]; // All keypoints for REBA
+    
     ctx.fillStyle = riskColor;
     let keypointsDrawn = 0;
     keypoints.forEach((point: any, index: number) => {
       if (point && point.score > confidenceThreshold && 
-          typeof point.x === 'number' && typeof point.y === 'number') {
+          typeof point.x === 'number' && typeof point.y === 'number' &&
+          visibleKeypoints.includes(index)) {
         ctx.beginPath();
         const x = point.x > 1 ? point.x : point.x * width;
         const y = point.y > 1 ? point.y : point.y * height;

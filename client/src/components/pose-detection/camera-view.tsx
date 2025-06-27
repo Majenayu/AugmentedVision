@@ -54,6 +54,8 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
         [5, 6], // Shoulders
         [5, 7], [7, 9], // Left arm
         [6, 8], [8, 10], // Right arm
+        [5, 11], [6, 12], // Shoulders to hips
+        [11, 12], // Hip connection
       ];
       
       const rebaConnections = [
@@ -134,7 +136,7 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
 
       // Define which keypoints to show based on assessment mode
       const visibleKeypoints = assessmentMode === 'RULA' 
-        ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] // Head, neck, shoulders, arms, wrists only
+        ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] // Head, neck, shoulders, arms, wrists, hips
         : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]; // All keypoints for REBA
 
       // Draw keypoints - only show relevant ones
