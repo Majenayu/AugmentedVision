@@ -125,7 +125,7 @@ export async function detectObjects(
         };
       })
       .filter(obj => {
-        // Size filtering - objects that are too large relative to frame are likely not handheld
+        // Relaxed size filtering for better object detection
         const [x, y, width, height] = obj.bbox;
         const frameWidth = element.width || (element as HTMLImageElement).naturalWidth || 640;
         const frameHeight = element.height || (element as HTMLImageElement).naturalHeight || 480;
@@ -134,16 +134,15 @@ export async function detectObjects(
         const frameArea = frameWidth * frameHeight;
         const sizeRatio = objectArea / frameArea;
         
-        // Filter out objects that take up more than 30% of the frame
-        if (sizeRatio > 0.3) return false;
+        // Allow larger objects - increase threshold to 50%
+        if (sizeRatio > 0.5) return false;
         
-        // Filter out objects that are too thin/wide (likely background elements)
+        // More permissive aspect ratio filtering
         const aspectRatio = width / height;
-        if (aspectRatio > 5 || aspectRatio < 0.2) return false;
+        if (aspectRatio > 8 || aspectRatio < 0.1) return false;
         
-        // Prioritize known handheld categories
-        const handHeldCategories = ['tools', 'containers', 'electronics', 'office', 'fitness', 'sports', 'accessories'];
-        return handHeldCategories.includes(obj.category) || obj.category === 'unknown';
+        // Accept all objects that pass basic filtering (don't restrict by category)
+        return true;
       })
       .sort((a, b) => b.confidence - a.confidence) // Sort by confidence
       .slice(0, 10); // Limit to top 10 most confident detections
