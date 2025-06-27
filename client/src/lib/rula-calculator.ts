@@ -1,4 +1,4 @@
-// RULA (Rapid Upper Limb Assessment) calculation - Full body including trunk
+// RULA (Rapid Upper Limb Assessment) calculation - Focused on upper limb and neck
 interface Keypoint {
   x: number;
   y: number;
@@ -42,7 +42,17 @@ function calculateVerticalAngle(point1: Keypoint, point2: Keypoint): number {
   const deltaY = point2.y - point1.y;
   const deltaX = point2.x - point1.x;
   
-  // Calculate angle from vertical (positive Y-axis)
+  // Calculate angle from vertical - positive when leaning forward/backward
+  const angle = Math.atan2(Math.abs(deltaX), deltaY) * (180 / Math.PI);
+  return deltaY < 0 ? 180 - angle : angle; // Adjust for camera coordinate system
+}
+
+function calculateFlexionAngle(shoulder: Keypoint, elbow: Keypoint): number {
+  // Calculate upper arm flexion from vertical
+  const deltaY = elbow.y - shoulder.y;
+  const deltaX = elbow.x - shoulder.x;
+  
+  // Angle from vertical (0 degrees = arm hanging straight down)
   const angle = Math.atan2(Math.abs(deltaX), Math.abs(deltaY)) * (180 / Math.PI);
   return angle;
 }
