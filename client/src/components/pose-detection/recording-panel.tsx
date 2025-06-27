@@ -1471,6 +1471,7 @@ export default function RecordingPanel({
                         weightEstimation={getCurrentWeightEstimation(selectedFrame)}
                         skeletonOnly={false}
                         videoRef={videoRef}
+                        assessmentMode={assessmentMode}
                       />
                       <div className="absolute bottom-2 left-2 bg-black/70 text-white px-2 py-1 rounded text-xs">
                         2D Skeleton View

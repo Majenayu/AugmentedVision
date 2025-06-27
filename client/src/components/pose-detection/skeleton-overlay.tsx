@@ -10,9 +10,19 @@ interface SkeletonOverlayProps {
   weightEstimation?: any;
   skeletonOnly?: boolean;
   videoRef?: React.RefObject<HTMLVideoElement>;
+  assessmentMode?: 'RULA' | 'REBA';
 }
 
-const KEYPOINT_CONNECTIONS = [
+// RULA connections - Upper body only (neck, arms, wrists)
+const RULA_CONNECTIONS = [
+  [0, 1], [0, 2], [1, 3], [2, 4], // Head/neck
+  [5, 6], // Shoulders
+  [5, 7], [7, 9], // Left arm
+  [6, 8], [8, 10], // Right arm
+];
+
+// REBA connections - Full body
+const REBA_CONNECTIONS = [
   [5, 6], [5, 7], [7, 9], [6, 8], [8, 10], // Arms
   [5, 11], [6, 12], [11, 12], // Torso
   [11, 13], [13, 15], [12, 14], [14, 16], // Legs
@@ -35,7 +45,8 @@ export default function SkeletonOverlay({
   showColorCoding = true,
   weightEstimation,
   skeletonOnly = false,
-  videoRef
+  videoRef,
+  assessmentMode = 'REBA'
 }: SkeletonOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -240,8 +251,11 @@ export default function SkeletonOverlay({
         return { x: transformedX, y: transformedY };
       };
 
+      // Get appropriate connections based on assessment mode
+      const connections = assessmentMode === 'RULA' ? RULA_CONNECTIONS : REBA_CONNECTIONS;
+      
       // Draw connections with enhanced visibility
-      KEYPOINT_CONNECTIONS.forEach(([startIdx, endIdx]) => {
+      connections.forEach(([startIdx, endIdx]) => {
         const startPoint = keypoints[startIdx];
         const endPoint = keypoints[endIdx];
 
@@ -266,9 +280,14 @@ export default function SkeletonOverlay({
         }
       });
 
+      // Define which keypoints to show based on assessment mode
+      const visibleKeypoints = assessmentMode === 'RULA' 
+        ? [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10] // Head, neck, shoulders, arms, wrists only
+        : [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16]; // All keypoints for REBA
+
       // Draw keypoints with enhanced visibility
       keypoints.forEach((keypoint: any, index: number) => {
-        if (keypoint.score > 0.3) {
+        if (keypoint.score > 0.3 && visibleKeypoints.includes(index)) {
           const pos = transformCoordinate(keypoint);
 
           // Draw keypoint with black outline for better visibility
