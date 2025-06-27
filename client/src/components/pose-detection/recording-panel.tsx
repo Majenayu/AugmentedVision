@@ -834,107 +834,117 @@ export default function RecordingPanel({
 
   // PDF Report Generation Function
   const generatePDFReport = () => {
-    const pdf = new jsPDF();
-    const pageWidth = pdf.internal.pageSize.getWidth();
-    const pageHeight = pdf.internal.pageSize.getHeight();
-    const margin = 20;
-    const lineHeight = 6;
-    let yPosition = margin;
+    console.log('Starting PDF generation...');
+    console.log('Recording data length:', recordingData.length);
+    console.log('Manual weights:', manualWeights);
 
-    // Helper function to add text with automatic page breaks
-    const addText = (text: string, fontSize = 10, isBold = false, align: 'left' | 'center' | 'right' = 'left') => {
-      if (yPosition > pageHeight - margin) {
-        pdf.addPage();
-        yPosition = margin;
-      }
-      
-      pdf.setFontSize(fontSize);
-      if (isBold) {
-        pdf.setFont('helvetica', 'bold');
-      } else {
-        pdf.setFont('helvetica', 'normal');
-      }
+    if (recordingData.length === 0) {
+      alert('No recording data available to generate PDF report.');
+      return;
+    }
 
-      if (align === 'center') {
-        pdf.text(text, pageWidth / 2, yPosition, { align: 'center' });
-      } else if (align === 'right') {
-        pdf.text(text, pageWidth - margin, yPosition, { align: 'right' });
-      } else {
-        pdf.text(text, margin, yPosition);
-      }
-      
-      yPosition += lineHeight;
-    };
+    try {
+      const pdf = new jsPDF();
+      const pageWidth = pdf.internal.pageSize.getWidth();
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      const margin = 20;
+      const lineHeight = 6;
+      let yPosition = margin;
 
-    const addSection = (title: string) => {
-      yPosition += 3;
-      addText(title, 12, true);
-      yPosition += 2;
-    };
-
-    // Calculate overall statistics
-    const totalFrames = recordingData.length;
-    const validFrames = recordingData.filter(frame => frame.poseData?.keypoints && frame.poseData.keypoints.length > 0);
-    const avgValidKeypoints = validFrames.length > 0 ? 
-      validFrames.reduce((sum, frame) => sum + (frame.poseData?.keypoints?.filter((kp: any) => kp.score > 0.3).length || 0), 0) / validFrames.length : 0;
-    const avgConfidence = validFrames.length > 0 ?
-      validFrames.reduce((sum, frame) => sum + (frame.poseData?.score || 0), 0) / validFrames.length * 100 : 0;
-    const avgRebaScore = validFrames.length > 0 ?
-      validFrames.reduce((sum, frame) => sum + (frame.rebaScore?.finalScore || 0), 0) / validFrames.length : 0;
-
-    // Get risk level
-    const getRiskLevel = (score: number) => {
-      if (score <= 2) return "Low Risk - Acceptable";
-      if (score <= 4) return "Medium Risk - Investigate";
-      if (score <= 6) return "High Risk - Change Soon";
-      return "Critical Risk - Change Immediately";
-    };
-
-    const generateRecommendations = (avgScore: number, hasManualWeights: boolean) => {
-      const recommendations = [];
-      
-      if (avgScore <= 2) {
-        recommendations.push("Low risk detected - posture is generally acceptable");
-        recommendations.push("Continue current practices");
-        recommendations.push("Monitor for any changes in work conditions");
-      } else if (avgScore <= 4) {
-        recommendations.push("Minor ergonomic concerns detected");
-        recommendations.push("Adjust chair height and monitor position");
-        recommendations.push("Check keyboard and mouse placement");
-        recommendations.push("Take micro-breaks every 20-30 minutes");
-        recommendations.push("Consider ergonomic accessories");
-      } else if (avgScore <= 6) {
-        recommendations.push("Significant ergonomic issues identified");
-        recommendations.push("Immediate workspace assessment recommended");
-        recommendations.push("Implement regular stretching routine");
-        recommendations.push("Consider ergonomic training");
-        recommendations.push("Review task frequency and duration");
-      } else {
-        recommendations.push("Critical ergonomic risks detected");
-        recommendations.push("Immediate intervention required");
-        recommendations.push("Professional ergonomic assessment needed");
-        recommendations.push("Consider job task modification");
-        recommendations.push("Implement mandatory rest breaks");
-      }
-
-      if (hasManualWeights) {
-        const totalWeight = manualWeights.reduce((total, w) => total + w.weight, 0) / 1000;
-        recommendations.push(`Weight handling detected: ${totalWeight.toFixed(1)}kg`);
-        if (totalWeight > 10) {
-          recommendations.push("Consider mechanical lifting aids");
-          recommendations.push("Use proper lifting techniques");
+      // Helper function to add text with automatic page breaks
+      const addText = (text: string, fontSize = 10, isBold = false, align: 'left' | 'center' | 'right' = 'left') => {
+        if (yPosition > pageHeight - margin) {
+          pdf.addPage();
+          yPosition = margin;
         }
-      }
+        
+        pdf.setFontSize(fontSize);
+        if (isBold) {
+          pdf.setFont('helvetica', 'bold');
+        } else {
+          pdf.setFont('helvetica', 'normal');
+        }
 
-      return recommendations;
-    };
+        if (align === 'center') {
+          pdf.text(text, pageWidth / 2, yPosition, { align: 'center' });
+        } else if (align === 'right') {
+          pdf.text(text, pageWidth - margin, yPosition, { align: 'right' });
+        } else {
+          pdf.text(text, margin, yPosition);
+        }
+        
+        yPosition += lineHeight;
+      };
 
-    // Header
-    addText("ErgoTrack Assessment Report", 16, true, 'center');
-    yPosition += 5;
+      const addSection = (title: string) => {
+        yPosition += 3;
+        addText(title, 12, true);
+        yPosition += 2;
+      };
 
-    // Session Information
-    addSection("Session Information");
+      // Calculate overall statistics
+      const totalFrames = recordingData.length;
+      const validFrames = recordingData.filter(frame => frame.poseData?.keypoints && frame.poseData.keypoints.length > 0);
+      const avgValidKeypoints = validFrames.length > 0 ? 
+        validFrames.reduce((sum, frame) => sum + (frame.poseData?.keypoints?.filter((kp: any) => kp.score > 0.3).length || 0), 0) / validFrames.length : 0;
+      const avgConfidence = validFrames.length > 0 ?
+        validFrames.reduce((sum, frame) => sum + (frame.poseData?.score || 0), 0) / validFrames.length * 100 : 0;
+      const avgRebaScore = validFrames.length > 0 ?
+        validFrames.reduce((sum, frame) => sum + (frame.rebaScore?.finalScore || 0), 0) / validFrames.length : 0;
+
+      // Get risk level
+      const getRiskLevel = (score: number) => {
+        if (score <= 2) return "Low Risk - Acceptable";
+        if (score <= 4) return "Medium Risk - Investigate";
+        if (score <= 6) return "High Risk - Change Soon";
+        return "Critical Risk - Change Immediately";
+      };
+
+      const generateRecommendations = (avgScore: number, hasManualWeights: boolean) => {
+        const recommendations = [];
+        
+        if (avgScore <= 2) {
+          recommendations.push("Low risk detected - posture is generally acceptable");
+          recommendations.push("Continue current practices");
+          recommendations.push("Monitor for any changes in work conditions");
+        } else if (avgScore <= 4) {
+          recommendations.push("Minor ergonomic concerns detected");
+          recommendations.push("Adjust chair height and monitor position");
+          recommendations.push("Check keyboard and mouse placement");
+          recommendations.push("Take micro-breaks every 20-30 minutes");
+          recommendations.push("Consider ergonomic accessories");
+        } else if (avgScore <= 6) {
+          recommendations.push("Significant ergonomic issues identified");
+          recommendations.push("Immediate workspace assessment recommended");
+          recommendations.push("Implement regular stretching routine");
+          recommendations.push("Consider ergonomic training");
+          recommendations.push("Review task frequency and duration");
+        } else {
+          recommendations.push("Critical ergonomic risks detected");
+          recommendations.push("Immediate intervention required");
+          recommendations.push("Professional ergonomic assessment needed");
+          recommendations.push("Consider job task modification");
+          recommendations.push("Implement mandatory rest breaks");
+        }
+
+        if (hasManualWeights) {
+          const totalWeight = manualWeights.reduce((total, w) => total + w.weight, 0) / 1000;
+          recommendations.push(`Weight handling detected: ${totalWeight.toFixed(1)}kg`);
+          if (totalWeight > 10) {
+            recommendations.push("Consider mechanical lifting aids");
+            recommendations.push("Use proper lifting techniques");
+          }
+        }
+
+        return recommendations;
+      };
+
+      // Header
+      addText("ErgoTrack Assessment Report", 16, true, 'center');
+      yPosition += 5;
+
+      // Session Information
+      addSection("Session Information");
     addText(`Date: ${new Date().toLocaleString()}`);
     addText(`Duration: ${getSessionDuration()}`);
     addText(`Assessment Type: ${analysisMode.toUpperCase()}`);
@@ -1024,7 +1034,14 @@ export default function RecordingPanel({
 
     // Download the PDF
     const fileName = `ErgoTrack_Assessment_${new Date().toISOString().split('T')[0]}.pdf`;
+    console.log('Attempting to save PDF:', fileName);
     pdf.save(fileName);
+    console.log('PDF generation completed successfully');
+    
+    } catch (error) {
+      console.error('Error generating PDF report:', error);
+      alert('Failed to generate PDF report. Please try again.');
+    }
   };
 
   return (
