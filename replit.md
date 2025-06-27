@@ -129,6 +129,8 @@ Changelog:
 - June 27, 2025. Fixed RULA scoring matrices and added comprehensive debugging for pose-based score calculations
 - June 27, 2025. Enhanced RULA scoring system with proper 1-7 scale range and improved angle calculations for better pose responsiveness
 - June 27, 2025. Fixed photo capture alignment issues in RULA mode with improved horizontal mirroring and quality settings
+- June 27, 2025. Fixed image stretching in downloaded photos and PDF reports by implementing proper aspect ratio calculations
+- June 27, 2025. Standardized image dimensions to 640x480 with letterboxing to prevent distortion in captured frames
 
 # User Preferences
 
