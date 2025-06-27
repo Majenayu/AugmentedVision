@@ -90,12 +90,31 @@ export default function Home() {
       return;
     }
 
+    console.log("Starting camera from home component...");
+    console.log("Available devices:", availableDevices);
+    console.log("Selected device ID:", selectedDeviceId);
+
     try {
-      await startCamera();
+      // Use the selected device ID if available, otherwise let camera choose default
+      await startCamera(selectedDeviceId || undefined);
       setStartTime(Date.now());
       setSessionDuration(0);
+      console.log("Camera started successfully from home component");
     } catch (error) {
       console.error("Failed to start camera:", error);
+      
+      // Try fallback without specific device
+      if (selectedDeviceId) {
+        console.log("Retrying without specific device ID...");
+        try {
+          await startCamera();
+          setStartTime(Date.now());
+          setSessionDuration(0);
+          console.log("Camera started with fallback method");
+        } catch (fallbackError) {
+          console.error("Fallback camera start also failed:", fallbackError);
+        }
+      }
     }
   };
 

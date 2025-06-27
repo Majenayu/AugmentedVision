@@ -37,6 +37,8 @@ export function useCamera() {
 
   const startCamera = useCallback(async (deviceId?: string) => {
     try {
+      console.log("Attempting to start camera with deviceId:", deviceId);
+      
       const constraints: MediaStreamConstraints = {
         video: {
           width: { ideal: 1280 },
@@ -47,19 +49,46 @@ export function useCamera() {
         audio: false
       };
 
+      console.log("Camera constraints:", constraints);
       const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+      console.log("Camera stream obtained:", mediaStream);
 
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
+        console.log("Video element srcObject set");
+        
+        // Wait for video to load metadata
+        await new Promise((resolve, reject) => {
+          if (videoRef.current) {
+            videoRef.current.onloadedmetadata = resolve;
+            videoRef.current.onerror = reject;
+          }
+        });
+        
         await videoRef.current.play();
+        console.log("Video element playing");
+        
         setStream(mediaStream);
         setCameraActive(true);
         if (deviceId) {
           setSelectedDeviceId(deviceId);
         }
+        console.log("Camera successfully started");
       }
     } catch (error) {
       console.error("Error starting camera:", error);
+      
+      // Provide more specific error messages
+      if (error instanceof Error && 'name' in error) {
+        if (error.name === 'NotAllowedError') {
+          console.error("Camera permission denied by user");
+        } else if (error.name === 'NotFoundError') {
+          console.error("No camera found");
+        } else if (error.name === 'NotReadableError') {
+          console.error("Camera already in use by another application");
+        }
+      }
+      
       throw error;
     }
   }, []);
