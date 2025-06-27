@@ -13,6 +13,7 @@ export default function Home() {
   const [modelLoaded, setModelLoaded] = useState(false);
   const [sessionDuration, setSessionDuration] = useState(0);
   const [startTime, setStartTime] = useState<number | null>(null);
+  const [assessmentMode, setAssessmentMode] = useState<'RULA' | 'REBA'>('REBA');
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
@@ -146,6 +147,23 @@ export default function Home() {
     return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
   };
 
+  // If RULA mode is selected, show green page with "Hi"
+  if (assessmentMode === 'RULA') {
+    return (
+      <div className="min-h-screen bg-green-500 text-white flex items-center justify-center">
+        <div className="text-center">
+          <h1 className="text-8xl font-bold mb-8">Hi</h1>
+          <button 
+            onClick={() => setAssessmentMode('REBA')}
+            className="bg-white text-green-500 px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition-colors"
+          >
+            Switch to REBA Mode
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-dark-surface text-white">
       {/* Header */}
@@ -185,6 +203,21 @@ export default function Home() {
         {/* View Controls */}
         <div className="mb-6">
           <div className="bg-dark-card rounded-lg p-4 shadow-lg">
+            {/* Assessment Mode Selection */}
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-text-secondary mb-2">
+                Assessment Method
+              </label>
+              <select
+                value={assessmentMode}
+                onChange={(e) => setAssessmentMode(e.target.value as 'RULA' | 'REBA')}
+                className="bg-gray-700 text-white border border-gray-600 rounded px-3 py-2 text-sm min-w-[120px] cursor-pointer hover:bg-gray-600 transition-colors"
+              >
+                <option value="REBA">REBA (Rapid Entire Body Assessment)</option>
+                <option value="RULA">RULA (Rapid Upper Limb Assessment)</option>
+              </select>
+            </div>
+            
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center space-x-4">
                 <button 
