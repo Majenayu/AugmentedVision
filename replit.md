@@ -133,6 +133,7 @@ Changelog:
 - June 27, 2025. Standardized image dimensions to 640x480 with letterboxing to prevent distortion in captured frames
 - June 27, 2025. Fixed skeleton alignment issues in REBA mode by implementing proper coordinate transformation and mirroring
 - June 27, 2025. Enhanced object detection system with expanded object database, improved sensitivity, and automatic analysis for better handheld object recognition
+- February 1, 2026. Made frontend fully responsive for all devices (phones, tablets, laptops) with mobile-optimized layouts, touch-friendly buttons, and proper viewport handling for Render deployment
 
 # User Preferences
 

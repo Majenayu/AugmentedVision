@@ -466,23 +466,24 @@ export default function ThreeDView({ poseData, rebaScore, assessmentMode = 'REBA
 
   return (
     <div className="bg-gray-800 rounded-lg shadow-lg overflow-hidden">
-      <div className="bg-gray-700 px-4 py-3 border-b border-gray-600">
+      <div className="bg-gray-700 px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-600">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium text-white flex items-center space-x-2">
-            <span className="text-blue-400">🎯</span>
-            <span>3D Skeleton View - Individual {assessmentMode} Coloring</span>
+          <h3 className="text-sm sm:text-lg font-medium text-white flex items-center space-x-1 sm:space-x-2">
+            <span className="text-blue-400 text-sm sm:text-base">🎯</span>
+            <span className="hidden sm:inline">3D Skeleton View - Individual {assessmentMode} Coloring</span>
+            <span className="sm:hidden">3D View - {assessmentMode}</span>
           </h3>
-          <div className="flex items-center space-x-2">
+          <div className="flex items-center space-x-1 sm:space-x-2">
             <button
               onClick={resetView}
-              className="p-2 hover:bg-gray-600 rounded transition-colors text-white"
+              className="p-1.5 sm:p-2 hover:bg-gray-600 rounded transition-colors text-white text-sm sm:text-base"
               title="Reset View"
             >
               🔄
             </button>
             <button
               onClick={() => setIsControlsVisible(!isControlsVisible)}
-              className="p-2 hover:bg-gray-600 rounded transition-colors text-white"
+              className="p-1.5 sm:p-2 hover:bg-gray-600 rounded transition-colors text-white text-sm sm:text-base"
               title="Toggle Controls"
             >
               ⚙️
@@ -494,50 +495,50 @@ export default function ThreeDView({ poseData, rebaScore, assessmentMode = 'REBA
       <div className="relative">
         <div
           ref={containerRef}
-          className="w-full h-96 bg-gray-900"
+          className="w-full h-64 sm:h-96 bg-gray-900"
           style={{ aspectRatio: '16/9' }}
         />
         
         {/* 3D Controls Overlay */}
         {isControlsVisible && (
-          <div className="absolute top-4 right-4 bg-black bg-opacity-70 rounded-lg p-3 space-y-2">
-            <div className="grid grid-cols-3 gap-1">
+          <div className="absolute top-2 right-2 sm:top-4 sm:right-4 bg-black bg-opacity-70 rounded-lg p-2 sm:p-3 space-y-1 sm:space-y-2">
+            <div className="grid grid-cols-3 gap-0.5 sm:gap-1">
               <div></div>
               <button 
                 onClick={() => rotateCamera('up')}
-                className="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs transition-colors text-white"
+                className="bg-gray-700 hover:bg-gray-600 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[10px] sm:text-xs transition-colors text-white"
               >
                 ↑
               </button>
               <div></div>
               <button 
                 onClick={() => rotateCamera('left')}
-                className="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs transition-colors text-white"
+                className="bg-gray-700 hover:bg-gray-600 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[10px] sm:text-xs transition-colors text-white"
               >
                 ↺
               </button>
               <button 
                 onClick={() => rotateCamera('down')}
-                className="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs transition-colors text-white"
+                className="bg-gray-700 hover:bg-gray-600 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[10px] sm:text-xs transition-colors text-white"
               >
                 ↓
               </button>
               <button 
                 onClick={() => rotateCamera('right')}
-                className="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs transition-colors text-white"
+                className="bg-gray-700 hover:bg-gray-600 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[10px] sm:text-xs transition-colors text-white"
               >
                 ↻
               </button>
               <button 
                 onClick={() => zoomCamera('in')}
-                className="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs transition-colors text-white"
+                className="bg-gray-700 hover:bg-gray-600 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[10px] sm:text-xs transition-colors text-white"
               >
                 🔍+
               </button>
               <div></div>
               <button 
                 onClick={() => zoomCamera('out')}
-                className="bg-gray-700 hover:bg-gray-600 px-2 py-1 rounded text-xs transition-colors text-white"
+                className="bg-gray-700 hover:bg-gray-600 px-1.5 py-0.5 sm:px-2 sm:py-1 rounded text-[10px] sm:text-xs transition-colors text-white"
               >
                 🔍-
               </button>
@@ -547,14 +548,14 @@ export default function ThreeDView({ poseData, rebaScore, assessmentMode = 'REBA
         
         {/* Simplified REBA Score Overlay - Final Score Only */}
         {rebaScore && (
-          <div className="absolute bottom-4 left-4 bg-black bg-opacity-80 rounded-lg p-3">
-            <div className="text-white text-sm">
-              <div className="flex items-center space-x-2 mb-2">
-                <span>📊</span>
-                <span className="font-semibold">REBA Final Score: {String(rebaScore.finalScore || 'N/A')}</span>
+          <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 bg-black bg-opacity-80 rounded-lg p-2 sm:p-3">
+            <div className="text-white text-xs sm:text-sm">
+              <div className="flex items-center space-x-1 sm:space-x-2 mb-1 sm:mb-2">
+                <span className="text-xs sm:text-base">📊</span>
+                <span className="font-semibold">{assessmentMode}: {String(rebaScore.finalScore || 'N/A')}</span>
               </div>
-              <div className="text-xs text-gray-300">
-                Risk Level: <span className={`font-semibold ${
+              <div className="text-[10px] sm:text-xs text-gray-300">
+                Risk: <span className={`font-semibold ${
                   rebaScore.finalScore <= 2 ? 'text-green-400' :
                   rebaScore.finalScore <= 4 ? 'text-yellow-400' :
                   rebaScore.finalScore <= 6 ? 'text-orange-400' : 'text-red-400'
@@ -566,13 +567,13 @@ export default function ThreeDView({ poseData, rebaScore, assessmentMode = 'REBA
           </div>
         )}
         
-        {/* Debug Info */}
+        {/* Debug Info - Hidden on mobile */}
         {poseData && rebaScore && (
-          <div className="absolute top-4 right-20 bg-black bg-opacity-70 rounded-lg p-2 text-xs text-gray-300">
+          <div className="hidden sm:block absolute top-4 right-20 bg-black bg-opacity-70 rounded-lg p-2 text-xs text-gray-300">
             <div className="font-semibold mb-1">Debug Info</div>
             <div>Keypoints: {poseData.keypoints?.length || 0}</div>
             <div>Valid: {poseData.keypoints?.filter((kp: any) => kp && kp.score > 0.3).length || 0}</div>
-            <div>Final REBA: {rebaScore.finalScore || 'N/A'}</div>
+            <div>Final {assessmentMode}: {rebaScore.finalScore || 'N/A'}</div>
             <div>Stress Level: {rebaScore.stressLevel || 'N/A'}</div>
           </div>
         )}
