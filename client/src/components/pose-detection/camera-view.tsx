@@ -191,14 +191,14 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
 
   return (
     <div className="bg-dark-card rounded-lg shadow-lg overflow-hidden">
-      <div className="bg-dark-secondary px-4 py-3 border-b border-gray-600">
+      <div className="bg-dark-secondary px-3 sm:px-4 py-2 sm:py-3 border-b border-gray-600">
         <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium flex items-center space-x-2">
-            <span className="material-icon text-green-500">videocam</span>
+          <h3 className="text-sm sm:text-lg font-medium flex items-center space-x-1 sm:space-x-2">
+            <span className="material-icon text-green-500 text-base sm:text-2xl">videocam</span>
             <span>Live Camera Feed</span>
           </h3>
-          <div className="flex items-center space-x-2">
-            <div className="flex items-center space-x-1 text-sm text-text-secondary">
+          <div className="flex items-center space-x-1 sm:space-x-2">
+            <div className="flex items-center space-x-1 text-xs sm:text-sm text-text-secondary">
               <span className="material-icon text-xs">speed</span>
               <span>Real-time</span>
             </div>
@@ -206,7 +206,7 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
         </div>
       </div>
       
-      <div ref={containerRef} className="relative aspect-video bg-gray-900">
+      <div ref={containerRef} className="relative aspect-video bg-gray-900 min-h-[200px] sm:min-h-[300px]">
         <video 
           ref={videoRef}
           className="w-full h-full object-cover"
@@ -233,25 +233,26 @@ export default function CameraView({ videoRef, canvasRef, cameraActive, poseData
         
         {/* Pose Detection Overlay */}
         {cameraActive && poseData && (
-          <div className="absolute top-4 left-4 bg-black bg-opacity-50 text-white px-3 py-2 rounded-lg text-sm">
-            <div className="flex items-center space-x-2">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              <span>Detecting Pose... {poseData.keypoints?.length || 0} keypoints</span>
+          <div className="absolute top-2 left-2 sm:top-4 sm:left-4 bg-black bg-opacity-50 text-white px-2 py-1 sm:px-3 sm:py-2 rounded-lg text-xs sm:text-sm">
+            <div className="flex items-center space-x-1 sm:space-x-2">
+              <div className="w-1.5 h-1.5 sm:w-2 sm:h-2 bg-green-400 rounded-full animate-pulse"></div>
+              <span>Detecting... {poseData.keypoints?.length || 0} pts</span>
             </div>
           </div>
         )}
         
         {/* Camera Info Overlay */}
         {cameraActive && (
-          <div className="absolute bottom-4 left-4 bg-black bg-opacity-50 rounded-lg p-2">
-            <div className="text-xs text-white space-y-1">
-              <div className="flex items-center space-x-2">
-                <span className="material-icon text-xs">camera</span>
+          <div className="absolute bottom-2 left-2 sm:bottom-4 sm:left-4 bg-black bg-opacity-50 rounded-lg p-1.5 sm:p-2">
+            <div className="text-[10px] sm:text-xs text-white space-y-0.5 sm:space-y-1">
+              <div className="flex items-center space-x-1 sm:space-x-2">
+                <span className="material-icon text-[10px] sm:text-xs">camera</span>
                 <span>{videoRef.current?.videoWidth || 0}x{videoRef.current?.videoHeight || 0}</span>
               </div>
-              <div className="flex items-center space-x-2">
-                <span className="material-icon text-xs">person</span>
-                <span>{poseData?.keypoints?.length > 0 ? '1 person detected' : 'No pose detected'}</span>
+              <div className="flex items-center space-x-1 sm:space-x-2">
+                <span className="material-icon text-[10px] sm:text-xs">person</span>
+                <span className="hidden sm:inline">{poseData?.keypoints?.length > 0 ? '1 person detected' : 'No pose detected'}</span>
+                <span className="sm:hidden">{poseData?.keypoints?.length > 0 ? '1 person' : 'No pose'}</span>
               </div>
             </div>
           </div>

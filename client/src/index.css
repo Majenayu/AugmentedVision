@@ -186,3 +186,39 @@
     border: 1px solid rgba(255, 255, 255, 0.2);
   }
 }
+
+/* Mobile-specific optimizations */
+@media (max-width: 640px) {
+  html {
+    font-size: 14px;
+  }
+  
+  button, select, input {
+    min-height: 44px;
+    touch-action: manipulation;
+  }
+  
+  .material-icon {
+    font-size: 18px;
+  }
+}
+
+/* Prevent text selection on touch devices for UI elements */
+button, .no-select {
+  -webkit-user-select: none;
+  -moz-user-select: none;
+  -ms-user-select: none;
+  user-select: none;
+}
+
+/* Smooth scrolling for the entire page */
+html {
+  scroll-behavior: smooth;
+}
+
+/* Better touch target sizes */
+@media (pointer: coarse) {
+  button, select, input {
+    min-height: 44px;
+  }
+}
