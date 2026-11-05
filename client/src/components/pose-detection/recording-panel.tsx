@@ -520,30 +520,68 @@ export default function RecordingPanel({
       // Frame header
       pdf.setFontSize(14);
       pdf.text(`Frame ${frameNumber} - Time: ${timeSeconds}s`, margin, 20);
-      
-      // Calculate proper image dimensions maintaining aspect ratio
-      const maxImageWidth = (pageWidth - 3 * margin) / 2;
-      const maxImageHeight = (pageHeight - 80) / 2;
-      
-      // Use fixed dimensions that work well for PDF layout
-      const imageWidth = maxImageWidth;
-      const imageHeight = maxImageHeight;
-      
-      let imagesAdded = 0;
-      const positions = [
-        { x: margin, y: 30, label: 'Original' },
-        { x: margin + imageWidth + margin, y: 30, label: 'Skeleton' },
-        { x: margin, y: 30 + imageHeight + 10, label: 'Estimated Weight' },
-        { x: margin + imageWidth + margin, y: 30 + imageHeight + 10, label: 'Manual Weight' }
+
+      // --- 2x2 grid layout (4 images per page) ---
+      // Define the usable content area below the header and above the summary.
+      const contentTop = 30;          // start of grid (below header)
+      const contentBottom = pageHeight - 24; // leave room for bottom summary
+      const gutter = margin;          // space between the two columns/rows
+      const labelSpace = 6;           // vertical room reserved for the label above each cell
+
+      // Each cell is one quadrant of the 2x2 grid.
+      const cellWidth = (pageWidth - 2 * margin - gutter) / 2;
+      const cellHeight = (contentBottom - contentTop - gutter) / 2;
+
+      // Image box inside a cell (label sits in the top labelSpace of the cell).
+      const boxWidth = cellWidth;
+      const boxHeight = cellHeight - labelSpace;
+
+      // Top-left origin of each of the four cells.
+      const col0X = margin;
+      const col1X = margin + cellWidth + gutter;
+      const row0Y = contentTop;
+      const row1Y = contentTop + cellHeight + gutter;
+
+      const cells = [
+        { x: col0X, y: row0Y, label: 'Original' },
+        { x: col1X, y: row0Y, label: 'Skeleton' },
+        { x: col0X, y: row1Y, label: 'Estimated Weight' },
+        { x: col1X, y: row1Y, label: 'Manual Weight' }
       ];
+
+      // Fit an image inside its cell box preserving aspect ratio, centered.
+      // Returns the label position and the draw rect for the image.
+      const fitImage = (cell: { x: number; y: number }, imgW: number, imgH: number) => {
+        const scale = Math.min(boxWidth / imgW, boxHeight / imgH);
+        const drawW = imgW * scale;
+        const drawH = imgH * scale;
+        const imgAreaY = cell.y + labelSpace;
+        const drawX = cell.x + (boxWidth - drawW) / 2;
+        const drawY = imgAreaY + (boxHeight - drawH) / 2;
+        return { drawX, drawY, drawW, drawH, labelX: cell.x, labelY: cell.y + labelSpace - 2 };
+      };
+
+      // Load an image to measure its natural dimensions.
+      const measureImage = (src: string): Promise<{ w: number; h: number }> =>
+        new Promise((resolve) => {
+          const im = new Image();
+          im.onload = () => resolve({ w: im.naturalWidth || im.width, h: im.naturalHeight || im.height });
+          im.onerror = () => resolve({ w: 4, h: 3 }); // sensible fallback aspect ratio
+          im.src = src;
+        });
+
+      let imagesAdded = 0;
+      const positions = cells;
 
       // 1. Original Image
       if (frame.imageData) {
         try {
           const pos = positions[0];
-          pdf.addImage(frame.imageData, 'JPEG', pos.x, pos.y, imageWidth, imageHeight);
+          const { w, h } = await measureImage(frame.imageData);
+          const f = fitImage(pos, w, h);
+          pdf.addImage(frame.imageData, 'JPEG', f.drawX, f.drawY, f.drawW, f.drawH);
           pdf.setFontSize(10);
-          pdf.text(pos.label, pos.x, pos.y - 2);
+          pdf.text(pos.label, f.labelX, f.labelY);
           imagesAdded++;
         } catch (error) {
           console.warn('Failed to add original image:', error);
@@ -558,9 +596,10 @@ export default function RecordingPanel({
           if (skeletonCanvas) {
             const pos = positions[1];
             const skeletonImageData = skeletonCanvas.toDataURL('image/jpeg', 0.8);
-            pdf.addImage(skeletonImageData, 'JPEG', pos.x, pos.y, imageWidth, imageHeight);
+            const f = fitImage(pos, skeletonCanvas.width, skeletonCanvas.height);
+            pdf.addImage(skeletonImageData, 'JPEG', f.drawX, f.drawY, f.drawW, f.drawH);
             pdf.setFontSize(10);
-            pdf.text(`${pos.label} - REBA: ${frame.rebaScore?.finalScore || 0}`, pos.x, pos.y - 2);
+            pdf.text(`${pos.label} - REBA: ${frame.rebaScore?.finalScore || 0}`, f.labelX, f.labelY);
             imagesAdded++;
             console.log(`Frame ${frameNumber}: Skeleton image added successfully`);
           } else {
@@ -601,12 +640,13 @@ export default function RecordingPanel({
           if (estimatedSkeletonCanvas) {
             const pos = positions[2];
             const estimatedImageData = estimatedSkeletonCanvas.toDataURL('image/jpeg', 0.8);
-            pdf.addImage(estimatedImageData, 'JPEG', pos.x, pos.y, imageWidth, imageHeight);
+            const f = fitImage(pos, estimatedSkeletonCanvas.width, estimatedSkeletonCanvas.height);
+            pdf.addImage(estimatedImageData, 'JPEG', f.drawX, f.drawY, f.drawW, f.drawH);
             pdf.setFontSize(10);
             const weightText = frame.weightEstimation ? 
               `${pos.label} - ${weightEstimation.estimatedWeight.toFixed(1)}kg - REBA: ${adjustedRebaScore?.finalScore || 0}` :
               `${pos.label} - Est: ${weightEstimation.estimatedWeight}kg - REBA: ${adjustedRebaScore?.finalScore || 0}`;
-            pdf.text(weightText, pos.x, pos.y - 2);
+            pdf.text(weightText, f.labelX, f.labelY);
             imagesAdded++;
             console.log(`Frame ${frameNumber}: Estimated weight skeleton added successfully`);
           } else {
@@ -641,9 +681,10 @@ export default function RecordingPanel({
           if (manualSkeletonCanvas) {
             const pos = positions[3];
             const manualImageData = manualSkeletonCanvas.toDataURL('image/jpeg', 0.8);
-            pdf.addImage(manualImageData, 'JPEG', pos.x, pos.y, imageWidth, imageHeight);
+            const f = fitImage(pos, manualSkeletonCanvas.width, manualSkeletonCanvas.height);
+            pdf.addImage(manualImageData, 'JPEG', f.drawX, f.drawY, f.drawW, f.drawH);
             pdf.setFontSize(10);
-            pdf.text(`${pos.label} - ${(totalManualWeight/1000).toFixed(1)}kg - REBA: ${manualAdjustedRebaScore?.finalScore || 0}`, pos.x, pos.y - 2);
+            pdf.text(`${pos.label} - ${(totalManualWeight/1000).toFixed(1)}kg - REBA: ${manualAdjustedRebaScore?.finalScore || 0}`, f.labelX, f.labelY);
             imagesAdded++;
             console.log(`Frame ${frameNumber}: Manual weight skeleton added - ${(totalManualWeight/1000).toFixed(1)}kg`);
           }
